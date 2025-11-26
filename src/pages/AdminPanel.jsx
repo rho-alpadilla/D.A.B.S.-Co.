@@ -1,31 +1,110 @@
-import React, { useState } from 'react';
+// src/pages/AdminPanel.jsx
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { useStore } from '@/context/StoreContext';
+import { useAuth } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, onSnapshot } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Edit, FileText, LogOut, Lock, Package, ShoppingCart, TrendingUp } from 'lucide-react';
+import { BarChart3, Edit, Trash2, Plus, Save, X, Package, ShoppingCart, TrendingUp, LogOut, Lock } from 'lucide-react';
 
 const AdminPanel = () => {
-  const { user, logout } = useAuth();
-  const { orders, products, updateOrderStatus, updateInventory } = useStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loadingRole, setLoadingRole] = useState(true);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const [products, setProducts] = useState([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ name: '', price: '', description: '', inStock: true });
+
+  // Check if user is admin via Firestore role field
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      setLoadingRole(false);
+      return;
+    }
+
+    const userDoc = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDoc, (docSnap) => {
+      if (docSnap.exists() && docSnap.data().role === 'admin') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+      setLoadingRole(false);
+    });
+
+    return unsubscribe;
+  }, [user]);
+
+  // Load products only if admin
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const fetchProducts = async () => {
+      const snapshot = await getDocs(collection(db, 'pricelists'));
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setProducts(data);
+    };
+    fetchProducts();
+  }, [isAdmin]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, 'pricelists', editingId), form);
+        setEditingId(null);
+      } else {
+        await addDoc(collection(db, 'pricelists'), { ...form, inStock: true });
+      }
+      setForm({ name: '', price: '', description: '', inStock: true });
+      // Refresh list
+      const snapshot = await getDocs(collection(db, 'pricelists'));
+      setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      alert('Error saving product: ' + err.message);
+    }
   };
 
-  if (!user || user.role !== 'admin') {
-    setTimeout(() => navigate('/login'), 100);
-    return null;
+  const handleEdit = (p) => {
+    setForm({ name: p.name, price: p.price, description: p.description, inStock: p.inStock });
+    setEditingId(p.id);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Delete this product permanently?')) {
+      await deleteDoc(doc(db, 'pricelists', id));
+      setProducts(products.filter(p => p.id !== id));
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate('/');
+  };
+
+  // Loading or not admin
+  if (!user || loadingRole || !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-red-600">Access Denied</h1>
+          <p className="text-gray-600 mt-2">You must be an admin to view this page.</p>
+        </div>
+      </div>
+    );
   }
 
-  const totalRevenue = orders.reduce((acc, order) => acc + order.total, 0);
-  const activeOrders = orders.filter(o => o.status !== 'Completed').length;
+  const totalProducts = products.length;
+  const inStockCount = products.filter(p => p.inStock).length;
 
   return (
     <>
@@ -49,8 +128,8 @@ const AdminPanel = () => {
               <h1 className="text-2xl font-bold text-gray-900">Store Management</h1>
             </div>
             <div className="mt-4 md:mt-0 flex items-center gap-4">
-               <span className="text-sm text-gray-500">Welcome, {user.name}</span>
-              <Button variant="outline" onClick={handleLogout} className="text-red-500 hover:text-red-600 hover:bg-red-50 border-red-100">
+              <span className="text-sm text-gray-600">Welcome, {user.email}</span>
+              <Button variant="outline" onClick={handleLogout} className="text-red-500 hover:text-red-600 hover:bg-red-50">
                 <LogOut size={18} className="mr-2" />
                 Logout
               </Button>
@@ -59,153 +138,122 @@ const AdminPanel = () => {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="bg-white p-1 rounded-lg border border-gray-200">
-              <TabsTrigger value="dashboard" className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white">Dashboard</TabsTrigger>
-              <TabsTrigger value="orders" className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white">Orders</TabsTrigger>
-              <TabsTrigger value="inventory" className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white">Inventory</TabsTrigger>
-              <TabsTrigger value="analytics" className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white">Analytics</TabsTrigger>
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="products">Products</TabsTrigger>
             </TabsList>
 
-            {/* Dashboard Overview */}
+            {/* Dashboard */}
             <TabsContent value="dashboard">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-gray-500 text-sm font-medium">Total Revenue</h3>
-                    <TrendingUp className="text-green-500" size={20} />
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">${totalRevenue}</p>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-gray-500 text-sm font-medium">Active Orders</h3>
-                    <ShoppingCart className="text-blue-500" size={20} />
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">{activeOrders}</p>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-gray-500 text-sm font-medium">Products</h3>
+                    <h3 className="text-gray-500 text-sm font-medium">Total Products</h3>
                     <Package className="text-purple-500" size={20} />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900">{products.length}</p>
+                  <p className="text-3xl font-bold text-gray-900">{totalProducts}</p>
                 </div>
-              </div>
-              
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-900 mb-4">Recent Activity</h3>
-                <p className="text-gray-500 text-sm italic">No recent activity logs available.</p>
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-gray-500 text-sm font-medium">In Stock</h3>
+                    <ShoppingCart className="text-green-500" size={20} />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{inStockCount}</p>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-gray-500 text-sm font-medium">Out of Stock</h3>
+                    <TrendingUp className="text-red-500" size={20} />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{totalProducts - inStockCount}</p>
+                </div>
               </div>
             </TabsContent>
 
-            {/* Orders Management */}
-            <TabsContent value="orders">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+            {/* Products Management */}
+            <TabsContent value="products">
+              {/* Add/Edit Form */}
+              <div className="bg-white rounded-xl shadow-sm border p-6 mb-8">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <Plus size={24} />
+                  {editingId ? 'Edit Product' : 'Add New Product'}
+                </h2>
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    placeholder="Product Name"
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                    className="px-4 py-3 border rounded-lg"
+                    required
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={form.price}
+                    onChange={e => setForm({ ...form, price: e.target.value })}
+                    className="px-4 py-3 border rounded-lg"
+                    required
+                  />
+                  <textarea
+                    placeholder="Description"
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    className="px-4 py-3 border rounded-lg md:col-span-2 h-28"
+                    required
+                  />
+                  <div className="flex gap-3 md:col-span-2">
+                    <Button type="submit" className="bg-[#118C8C] hover:bg-[#0d7070]">
+                      <Save size={18} className="mr-2" />
+                      {editingId ? 'Update' : 'Add'} Product
+                    </Button>
+                    {editingId && (
+                      <Button type="button" variant="outline" onClick={() => {
+                        setEditingId(null);
+                        setForm({ name: '', price: '', description: '', inStock: true });
+                      }}>
+                        <X size={18} className="mr-2" /> Cancel
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Products Table */}
+              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="p-4 font-medium text-gray-600">Order ID</th>
-                      <th className="p-4 font-medium text-gray-600">Customer</th>
-                      <th className="p-4 font-medium text-gray-600">Date</th>
-                      <th className="p-4 font-medium text-gray-600">Total</th>
-                      <th className="p-4 font-medium text-gray-600">Status</th>
-                      <th className="p-4 font-medium text-gray-600">Actions</th>
+                      <th className="p-4 text-left font-medium text-gray-600">Name</th>
+                      <th className="p-4 text-left font-medium text-gray-600">Price</th>
+                      <th className="p-4 text-left font-medium text-gray-600">Description</th>
+                      <th className="p-4 text-left font-medium text-gray-600">Status</th>
+                      <th className="p-4 text-left font-medium text-gray-600">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {orders.map(order => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="p-4 font-medium">{order.id}</td>
-                        <td className="p-4">{order.customer}</td>
-                        <td className="p-4 text-gray-500">{order.date}</td>
-                        <td className="p-4">${order.total}</td>
+                  <tbody className="divide-y">
+                    {products.map(p => (
+                      <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="p-4 font-medium">{p.name}</td>
+                        <td className="p-4">${p.price}</td>
+                        <td className="p-4 text-gray-600 max-w-xs truncate">{p.description}</td>
                         <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            order.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                            order.status === 'Processing' ? 'bg-blue-100 text-blue-700' :
-                            'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {order.status}
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${p.inStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {p.inStock ? 'In Stock' : 'Out of Stock'}
                           </span>
                         </td>
                         <td className="p-4">
-                          <select 
-                            value={order.status}
-                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                            className="text-sm border rounded px-2 py-1"
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleEdit(p)}>
+                              <Edit size={16} />
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleDelete(p.id)}>
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </TabsContent>
-
-            {/* Inventory Management */}
-            <TabsContent value="inventory">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                 <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="p-4 font-medium text-gray-600">Product</th>
-                      <th className="p-4 font-medium text-gray-600">Category</th>
-                      <th className="p-4 font-medium text-gray-600">Price</th>
-                      <th className="p-4 font-medium text-gray-600">Stock</th>
-                      <th className="p-4 font-medium text-gray-600">Status</th>
-                    </tr>
-                  </thead>
-                   <tbody className="divide-y divide-gray-100">
-                    {products.map(product => (
-                      <tr key={product.id}>
-                        <td className="p-4 font-medium">{product.title}</td>
-                        <td className="p-4 capitalize text-gray-500">{product.category}</td>
-                        <td className="p-4">${product.price}</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => updateInventory(product.id, Math.max(0, product.inventory - 1))}
-                              className="w-6 h-6 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
-                            >
-                              -
-                            </button>
-                            <span className="w-8 text-center">{product.inventory}</span>
-                             <button 
-                              onClick={() => updateInventory(product.id, product.inventory + 1)}
-                              className="w-6 h-6 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          {product.inventory < 3 ? (
-                            <span className="text-red-500 text-xs font-bold flex items-center gap-1">
-                              Low Stock
-                            </span>
-                          ) : (
-                            <span className="text-green-500 text-xs">OK</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                   </tbody>
-                 </table>
-              </div>
-            </TabsContent>
-
-            {/* Analytics Placeholder */}
-            <TabsContent value="analytics">
-              <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100 text-center">
-                <BarChart3 size={64} className="mx-auto text-gray-300 mb-4" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Advanced Analytics</h2>
-                <p className="text-gray-500 max-w-md mx-auto">
-                  Detailed traffic insights, customer demographics, and conversion tracking will be available here once the data pipeline (n8n) is fully connected.
-                </p>
               </div>
             </TabsContent>
           </Tabs>

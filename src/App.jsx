@@ -1,12 +1,17 @@
+// src/pages/App.jsx  (or wherever your App.jsx lives)
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/context/AuthContext';
+
+// Providers – we keep your existing context + add Firebase Auth
+import { AuthProvider } from '@/lib/firebase';        // ← NEW: Firebase Auth
 import { CartProvider } from '@/context/CartContext';
 import { StoreProvider } from '@/context/StoreContext';
+
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ChatWidget from '@/components/ChatWidget';
+import AuthModal from '@/components/AuthModal';          // ← NEW: Login/Register modal
 
 // Pages
 import HomePage from '@/pages/HomePage';
@@ -19,19 +24,22 @@ import CartPage from '@/pages/CartPage';
 import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage';
 import TermsPage from '@/pages/TermsPage';
 import FAQsPage from '@/pages/FAQsPage';
-import RegisterPage from '@/pages/RegisterPage';
-import LoginPage from '@/pages/LoginPage';
 import BuyerDashboard from '@/pages/BuyerDashboard';
 import AdminPanel from '@/pages/AdminPanel';
 
+// You can keep these pages or delete them later – they won’t break anything
+import RegisterPage from '@/pages/RegisterPage';
+import LoginPage from '@/pages/LoginPage';
+
 function App() {
   return (
-    <AuthProvider>
+    <AuthProvider>                     {/* ← Firebase Auth wrapper */}
       <StoreProvider>
         <CartProvider>
           <Router>
             <div className="min-h-screen flex flex-col bg-[#FAF8F1]">
               <Header />
+              
               <main className="flex-grow">
                 <Routes>
                   <Route path="/" element={<HomePage />} />
@@ -44,16 +52,18 @@ function App() {
                   <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/faqs" element={<FAQsPage />} />
-                  
-                  {/* Auth Routes */}
+
+                  {/* Auth-related pages – you can keep or remove later */}
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
                   <Route path="/admin-panel" element={<AdminPanel />} />
                 </Routes>
               </main>
+
               <Footer />
               <ChatWidget />
+              <AuthModal />        {/* ← This shows the login/register modal + logged-in profile */}
               <Toaster />
             </div>
           </Router>

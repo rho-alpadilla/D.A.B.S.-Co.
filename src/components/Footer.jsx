@@ -1,91 +1,75 @@
+// src/components/Footer.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, MapPin, Instagram, Facebook } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/lib/firebase';
 
 const Footer = () => {
-  const { user } = useAuth();
+  // Safe way to read auth — never crashes
+  const authData = useAuth();
+  const user = authData?.user ?? null;
+  const loading = authData?.loading ?? false;
+
+  const isAdmin = user?.email === 'admin@dabs.co';
+
+  // Optional tiny loading state (prevents flash/crash)
+  if (loading) {
+    return (
+      <footer className="bg-[#118C8C] text-white py-12 mt-auto">
+        <div className="container mx-auto px-4 text-center">
+          <div className="h-6 bg-white/20 rounded w-48 mx-auto animate-pulse" />
+        </div>
+      </footer>
+    );
+  }
 
   return (
-    <footer className="bg-white border-t border-gray-200 mt-20">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Essential Links */}
+    <footer className="bg-[#118C8C] text-white py-12 mt-auto">
+      <div className="container mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+          {/* Brand */}
           <div>
-            <span className="text-lg font-semibold text-[#118C8C] mb-4 block">Essential Links</span>
-            <div className="space-y-2">
-              <Link to="/" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                Home
-              </Link>
-              <Link to="/gallery" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                Gallery
-              </Link>
-              <Link to="/about" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                About
-              </Link>
-              <Link to="/pricelists" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                Pricing
-              </Link>
-            </div>
+            <h3 className="text-2xl font-bold mb-2">D.A.B.S. Co.</h3>
+            <p className="text-sm opacity-90">Handcrafted with love</p>
           </div>
 
-          {/* Contact Information */}
+          {/* Quick Links */}
           <div>
-            <span className="text-lg font-semibold text-[#118C8C] mb-4 block">Contact Information</span>
-            <div className="space-y-3">
-              <a href="mailto:contact@dabsco.com" className="flex items-center gap-2 text-gray-700 hover:text-[#118C8C] transition-colors">
-                <Mail size={18} />
-                <span>contact@dabsco.com</span>
-              </a>
-              <div className="flex items-center gap-2 text-gray-700">
-                <MapPin size={18} />
-                <span>123 Artisan Street, Creative City</span>
-              </div>
-              <div className="flex gap-4 mt-4">
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-[#118C8C] transition-colors">
-                  <Instagram size={24} />
-                </a>
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-[#118C8C] transition-colors">
-                  <Facebook size={24} />
-                </a>
-              </div>
-            </div>
+            <h4 className="font-semibold mb-4">Explore</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/about" className="hover:underline">About Us</Link></li>
+              <li><Link to="/gallery" className="hover:underline">Gallery</Link></li>
+              <li><Link to="/pricelists" className="hover:underline">Pricing</Link></li>
+              <li><Link to="/contact" className="hover:underline">Contact</Link></li>
+            </ul>
           </div>
 
-          {/* Utility Links */}
+          {/* Support */}
           <div>
-            <span className="text-lg font-semibold text-[#118C8C] mb-4 block">Utility Links</span>
-            <div className="space-y-2">
-              {!user && (
-                <>
-                  <Link to="/login" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                    Login
-                  </Link>
-                  <Link to="/register" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                    Register
-                  </Link>
-                </>
-              )}
-              {user && (
-                 <Link to={user.role === 'admin' ? '/admin-panel' : '/buyer-dashboard'} className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                   My Dashboard
-                 </Link>
-              )}
-              <Link to="/privacy-policy" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                Privacy Policy
-              </Link>
-              <Link to="/terms" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                Terms of Service
-              </Link>
-              <Link to="/faqs" className="block text-gray-700 hover:text-[#118C8C] transition-colors">
-                FAQs
-              </Link>
-            </div>
+            <h4 className="font-semibold mb-4">Support</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/faqs" className="hover:underline">FAQs</Link></li>
+              <li><Link to="/privacy-policy" className="hover:underline">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:underline">Terms of Service</Link></li>
+            </ul>
+          </div>
+
+          {/* Account / Admin */}
+          <div className="text-center md:text-right">
+            {user ? (
+              <div className="space-y-3">
+                <p className="text-sm">
+                  Logged in as <span className="font-medium">{user.email.split('@')[0]}</span>
+                </p>
+         
+              </div>
+            ) : (
+              <p className="text-sm opacity-90">Not logged in</p>
+            )}
           </div>
         </div>
 
-        <div className="border-t border-gray-200 mt-8 pt-8 text-center text-gray-600">
-          <p>&copy; {new Date().getFullYear()} D.A.B.S. Co. All rights reserved.</p>
+        <div className="text-center mt-10 pt-8 border-t border-white/20 text-sm">
+          © 2025 D.A.B.S. Co. • All rights reserved.
         </div>
       </div>
     </footer>
