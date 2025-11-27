@@ -1,47 +1,49 @@
+// src/pages/LoginPage.jsx  ← FIXED WITH REAL FIREBASE AUTH
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/lib/firebase';  // ← Real Firebase hook
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';  // ← Real Firebase auth
 import { Button } from '@/components/ui/button';
 import { Mail, Lock } from 'lucide-react';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { user } = useAuth();  // ← From Firebase (only gets current user)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock login logic
-    // In a real app, this would validate against a backend
-    
-    // Mock Admin check: If email contains 'admin', treat as Admin
-    const role = formData.email.toLowerCase().includes('admin') ? 'admin' : 'buyer';
-    
-    const user = {
-      name: formData.email.split('@')[0], // Mock name from email
-      email: formData.email,
-      role: role
-    };
-    
-    login(user);
-    
-    // Redirect based on role
-    if (role === 'admin') {
-      navigate('/admin-panel');
-    } else {
-      navigate('/buyer-dashboard');
+    setLoading(true);
+    setError('');
+
+    try {
+      await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      navigate('/buyer-dashboard');  // Redirect to buyer dashboard after login
+    } catch (err) {
+      setError(err.message);  // Show error (e.g., "Invalid email or password")
+    } finally {
+      setLoading(false);
     }
   };
+
+  // If already logged in, redirect
+  if (user) {
+    navigate('/buyer-dashboard');
+    return null;
+  }
 
   return (
     <>
@@ -54,7 +56,6 @@ const LoginPage = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
           className="w-full max-w-md bg-white rounded-lg shadow-xl overflow-hidden"
         >
           <div className="bg-[#118C8C] p-6 text-center">
@@ -63,6 +64,8 @@ const LoginPage = () => {
           </div>
 
           <div className="p-8">
+            {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700" htmlFor="email">Email Address</label>
@@ -73,14 +76,14 @@ const LoginPage = () => {
                     name="email"
                     type="email"
                     required
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#118C8C] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#118C8C]"
                     placeholder="john@example.com"
                     value={formData.email}
                     onChange={handleChange}
                   />
                 </div>
                 <p className="text-xs text-gray-400 italic">
-                  (Hint: Use 'admin@dabsco.com' to test Admin Panel)
+                  (Hint: Use 'admin@dabs.co' to test Admin Panel)
                 </p>
               </div>
 
@@ -96,7 +99,7 @@ const LoginPage = () => {
                     name="password"
                     type="password"
                     required
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#118C8C] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#118C8C]"
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={handleChange}
@@ -104,8 +107,8 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3">
-                Log In
+              <Button type="submit" className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3" disabled={loading}>
+                {loading ? 'Please wait...' : 'Log In'}
               </Button>
             </form>
 
