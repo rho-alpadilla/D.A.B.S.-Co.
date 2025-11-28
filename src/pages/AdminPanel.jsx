@@ -188,7 +188,7 @@ const AdminPanel = () => {
 
   return (
     <>
-      <Helmet><title>Admin Panel - D.A.B.S. Co.</title></Helmet>
+      <Helmet><title>Admin Panel - D.A.B.S.  Co.</title></Helmet>
 
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-7xl">
