@@ -1,4 +1,4 @@
-// src/pages/AdminPanel.jsx ← FINAL: PHP MAIN + USD WITH CENTS
+// src/pages/AdminPanel.jsx ← FINAL: WITH MESSAGES TAB
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -22,16 +22,16 @@ import {
 } from 'chart.js';
 import {
   Package, ShoppingCart, TrendingUp, DollarSign,
-  LogOut, Lock, CheckCircle
+  LogOut, Lock, CheckCircle, Mail, Circle
 } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-// PHP MAIN CURRENCY — USD WITH CENTS
+// PHP MAIN CURRENCY
 const PHP_TO_USD = 1 / 58;
 const formatPHP = (php) => {
   if (!php) return "₱0 ($0.00)";
-  const usd = (php * PHP_TO_USD).toFixed(2);  // ← NOW SHOWS CENTS!
+  const usd = (php * PHP_TO_USD).toFixed(2);
   return `₱${php.toLocaleString()} ($${usd})`;
 };
 
@@ -41,6 +41,7 @@ const AdminPanel = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [messages, setMessages] = useState([]); // ← NEW: Buyer messages
 
   useEffect(() => {
     if (!user) return;
@@ -60,7 +61,15 @@ const AdminPanel = () => {
       }
     );
 
-    return () => { unsubRole(); unsubProducts(); unsubOrders(); };
+    // NEW: Load messages
+    const unsubMessages = onSnapshot(
+      query(collection(db, "messages"), orderBy("createdAt", "desc")),
+      snap => {
+        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }
+    );
+
+    return () => { unsubRole(); unsubProducts(); unsubOrders(); unsubMessages(); };
   }, [user]);
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -68,6 +77,15 @@ const AdminPanel = () => {
       await updateDoc(doc(db, "orders", orderId), { status: newStatus });
     } catch (err) {
       alert("Failed to update status");
+    }
+  };
+
+  // Mark message as read
+  const markMessageAsRead = async (msgId) => {
+    try {
+      await updateDoc(doc(db, "messages", msgId), { status: "read" });
+    } catch (err) {
+      alert("Failed to mark as read");
     }
   };
 
@@ -118,9 +136,10 @@ const AdminPanel = () => {
           </motion.div>
 
           <Tabs defaultValue="dashboard">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
+              <TabsTrigger value="messages">Messages</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
@@ -151,7 +170,7 @@ const AdminPanel = () => {
             </TabsContent>
 
             {/* ORDERS TAB */}
-            <TabsContent value="orders">
+           <TabsContent value="orders">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
                   <h2 className="text-2xl font-bold text-[#118C8C]">Customer Orders</h2>
@@ -208,6 +227,55 @@ const AdminPanel = () => {
                       <ShoppingCart size={64} className="mx-auto mb-4 text-gray-300" />
                       <p>No orders yet</p>
                     </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* MESSAGES TAB — NEW */}
+            <TabsContent value="messages">
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="p-6 border-b bg-gray-50">
+                  <h2 className="text-2xl font-bold text-[#118C8C]">Customer Messages</h2>
+                  <p className="text-gray-600">View and respond to inquiries</p>
+                </div>
+
+                <div className="divide-y">
+                  {messages.length === 0 ? (
+                    <div className="p-20 text-center text-gray-500">
+                      <Mail size={64} className="mx-auto mb-4 text-gray-300" />
+                      <p>No messages yet</p>
+                    </div>
+                  ) : (
+                    messages.map(msg => (
+                      <div key={msg.id} className={`p-6 ${msg.status === "unread" ? "bg-blue-50" : "bg-white"} hover:bg-gray-50`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="font-bold text-lg">{msg.name}</p>
+                            <p className="text-sm text-gray-600">{msg.email}</p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {msg.createdAt?.toDate?.().toLocaleString() || "Just now"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {msg.status === "unread" && (
+                              <Button size="sm" onClick={() => markMessageAsRead(msg.id)}>
+                                Mark as Read
+                              </Button>
+                            )}
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              msg.status === "unread" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
+                            }`}>
+                              {msg.status || "unread"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <p className="font-medium text-[#118C8C] mb-2">{msg.subject}</p>
+                          <p className="text-gray-700">{msg.message}</p>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
