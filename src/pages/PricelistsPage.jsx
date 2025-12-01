@@ -1,66 +1,193 @@
-import React from 'react';
+// src/pages/PricelistsPage.jsx ← FINAL VERSION: ADD NEW PRODUCT + NO ERRORS
+import React, { useState, useEffect, useRef } from 'react';  // ← Added useRef here
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
+import { Button } from '@/components/ui/button';
+import { Plus, Upload, Save, X } from 'lucide-react';
+
+const CATEGORIES = [
+  "Hand-painted needlepoint canvas",
+  "Crocheted products",
+  "Sample portraitures",
+  "Painting on Canvas"
+];
 
 const PricelistsPage = () => {
-  const needlepointPricing = [
-    { size: 'Small (up to 5x7")', mesh13: '$45-65', mesh18: '$55-75', complexity: 'Simple designs' },
-    { size: 'Medium (8x10")', mesh13: '$75-95', mesh18: '$95-115', complexity: 'Moderate detail' },
-    { size: 'Large (11x14")', mesh13: '$120-150', mesh18: '$150-180', complexity: 'Complex patterns' },
-    { size: 'Extra Large (16x20")', mesh13: '$180-220', mesh18: '$220-260', complexity: 'Highly detailed' }
-  ];
+  const { user } = useAuth();
+  const isAdmin = user?.email.includes('admin');
 
-  const crochetPricing = [
-    { item: 'Mini Keychains', price: '$8-12', details: 'Various designs available' },
-    { item: 'Standard Keychains', price: '$15-20', details: 'More intricate patterns' },
-    { item: 'Winter Scarves', price: '$35-55', details: 'Length and pattern varies' },
-    { item: 'Summer Shawls', price: '$45-65', details: 'Lightweight and elegant' },
-    { item: 'Baby Clothes', price: '$40-70', details: 'Sizes newborn to 12 months' },
-    { item: 'Adult Cardigans', price: '$120-180', details: 'Custom sizing available' }
-  ];
+  const [pricing, setPricing] = useState({
+    needlepoint: [
+      { size: 'Small (up to 5x7")', mesh13: 2610, mesh18: 3190, complexity: 'Simple designs' },
+      { size: 'Medium (8x10")', mesh13: 4350, mesh18: 5510, complexity: 'Moderate detail' },
+      { size: 'Large (11x14")', mesh13: 6960, mesh18: 8700, complexity: 'Complex patterns' },
+      { size: 'Extra Large (16x20")', mesh13: 10440, mesh18: 12760, complexity: 'Highly detailed' }
+    ],
+    crochet: [
+      { item: 'Mini Keychains', price: 464, details: 'Various designs available' },
+      { item: 'Standard Keychains', price: 870, details: 'More intricate patterns' },
+      { item: 'Winter Scarves', price: 2030, details: 'Length and pattern varies' },
+      { item: 'Summer Shawls', price: 2610, details: 'Lightweight and elegant' },
+      { item: 'Baby Clothes', price: 2320, details: 'Sizes newborn to 12 months' },
+      { item: 'Adult Cardigans', price: 6960, details: 'Custom sizing available' }
+    ],
+    portraiture: [
+      { subjects: '1 Person', paper: 8700, canvas: 11600, framed: 2900 },
+      { subjects: '2 People', paper: 14500, canvas: 18560, framed: 4060 },
+      { subjects: '3 People', paper: 20300, canvas: 26100, framed: 5220 },
+      { subjects: '4+ People', paper: 29000, canvas: 37700, framed: 6960 }
+    ],
+    canvas: [
+      { size: 'Small (11x14")', price: 10440, details: 'Simple compositions' },
+      { size: 'Medium (16x20")', price: 17400, details: 'Standard detail level' },
+      { size: 'Large (24x36")', price: 31900, details: 'Complex compositions' },
+      { size: 'Custom Sizes', price: 0, details: 'Contact for pricing' }
+    ]
+  });
 
-  const portraiturePricing = [
-    { subjects: '1 Person', paper: '$150-200', canvas: '$200-280', framed: '+$50-80' },
-    { subjects: '2 People', paper: '$250-320', canvas: '$320-420', framed: '+$70-100' },
-    { subjects: '3 People', paper: '$350-450', canvas: '$450-580', framed: '+$90-120' },
-    { subjects: '4+ People', paper: '$500+', canvas: '$650+', framed: '+$120+' }
-  ];
+  const [editing, setEditing] = useState({ section: null, index: null, field: null });
+  const [tempValue, setTempValue] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: "", price: "", description: "", category: "", imageUrl: "", inStock: true
+  });
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState("");
+  const fileInputRef = useRef(null);
 
-  const canvasPricing = [
-    { size: 'Small (11x14")', price: '$180-250', details: 'Simple compositions' },
-    { size: 'Medium (16x20")', price: '$300-420', details: 'Standard detail level' },
-    { size: 'Large (24x36")', price: '$550-750', details: 'Complex compositions' },
-    { size: 'Custom Sizes', price: 'Quote', details: 'Contact for pricing' }
-  ];
+  // Load pricing from Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "pricelists"), (snap) => {
+      if (snap.exists()) {
+        setPricing(snap.data().data || pricing);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Image upload (Cloudinary)
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setImagePreview(URL.createObjectURL(file));
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "dabs-co-unsigned");
+
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      setNewProduct(prev => ({ ...prev, imageUrl: data.secure_url }));
+    } catch (err) {
+      alert("Upload failed: " + err.message);
+    }
+    setUploading(false);
+  };
+
+  // Add new product
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    if (!newProduct.imageUrl || !newProduct.category) return alert("Image & category required!");
+
+    const productData = {
+      name: newProduct.name.trim(),
+      price: Number(newProduct.price),
+      description: newProduct.description.trim(),
+      category: newProduct.category,
+      imageUrl: newProduct.imageUrl,
+      inStock: newProduct.inStock,
+      createdAt: new Date()
+    };
+
+    try {
+      await addDoc(collection(db, "pricelists"), productData);
+      setShowAddForm(false);
+      setNewProduct({ name: "", price: "", description: "", category: "", imageUrl: "", inStock: true });
+      setImagePreview("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      alert("Product added successfully!");
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  // Edit price (inline)
+  const startEdit = (section, index, field, value) => {
+    setEditing({ section, index, field });
+    setTempValue(value);
+  };
+
+  const confirmEdit = () => {
+    if (editing.section === null) return;
+
+    const newPricing = { ...pricing };
+    const section = newPricing[editing.section];
+    const item = section[editing.index];
+
+    if (editing.field.includes('.')) {
+      const [parent, child] = editing.field.split('.');
+      item[parent][child] = Number(tempValue);
+    } else {
+      item[editing.field] = Number(tempValue);
+    }
+
+    setPricing(newPricing);
+    setEditing({ section: null, index: null, field: null });
+  };
+
+  const cancelEdit = () => {
+    setEditing({ section: null, index: null, field: null });
+    setTempValue('');
+  };
+
+  // Save all pricing
+  const savePricing = async () => {
+    try {
+      await updateDoc(doc(db, "settings", "pricelists"), { data: pricing });
+      setEditing({ section: null, index: null, field: null });
+      alert("Prices updated!");
+    } catch (err) {
+      alert("Save failed: " + err.message);
+    }
+  };
+
+  const formatPrice = (php) => {
+    if (php === 0) return "Quote";
+    const usd = Math.round(php * (1 / 58));
+    return `₱${php.toLocaleString()} ($${usd})`;
+  };
 
   return (
     <>
-      <Helmet>
-        <title>Pricelists - D.A.B.S. Co.</title>
-        <meta name="description" content="View pricing for hand-painted canvases, crochet products, portraiture, and canvas paintings at D.A.B.S. Co. Transparent and competitive rates." />
-      </Helmet>
+      <Helmet><title>Pricelists - D.A.B.S. Co.</title></Helmet>
 
       <div className="container mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-12"
-        >
+        <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-4">Our Pricelists</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Transparent pricing for all our handcrafted artisan services. All prices are estimates and may vary based on complexity and custom requirements.
-          </p>
-        </motion.div>
+          <p className="text-lg text-gray-600">Prices in Philippine Peso (₱) • USD in parentheses</p>
+        </div>
 
-        {/* Hand-Painted Canvases */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mb-16"
-        >
+        {/* ADMIN SAVE BUTTON */}
+        {isAdmin && editing.section !== null && (
+          <div className="text-center mb-12">
+            <Button onClick={savePricing} className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-4">
+              <Save className="mr-2" /> Save All Price Changes
+            </Button>
+          </div>
+        )}
+
+        {/* HAND-PAINTED NEEDLEPOINT CANVASES */}
+        <motion.section className="mb-16">
           <h2 className="text-3xl font-bold text-[#118C8C] mb-6">Hand-Painted Needlepoint Canvases</h2>
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
@@ -74,11 +201,47 @@ const PricelistsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {needlepointPricing.map((item, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  {pricing.needlepoint.map((item, i) => (
+                    <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                       <td className="px-6 py-4 font-medium text-gray-900">{item.size}</td>
-                      <td className="px-6 py-4 text-gray-700">{item.mesh13}</td>
-                      <td className="px-6 py-4 text-gray-700">{item.mesh18}</td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {isAdmin && editing.section === 'needlepoint' && editing.index === i && editing.field === 'mesh13' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={tempValue}
+                              onChange={e => setTempValue(e.target.value)}
+                              className="w-32 px-2 py-1 border rounded"
+                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
+                            />
+                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
+                          </div>
+                        ) : (
+                          <span onClick={() => isAdmin && startEdit('needlepoint', i, 'mesh13', item.mesh13)} className="cursor-pointer hover:underline font-medium">
+                            {formatPrice(item.mesh13)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {isAdmin && editing.section === 'needlepoint' && editing.index === i && editing.field === 'mesh18' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={tempValue}
+                              onChange={e => setTempValue(e.target.value)}
+                              className="w-32 px-2 py-1 border rounded"
+                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
+                            />
+                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
+                          </div>
+                        ) : (
+                          <span onClick={() => isAdmin && startEdit('needlepoint', i, 'mesh18', item.mesh18)} className="cursor-pointer hover:underline font-medium">
+                            {formatPrice(item.mesh18)}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-gray-600">{item.complexity}</td>
                     </tr>
                   ))}
@@ -88,38 +251,40 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
-        {/* Crocheted Products */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mb-16"
-        >
+        {/* CROCHETED PRODUCTS */}
+        <motion.section className="mb-16">
           <h2 className="text-3xl font-bold text-[#118C8C] mb-6">Crocheted Products</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {crochetPricing.map((item, index) => (
-              <motion.div
-                key={index}
-                whileHover={{ scale: 1.03 }}
-                className="bg-white rounded-lg shadow-lg p-6"
-              >
+            {pricing.crochet.map((item, i) => (
+              <motion.div key={i} whileHover={{ scale: 1.03 }} className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-xl font-semibold text-[#118C8C] mb-2">{item.item}</h3>
-                <p className="text-2xl font-bold text-[#F2BB16] mb-2">{item.price}</p>
+                <p className="text-2xl font-bold text-[#F2BB16] mb-2">
+                  {isAdmin && editing.section === 'crochet' && editing.index === i ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={tempValue}
+                        onChange={e => setTempValue(e.target.value)}
+                        className="w-32 px-2 py-1 border rounded"
+                        onKeyDown={e => e.key === 'Enter' && confirmEdit()}
+                      />
+                      <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
+                      <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
+                    </div>
+                  ) : (
+                    <span onClick={() => isAdmin && startEdit('crochet', i, 'price', item.price)} className="cursor-pointer hover:underline">
+                      {formatPrice(item.price)}
+                    </span>
+                  )}
+                </p>
                 <p className="text-gray-600">{item.details}</p>
               </motion.div>
             ))}
           </div>
         </motion.section>
 
-        {/* Portraiture */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mb-16"
-        >
+        {/* PORTRAITURE */}
+        <motion.section className="mb-16">
           <h2 className="text-3xl font-bold text-[#118C8C] mb-6">Portraiture Pricing</h2>
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
@@ -133,53 +298,194 @@ const PricelistsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {portraiturePricing.map((item, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  {pricing.portraiture.map((item, i) => (
+                    <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                       <td className="px-6 py-4 font-medium text-gray-900">{item.subjects}</td>
-                      <td className="px-6 py-4 text-gray-700">{item.paper}</td>
-                      <td className="px-6 py-4 text-gray-700">{item.canvas}</td>
-                      <td className="px-6 py-4 text-gray-600">{item.framed}</td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {isAdmin && editing.section === 'portraiture' && editing.index === i && editing.field === 'paper' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={tempValue}
+                              onChange={e => setTempValue(e.target.value)}
+                              className="w-32 px-2 py-1 border rounded"
+                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
+                            />
+                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
+                          </div>
+                        ) : (
+                          <span onClick={() => isAdmin && startEdit('portraiture', i, 'paper', item.paper)} className="cursor-pointer hover:underline">
+                            {formatPrice(item.paper)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {isAdmin && editing.section === 'portraiture' && editing.index === i && editing.field === 'canvas' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={tempValue}
+                              onChange={e => setTempValue(e.target.value)}
+                              className="w-32 px-2 py-1 border rounded"
+                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
+                            />
+                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
+                          </div>
+                        ) : (
+                          <span onClick={() => isAdmin && startEdit('portraiture', i, 'canvas', item.canvas)} className="cursor-pointer hover:underline">
+                            {formatPrice(item.canvas)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {isAdmin && editing.section === 'portraiture' && editing.index === i && editing.field === 'framed' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={tempValue}
+                              onChange={e => setTempValue(e.target.value)}
+                              className="w-32 px-2 py-1 border rounded"
+                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
+                            />
+                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
+                          </div>
+                        ) : (
+                          <span onClick={() => isAdmin && startEdit('portraiture', i, 'framed', item.framed)} className="cursor-pointer hover:underline">
+                            +{formatPrice(item.framed)}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
-          <p className="text-sm text-gray-600 mt-4">* Sizes available: 8x10", 11x14", 16x20", and custom sizes upon request</p>
         </motion.section>
 
-        {/* Canvas Paintings */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mb-16"
-        >
+        {/* CANVAS PAINTINGS */}
+        <motion.section className="mb-16">
           <h2 className="text-3xl font-bold text-[#118C8C] mb-6">Painting on Canvas</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {canvasPricing.map((item, index) => (
-              <motion.div
-                key={index}
-                whileHover={{ scale: 1.03 }}
-                className="bg-white rounded-lg shadow-lg p-6"
-              >
+            {pricing.canvas.map((item, i) => (
+              <motion.div key={i} whileHover={{ scale: 1.03 }} className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-xl font-semibold text-[#118C8C] mb-2">{item.size}</h3>
-                <p className="text-2xl font-bold text-[#F2BB16] mb-2">{item.price}</p>
+                <p className="text-2xl font-bold text-[#F2BB16] mb-2">
+                  {isAdmin && editing.section === 'canvas' && editing.index === i ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={tempValue}
+                        onChange={e => setTempValue(e.target.value)}
+                        className="w-32 px-2 py-1 border rounded"
+                        onKeyDown={e => e.key === 'Enter' && confirmEdit()}
+                      />
+                      <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
+                      <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
+                    </div>
+                  ) : (
+                    <span onClick={() => isAdmin && startEdit('canvas', i, 'price', item.price)} className="cursor-pointer hover:underline">
+                      {formatPrice(item.price)}
+                    </span>
+                  )}
+                </p>
                 <p className="text-gray-600">{item.details}</p>
               </motion.div>
             ))}
           </div>
         </motion.section>
 
-        {/* Additional Information */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="bg-[#118C8C] text-white rounded-lg p-8 text-center"
-        >
+        {/* ADD NEW PRODUCT — BELOW CANVAS */}
+        {isAdmin && (
+          <div className="text-center my-20">
+            <Button
+              size="lg"
+              onClick={() => setShowAddForm(true)}
+              className="bg-[#118C8C] hover:bg-[#0d7070] text-white font-bold text-xl px-12 py-6"
+            >
+              <Plus className="mr-3" size={28} />
+              Add New Product
+            </Button>
+          </div>
+        )}
+
+        {/* ADD NEW PRODUCT FORM */}
+        {isAdmin && showAddForm && (
+          <div className="bg-white rounded-3xl shadow-2xl p-12 mb-20 border-4 border-[#118C8C]">
+            <h2 className="text-3xl font-bold text-[#118C8C] mb-10 text-center">Add New Product</h2>
+            <form onSubmit={handleAddProduct} className="space-y-8 max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <input
+                  placeholder="Product Name"
+                  value={newProduct.name}
+                  onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                  className="px-6 py-4 border-2 rounded-xl text-lg"
+                  required
+                />
+                <input
+                  type="number"
+                  placeholder="Price in PHP"
+                  value={newProduct.price}
+                  onChange={e => setNewProduct({ ...newProduct, price: e.target.value })}
+                  className="px-6 py-4 border-2 rounded-xl text-lg"
+                  required
+                />
+              </div>
+
+              <textarea
+                placeholder="Description"
+                value={newProduct.description}
+                onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}
+                className="w-full px-6 py-4 border-2 rounded-xl h-40 text-lg"
+                required
+              />
+
+              <select
+                value={newProduct.category}
+                onChange={e => setNewProduct({ ...newProduct, category: e.target.value })}
+                className="w-full px-6 py-4 border-2 rounded-xl text-lg"
+                required
+              >
+                <option value="">Select Category</option>
+                {CATEGORIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+
+              <div>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                <Button type="button" variant="outline" size="lg" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  <Upload className="mr-3" /> {uploading ? "Uploading..." : "Upload Product Image"}
+                </Button>
+              </div>
+
+              {imagePreview && (
+                <div className="text-center">
+                  <img src={imagePreview} alt="preview" className="w-96 h-96 object-cover rounded-2xl shadow-2xl mx-auto" />
+                </div>
+              )}
+
+              <div className="flex justify-center gap-6">
+                <Button type="submit" size="lg" className="bg-[#118C8C] hover:bg-[#0d7070] px-16 py-6 text-xl font-bold">
+                  <Save className="mr-3" /> Add Product
+                </Button>
+                <Button type="button" variant="outline" size="lg" onClick={() => {
+                  setShowAddForm(false);
+                  setNewProduct({ name: "", price: "", description: "", category: "", imageUrl: "", inStock: true });
+                  setImagePreview("");
+                }}>
+                  <X className="mr-3" /> Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* CTA */}
+        <motion.div className="bg-[#118C8C] text-white rounded-lg p-8 text-center">
           <h2 className="text-2xl font-bold mb-4">Custom Orders Welcome</h2>
           <p className="text-lg mb-4">
             All prices are starting estimates. Final pricing depends on design complexity, materials, and custom requirements.
