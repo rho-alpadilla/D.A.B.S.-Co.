@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/firebase'; // ← to get current user
 
 const CartPage = () => {
   const { cartItems, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
-  const { user } = useAuth(); // ← get logged-in user
+  const { user } = useAuth(); // ← get logged-in userr
   const { addOrder } = useStore();
   const { toast } = useToast();
 
