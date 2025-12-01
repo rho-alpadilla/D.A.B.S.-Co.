@@ -1,4 +1,4 @@
-// src/pages/GalleryPage.jsx
+// src/pages/GalleryPage.jsx ← FINAL: PHP MAIN CURRENCY (CORRECT!)
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -9,12 +9,19 @@ import { Link } from 'react-router-dom';
 import { ShoppingBag, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+// PHP is main currency — USD calculated from PHP
+const PHP_TO_USD = 1 / 58;
+const formatPrice = (phpPrice) => {
+  if (!phpPrice) return "₱0 ($0)";
+  const usd = Math.round(phpPrice * PHP_TO_USD);
+  return `₱${phpPrice.toLocaleString()} ($${usd})`;
+};
+
 const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch real products from Firestore (same collection as Admin Panel)
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pricelists"), (snapshot) => {
       const data = snapshot.docs.map(doc => ({
@@ -31,7 +38,6 @@ const GalleryPage = () => {
     return unsub;
   }, []);
 
-  // Filter by category
   const getCategoryItems = (category) => {
     if (category === 'all') return products;
     return products.filter(p => p.category === category);
@@ -119,7 +125,10 @@ const GalleryPage = () => {
                       <div className="p-6">
                         <div className="flex justify-between items-start mb-3">
                           <h3 className="text-xl font-bold text-[#118C8C] line-clamp-2">{item.name}</h3>
-                          <span className="text-2xl font-bold text-[#F2BB16]">${item.price}</span>
+                          {/* PHP MAIN CURRENCY — CORRECT NOW */}
+                          <span className="text-2xl font-bold text-[#F2BB16]">
+                            {formatPrice(item.price)}
+                          </span>
                         </div>
                         <p className="text-gray-600 text-sm line-clamp-2 mb-4">{item.description}</p>
                         <div className="flex gap-3">
@@ -128,9 +137,6 @@ const GalleryPage = () => {
                               View Product
                             </Button>
                           </Link>
-                          <Button size="icon" variant="outline" className="border-[#118C8C] text-[#118C8C]">
-                            <ShoppingBag size={20} />
-                          </Button>
                         </div>
                       </div>
                     </motion.div>

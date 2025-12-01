@@ -1,11 +1,11 @@
-// src/pages/AdminPanel.jsx ← FINAL VERSION (NO ERRORS!)
+// src/pages/AdminPanel.jsx ← FINAL: PHP MAIN CURRENCY EVERYWHERE
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { auth, db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';  // ← doc added here
+import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +26,14 @@ import {
 } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+
+// PHP MAIN CURRENCY — USD SECONDARY
+const PHP_TO_USD = 1 / 58;
+const formatPHP = (php) => {
+  if (!php) return "₱0 ($0)";
+  const usd = Math.round(php * PHP_TO_USD);
+  return `₱${php.toLocaleString()} ($${usd})`;
+};
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -74,8 +82,8 @@ const AdminPanel = () => {
   const chartData = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [{
-      label: 'Income ($)',
-      data: [1200, 1500, 1800, 2200, 2800, totalIncome || 0],
+      label: 'Income (₱)',
+      data: [69600, 87000, 104400, 127600, 162400, totalIncome || 0],
       borderColor: '#118C8C',
       backgroundColor: 'rgba(17, 140, 140, 0.1)',
       tension: 0.4,
@@ -119,7 +127,7 @@ const AdminPanel = () => {
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
-            {/* DASHBOARD */}
+            {/* DASHBOARD — PHP MAIN CURRENCY */}
             <TabsContent value="dashboard">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white p-8 rounded-xl shadow text-center">
@@ -139,13 +147,13 @@ const AdminPanel = () => {
                 </div>
                 <div className="bg-white p-8 rounded-xl shadow text-center">
                   <DollarSign className="mx-auto text-yellow-500 mb-4" size={48} />
-                  <p className="text-5xl font-bold">${totalIncome.toFixed(2)}</p>
+                  <p className="text-5xl font-bold">{formatPHP(totalIncome)}</p>
                   <p className="text-gray-600">Total Income</p>
                 </div>
               </div>
             </TabsContent>
 
-            {/* ORDERS TAB */}
+            {/* ORDERS TAB — PHP MAIN CURRENCY */}
             <TabsContent value="orders">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
@@ -177,7 +185,7 @@ const AdminPanel = () => {
                               ))}
                             </ul>
                           </td>
-                          <td className="p-4 font-bold">${order.total?.toFixed(2)}</td>
+                          <td className="p-4 font-bold">{formatPHP(order.total || 0)}</td>
                           <td className="p-4">
                             <select
                               value={order.status || "pending"}
@@ -208,18 +216,18 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* ANALYTICS TAB */}
+            {/* ANALYTICS TAB — PHP MAIN CURRENCY */}
             <TabsContent value="analytics">
               <div className="space-y-10">
                 <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-12 rounded-3xl shadow-2xl text-center">
                   <TrendingUp size={80} className="mx-auto mb-6" />
                   <h3 className="text-4xl font-bold mb-4">Next Month Prediction</h3>
-                  <p className="text-7xl font-bold">${predictedIncome}</p>
+                  <p className="text-7xl font-bold">{formatPHP(predictedIncome)}</p>
                   <p className="text-2xl mt-6 opacity-90">Based on recent growth trend</p>
                 </div>
 
                 <div className="bg-white p-10 rounded-3xl shadow-lg">
-                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8 text-center">Income Over Time</h3>
+                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8 text-center">Income Over Time (₱)</h3>
                   <Line data={chartData} options={{ responsive: true, plugins: { legend: { display: false } }}} />
                 </div>
               </div>
