@@ -1,21 +1,18 @@
-// src/pages/LoginPage.jsx  ← FIXED WITH REAL FIREBASE AUTH
+// src/pages/LoginPage.jsx ← FINAL VERSION: ADMIN GOES TO ADMIN PANEL
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/firebase';  // ← Real Firebase hook
+import { useAuth } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';  // ← Real Firebase auth
+import { auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock } from 'lucide-react';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();  // ← From Firebase (only gets current user)
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const { user } = useAuth();
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -31,17 +28,23 @@ const LoginPage = () => {
 
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      navigate('/buyer-dashboard');  // Redirect to buyer dashboard after login
+
+      // Check if admin by email (same as your AdminPanel logic)
+      const isAdmin = formData.email.toLowerCase().includes('admin');
+
+      // Redirect correctly
+      navigate(isAdmin ? '/admin-panel' : '/buyer-dashboard');
     } catch (err) {
-      setError(err.message);  // Show error (e.g., "Invalid email or password")
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // If already logged in, redirect
+  // If already logged in → redirect immediately
   if (user) {
-    navigate('/buyer-dashboard');
+    const isAdmin = user.email.toLowerCase().includes('admin');
+    navigate(isAdmin ? '/admin-panel' : '/buyer-dashboard');
     return null;
   }
 
@@ -49,7 +52,6 @@ const LoginPage = () => {
     <>
       <Helmet>
         <title>Login - D.A.B.S. Co.</title>
-        <meta name="description" content="Log in to your D.A.B.S. Co. account." />
       </Helmet>
 
       <div className="container mx-auto px-4 py-20 min-h-[80vh] flex items-center justify-center">
@@ -77,21 +79,18 @@ const LoginPage = () => {
                     type="email"
                     required
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#118C8C]"
-                    placeholder="john@example.com"
+                    placeholder="admin@dabs.co"
                     value={formData.email}
                     onChange={handleChange}
                   />
                 </div>
                 <p className="text-xs text-gray-400 italic">
-                  (Hint: Use 'admin@dabs.co' to test Admin Panel)
+                  Hint: Use 'admin@dabs.co' for Admin Panel
                 </p>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="password">Password</label>
-                  <a href="#" className="text-xs text-[#118C8C] hover:underline">Forgot Password?</a>
-                </div>
+                <label className="text-sm font-medium text-gray-700" htmlFor="password">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
                   <input
@@ -108,7 +107,7 @@ const LoginPage = () => {
               </div>
 
               <Button type="submit" className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3" disabled={loading}>
-                {loading ? 'Please wait...' : 'Log In'}
+                {loading ? 'Logging in...' : 'Log In'}
               </Button>
             </form>
 
