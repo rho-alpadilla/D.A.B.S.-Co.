@@ -87,7 +87,7 @@ const HomePage = () => {
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-6">
           <h2 className="text-4xl md:text-5xl font-bold text-center text-[#118C8C] mb-16">
-            Featured Works
+            Latest Works
           </h2>
 
           <div className="relative max-w-6xl mx-auto">
