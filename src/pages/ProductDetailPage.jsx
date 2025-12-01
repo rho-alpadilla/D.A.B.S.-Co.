@@ -1,4 +1,4 @@
-// src/pages/ProductDetailPage.jsx ← FINAL: PHP IS MAIN CURRENCY, NO MORE BUG
+// src/pages/ProductDetailPage.jsx ← FINAL: USD SHOWS CENTS (e.g., $8.00)
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useParams, Link } from 'react-router-dom';
@@ -11,10 +11,10 @@ import { ArrowLeft, ShoppingBag, Edit, Save, X, Upload } from 'lucide-react';
 
 const PHP_RATE = 58;
 
-// Format: ₱12,000 ($207)
+// Format: ₱12,000 ($207.59)
 const formatPrice = (phpPrice) => {
-  if (!phpPrice) return "₱0 ($0)";
-  const usd = Math.round(phpPrice / PHP_RATE);
+  if (!phpPrice) return "₱0 ($0.00)";
+  const usd = (phpPrice / PHP_RATE).toFixed(2);  // ← NOW SHOWS CENTS!
   return `₱${phpPrice.toLocaleString()} ($${usd})`;
 };
 
@@ -84,7 +84,7 @@ const ProductDetailPage = () => {
     try {
       await updateDoc(doc(db, "pricelists", id), {
         name: form.name.trim(),
-        price: Number(form.price), // ← This is now PHP price
+        price: Number(form.price),
         description: form.description.trim(),
         category: form.category,
         imageUrl: form.imageUrl,
@@ -180,7 +180,6 @@ const ProductDetailPage = () => {
                     className="text-lg text-gray-700 border rounded-lg p-4 h-40"
                     required
                   />
-                  {/* ADMIN EDITS PHP DIRECTLY */}
                   <div className="space-y-2">
                     <label className="text-xl font-bold text-[#118C8C]">Price in PHP (₱)</label>
                     <input
@@ -192,7 +191,7 @@ const ProductDetailPage = () => {
                       required
                     />
                     <p className="text-lg text-gray-600">
-                      USD: ${Math.round((form.price || 0) / PHP_RATE)}
+                      USD: ${(form.price ? (form.price / PHP_RATE).toFixed(2) : "0.00")}
                     </p>
                   </div>
                   <select
@@ -226,7 +225,7 @@ const ProductDetailPage = () => {
                 </>
               )}
 
-              {/* PRICE DISPLAY — PHP MAIN */}
+              {/* PRICE DISPLAY — PHP MAIN + USD WITH CENTS */}
               <div className="py-6">
                 <span className="text-5xl font-bold text-[#F2BB16]">
                   {formatPrice(product.price)}
@@ -240,7 +239,6 @@ const ProductDetailPage = () => {
                     <ShoppingBag className="mr-3" size={22} />
                     Add to Cart
                   </Button>
-                  
                   <Button size="lg" variant="outline" className="border-[#118C8C] text-[#118C8C] flex-1">
                     Contact for Custom Order
                   </Button>

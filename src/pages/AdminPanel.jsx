@@ -1,4 +1,4 @@
-// src/pages/AdminPanel.jsx ← FINAL: PHP MAIN CURRENCY EVERYWHERE
+// src/pages/AdminPanel.jsx ← FINAL: PHP MAIN + USD WITH CENTS
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -27,11 +27,11 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-// PHP MAIN CURRENCY — USD SECONDARY
+// PHP MAIN CURRENCY — USD WITH CENTS
 const PHP_TO_USD = 1 / 58;
 const formatPHP = (php) => {
-  if (!php) return "₱0 ($0)";
-  const usd = Math.round(php * PHP_TO_USD);
+  if (!php) return "₱0 ($0.00)";
+  const usd = (php * PHP_TO_USD).toFixed(2);  // ← NOW SHOWS CENTS!
   return `₱${php.toLocaleString()} ($${usd})`;
 };
 
@@ -63,7 +63,6 @@ const AdminPanel = () => {
     return () => { unsubRole(); unsubProducts(); unsubOrders(); };
   }, [user]);
 
-  // Update order status
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
       await updateDoc(doc(db, "orders", orderId), { status: newStatus });
@@ -72,7 +71,6 @@ const AdminPanel = () => {
     }
   };
 
-  // Analytics
   const totalIncome = orders
     .filter(o => o.status === "completed")
     .reduce((sum, o) => sum + (o.total || 0), 0);
@@ -108,7 +106,6 @@ const AdminPanel = () => {
 
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-7xl">
-
           {/* Header */}
           <motion.div className="bg-white p-8 rounded-2xl shadow-lg mb-8 border-l-4 border-[#118C8C] flex justify-between items-center">
             <div>
@@ -127,7 +124,7 @@ const AdminPanel = () => {
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
-            {/* DASHBOARD — PHP MAIN CURRENCY */}
+            {/* DASHBOARD */}
             <TabsContent value="dashboard">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white p-8 rounded-xl shadow text-center">
@@ -153,7 +150,7 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* ORDERS TAB — PHP MAIN CURRENCY */}
+            {/* ORDERS TAB */}
             <TabsContent value="orders">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
@@ -216,7 +213,7 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* ANALYTICS TAB — PHP MAIN CURRENCY */}
+            {/* ANALYTICS TAB */}
             <TabsContent value="analytics">
               <div className="space-y-10">
                 <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-12 rounded-3xl shadow-2xl text-center">

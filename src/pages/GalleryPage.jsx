@@ -1,4 +1,4 @@
-// src/pages/GalleryPage.jsx ← FINAL: PHP MAIN CURRENCY (CORRECT!)
+// src/pages/GalleryPage.jsx ← FINAL: PHP MAIN + USD WITH CENTS
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -9,11 +9,11 @@ import { Link } from 'react-router-dom';
 import { ShoppingBag, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// PHP is main currency — USD calculated from PHP
+// PHP MAIN CURRENCY — USD WITH CENTS
 const PHP_TO_USD = 1 / 58;
 const formatPrice = (phpPrice) => {
-  if (!phpPrice) return "₱0 ($0)";
-  const usd = Math.round(phpPrice * PHP_TO_USD);
+  if (!phpPrice) return "₱0 ($0.00)";
+  const usd = (phpPrice * PHP_TO_USD).toFixed(2);  // ← SHOWS CENTS!
   return `₱${phpPrice.toLocaleString()} ($${usd})`;
 };
 
@@ -125,7 +125,7 @@ const GalleryPage = () => {
                       <div className="p-6">
                         <div className="flex justify-between items-start mb-3">
                           <h3 className="text-xl font-bold text-[#118C8C] line-clamp-2">{item.name}</h3>
-                          {/* PHP MAIN CURRENCY — CORRECT NOW */}
+                          {/* PHP MAIN + USD WITH CENTS */}
                           <span className="text-2xl font-bold text-[#F2BB16]">
                             {formatPrice(item.price)}
                           </span>
