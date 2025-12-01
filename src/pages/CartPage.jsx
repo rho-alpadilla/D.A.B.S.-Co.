@@ -7,32 +7,49 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { useStore } from '@/context/StoreContext';
 import { useToast } from '@/components/ui/use-toast';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/lib/firebase'; // ← to get current user
 
 const CartPage = () => {
   const { cartItems, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
+  const { user } = useAuth(); // ← get logged-in user
   const { addOrder } = useStore();
   const { toast } = useToast();
 
-  const handleCheckout = () => {
-    // Mock checkout process
-    const orderData = {
+  const handleCheckout = async () => {
+  if (cartItems.length === 0) return;
+
+  try {
+    // Save real order to Firestore
+    await addDoc(collection(db, "orders"), {
+      items: cartItems,
       total: cartTotal,
-      items: cartItems.length,
-      customer: 'Guest User', // In real app, use Auth context
-      status: 'Processing'
-    };
-    
-    addOrder(orderData);
-    clearCart();
-    
-    toast({
-      title: "Order Placed!",
-      description: "Thank you for your purchase. Confirmation sent.",
+      buyerEmail: user?.email || "guest@dabs.co",
+      buyerName: user?.displayName || "Guest Buyer",
+      status: "pending",
+      createdAt: new Date(),
     });
 
-    // n8n-ready: Trigger Stripe checkout / payment intent creation
-    console.log('[n8n Trigger] Checkout initiated for amount:', cartTotal);
-  };
+    // Clear cart after successful order
+    clearCart();
+
+    toast({
+      title: "Order Placed Successfully!",
+      description: "Thank you! The admin has been notified and will contact you soon.",
+    });
+
+    // Optional: redirect to thank you page later
+    // navigate('/thank-you');
+  } catch (error) {
+    toast({
+      title: "Checkout Failed",
+      description: "Please try again or contact support.",
+      variant: "destructive",
+    });
+    console.error("Checkout error:", error);
+  }
+};
 
   return (
     <>
