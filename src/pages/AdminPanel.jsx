@@ -1,11 +1,11 @@
-// src/pages/AdminPanel.jsx ← FINAL: WITH MESSAGES TAB
+// src/pages/AdminPanel.jsx ← FINAL & PERFECT (COPY-PASTE THIS)
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { auth, db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +22,7 @@ import {
 } from 'chart.js';
 import {
   Package, ShoppingCart, TrendingUp, DollarSign,
-  LogOut, Lock, CheckCircle, Mail, Circle
+  LogOut, Lock, CheckCircle, Mail, Circle, Send, X
 } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -41,7 +41,9 @@ const AdminPanel = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [messages, setMessages] = useState([]); // ← NEW: Buyer messages
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [replyText, setReplyText] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -56,16 +58,30 @@ const AdminPanel = () => {
 
     const unsubOrders = onSnapshot(
       query(collection(db, "orders"), orderBy("createdAt", "desc")),
-      snap => {
-        setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      }
+      snap => setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
-    // NEW: Load messages
+    // GROUPED MESSAGES BY SUBJECT
     const unsubMessages = onSnapshot(
       query(collection(db, "messages"), orderBy("createdAt", "desc")),
       snap => {
-        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const allMessages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const grouped = {};
+        allMessages.forEach(msg => {
+          const key = msg.subject || "No Subject";
+          if (!grouped[key]) {
+            grouped[key] = { subject: key, messages: [], latestDate: msg.createdAt, buyerEmail: msg.buyerEmail, buyerName: msg.buyerName };
+          }
+          grouped[key].messages.push(msg);
+          if (msg.createdAt > grouped[key].latestDate) grouped[key].latestDate = msg.createdAt;
+        });
+
+        const convos = Object.values(grouped).sort((a, b) =>
+          (b.latestDate?.toDate?.() || 0) - (a.latestDate?.toDate?.() || 0)
+        );
+
+        setConversations(convos);
       }
     );
 
@@ -80,12 +96,30 @@ const AdminPanel = () => {
     }
   };
 
-  // Mark message as read
-  const markMessageAsRead = async (msgId) => {
+  const openConversation = (convo) => {
+    setSelectedConversation(convo);
+    setReplyText("");
+  };
+
+  const sendReply = async () => {
+    if (!replyText.trim() || !selectedConversation) return;
+
     try {
-      await updateDoc(doc(db, "messages", msgId), { status: "read" });
+      await addDoc(collection(db, "messages"), {
+        buyerEmail: selectedConversation.buyerEmail,
+        buyerName: selectedConversation.buyerName,
+        subject: selectedConversation.subject,
+        message: replyText,
+        status: "unread",
+        createdAt: serverTimestamp(),
+        isAdminReply: true
+      });
+
+      setReplyText("");
+      alert("Reply sent!");
+      setSelectedConversation(null);
     } catch (err) {
-      alert("Failed to mark as read");
+      alert("Failed to send reply");
     }
   };
 
@@ -124,7 +158,6 @@ const AdminPanel = () => {
 
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-7xl">
-          {/* Header */}
           <motion.div className="bg-white p-8 rounded-2xl shadow-lg mb-8 border-l-4 border-[#118C8C] flex justify-between items-center">
             <div>
               <div className="flex items-center gap-2 text-[#118C8C] font-bold"><Lock /> ADMIN PANEL</div>
@@ -170,7 +203,7 @@ const AdminPanel = () => {
             </TabsContent>
 
             {/* ORDERS TAB */}
-           <TabsContent value="orders">
+            <TabsContent value="orders">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
                   <h2 className="text-2xl font-bold text-[#118C8C]">Customer Orders</h2>
@@ -232,54 +265,120 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* MESSAGES TAB — NEW */}
+            {/* MESSAGES TAB — FULL CONVERSATION */}
             <TabsContent value="messages">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
                   <h2 className="text-2xl font-bold text-[#118C8C]">Customer Messages</h2>
-                  <p className="text-gray-600">View and respond to inquiries</p>
+                  <p className="text-gray-600">Click a conversation to view and reply</p>
                 </div>
 
-                <div className="divide-y">
-                  {messages.length === 0 ? (
-                    <div className="p-20 text-center text-gray-500">
-                      <Mail size={64} className="mx-auto mb-4 text-gray-300" />
-                      <p>No messages yet</p>
-                    </div>
-                  ) : (
-                    messages.map(msg => (
-                      <div key={msg.id} className={`p-6 ${msg.status === "unread" ? "bg-blue-50" : "bg-white"} hover:bg-gray-50`}>
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <p className="font-bold text-lg">{msg.name}</p>
-                            <p className="text-sm text-gray-600">{msg.email}</p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {msg.createdAt?.toDate?.().toLocaleString() || "Just now"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {msg.status === "unread" && (
-                              <Button size="sm" onClick={() => markMessageAsRead(msg.id)}>
-                                Mark as Read
-                              </Button>
-                            )}
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              msg.status === "unread" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
-                            }`}>
-                              {msg.status || "unread"}
-                            </span>
+                {conversations.length === 0 ? (
+                  <div className="p-20 text-center text-gray-500">
+                    <Mail size={64} className="mx-auto mb-4 text-gray-300" />
+                    <p>No messages yet</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {conversations.map(convo => {
+                      const unreadCount = convo.messages.filter(m => m.status === "unread").length;
+                      return (
+                        <div
+                          key={convo.subject}
+                          onClick={() => openConversation(convo)}
+                          className="p-6 cursor-pointer hover:bg-gray-50 transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              {unreadCount > 0 ? (
+                                <Circle className="text-blue-500" size={12} fill="currentColor" />
+                              ) : (
+                                <Circle className="text-gray-400" size={12} />
+                              )}
+                              <div>
+                                <p className="font-bold text-lg">{convo.buyerName}</p>
+                                <p className="text-sm text-gray-600">{convo.buyerEmail}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-600">
+                                {convo.latestDate?.toDate?.().toLocaleDateString()}
+                              </p>
+                              <p className="font-medium text-[#118C8C]">{convo.subject}</p>
+                              {unreadCount > 0 && (
+                                <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                                  {unreadCount} new
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="mt-4">
-                          <p className="font-medium text-[#118C8C] mb-2">{msg.subject}</p>
-                          <p className="text-gray-700">{msg.message}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </TabsContent>
+
+            {/* FULL CONVERSATION MODAL */}
+            {selectedConversation && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+                >
+                  <div className="p-8">
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h2 className="text-2xl font-bold text-[#118C8C]">{selectedConversation.subject}</h2>
+                        <p className="text-gray-600 mt-2">
+                          Customer: {selectedConversation.buyerName} ({selectedConversation.buyerEmail})
+                        </p>
+                      </div>
+                      <Button variant="ghost" onClick={() => setSelectedConversation(null)}>
+                        <X size={24} />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-6 max-h-96 overflow-y-auto">
+                      {selectedConversation.messages
+                        .sort((a, b) => a.createdAt?.toDate() - b.createdAt?.toDate())
+                        .map(msg => (
+                          <div
+                            key={msg.id}
+                            className={`p-6 rounded-lg ${
+                              msg.isAdminReply ? "bg-blue-50 ml-auto max-w-md" : "bg-gray-50 mr-auto max-w-md"
+                            }`}
+                          >
+                            <p className="text-sm font-medium mb-2">
+                              {msg.isAdminReply ? "You (Admin)" : msg.buyerName} • {msg.createdAt?.toDate?.().toLocaleString()}
+                            </p>
+                            <p className="text-gray-800">{msg.message}</p>
+                          </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-10">
+                      <textarea
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        placeholder="Type your reply..."
+                        className="w-full px-4 py-3 border rounded-lg h-32"
+                      />
+                      <div className="flex justify-end gap-4 mt-6">
+                        <Button variant="outline" onClick={() => setSelectedConversation(null)}>
+                          Close
+                        </Button>
+                        <Button onClick={sendReply} className="bg-[#118C8C]">
+                          <Send className="mr-2" /> Send Reply
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
 
             {/* ANALYTICS TAB */}
             <TabsContent value="analytics">

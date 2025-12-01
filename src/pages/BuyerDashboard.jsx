@@ -1,45 +1,115 @@
-// src/pages/BuyerDashboard.jsx ← FINAL: REAL ORDERS FROM FIRESTORE + LIVE STATUS
+// src/pages/BuyerDashboard.jsx ← FINAL: ADMIN REPLIES SHOW AS "Admin"
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
-import { ShoppingBag, Package, Heart, LogOut, ArrowRight, Clock, CheckCircle, Truck } from 'lucide-react';
+import { ShoppingBag, Package, Mail, LogOut, ArrowRight, Clock, CheckCircle, Truck, Send, X, Circle } from 'lucide-react';
 
 const BuyerDashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { cartItems, cartCount } = useCart();
   const [orders, setOrders] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [replyText, setReplyText] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Fetch REAL orders for this user
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
+    // Orders
+    const qOrders = query(
       collection(db, "orders"),
       where("buyerEmail", "==", user.email),
       orderBy("createdAt", "desc")
     );
+    const unsubOrders = onSnapshot(qOrders, snap => {
+      setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
 
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setOrders(data);
+    // Messages — grouped by subject
+    const qMessages = query(
+      collection(db, "messages"),
+      where("buyerEmail", "==", user.email),
+      orderBy("createdAt", "desc")
+    );
+    const unsubMessages = onSnapshot(qMessages, snap => {
+      const allMessages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      const grouped = {};
+      allMessages.forEach(msg => {
+        const key = msg.subject || "No Subject";
+        if (!grouped[key]) {
+          grouped[key] = { subject: key, messages: [], latestDate: msg.createdAt };
+        }
+        grouped[key].messages.push(msg);
+        if (msg.createdAt > grouped[key].latestDate) {
+          grouped[key].latestDate = msg.createdAt;
+        }
+      });
+
+      const convos = Object.values(grouped).sort((a, b) =>
+        (b.latestDate?.toDate?.() || 0) - (a.latestDate?.toDate?.() || 0)
+      );
+
+      setConversations(convos);
       setLoading(false);
     });
 
-    return () => unsub();
+    return () => { unsubOrders(); unsubMessages(); };
   }, [user]);
 
   const handleLogout = () => signOut(auth).then(() => navigate('/login'));
+
+  const openConversation = (convo) => {
+    setSelectedConversation(convo);
+    setReplyText("");
+  };
+
+  const sendReply = async () => {
+    if (!replyText.trim() || !selectedConversation) return;
+
+    try {
+      await addDoc(collection(db, "messages"), {
+        buyerEmail: user.email,
+        buyerName: user.displayName || "Guest",
+        subject: selectedConversation.subject,
+        message: replyText,
+        status: "unread",
+        createdAt: serverTimestamp(),
+        isAdminReply: false  // ← helps identify buyer replies
+      });
+
+      setReplyText("");
+      alert("Reply sent!");
+    } catch (err) {
+      alert("Failed to send reply");
+    }
+  };
+
+  // FIXED: Correctly identify sender
+  const getSenderName = (msg) => {
+    // If message has isAdminReply flag
+    if (msg.isAdminReply === true) return "Admin";
+    if (msg.isAdminReply === false) return "You";
+    
+    // Fallback: check if buyerEmail matches current user
+    return msg.buyerEmail === user?.email ? "You" : "Admin";
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="text-green-500" size={20} />;
+      case 'processing': return <Truck className="text-blue-500" size={20} />;
+      default: return <Clock className="text-yellow-500" size={20} />;
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -54,14 +124,6 @@ const BuyerDashboard = () => {
     return null;
   }
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed': return <CheckCircle className="text-green-500" size={20} />;
-      case 'processing': return <Truck className="text-blue-500" size={20} />;
-      default: return <Clock className="text-yellow-500" size={20} />;
-    }
-  };
-
   return (
     <>
       <Helmet><title>My Account - D.A.B.S. Co.</title></Helmet>
@@ -75,7 +137,7 @@ const BuyerDashboard = () => {
               {user.email[0].toUpperCase()}
             </div>
             <h1 className="text-4xl font-bold text-gray-900">Welcome back, {user.email.split('@')[0]}!</h1>
-            <p className="text-gray-600 mt-2">Here’s your order history and cart</p>
+            <p className="text-gray-600 mt-2">Your orders and messages</p>
           </div>
 
           {/* My Cart */}
@@ -120,8 +182,8 @@ const BuyerDashboard = () => {
             )}
           </div>
 
-          {/* REAL ORDERS FROM FIRESTORE */}
-          <div>
+          {/* Orders */}
+          <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
               <Package className="text-[#F2BB16]" size={32} />
               My Orders
@@ -136,14 +198,14 @@ const BuyerDashboard = () => {
                 </Button>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="bg-white rounded-xl shadow-sm">
                 {orders.map(order => (
                   <div key={order.id} className="p-6 border-b last:border-0 hover:bg-gray-50">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                       <div>
                         <p className="font-bold text-lg">Order #{order.id.slice(0, 8)}</p>
                         <p className="text-sm text-gray-600 flex items-center gap-2 mt-1">
-                          {getStatusIcon(order.status)} {order.createdAt?.toDate?.().toLocaleDateString() || "Recent"}
+                          {getStatusIcon(order.status)} {order.createdAt?.toDate?.().toLocaleDateString()}
                         </p>
                       </div>
                       <div className="text-right">
@@ -159,15 +221,49 @@ const BuyerDashboard = () => {
                         </p>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                    <div className="mt-4">
-                      <p className="text-sm text-gray-600 mb-2">Items:</p>
-                      <ul className="text-sm">
-                        {order.items?.map((item, i) => (
-                          <li key={i}>• {item.name} x{item.quantity}</li>
-                        ))}
-                      </ul>
+          {/* Messages */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+              <Mail className="text-[#118C8C]" size={32} />
+              Messages
+            </h2>
+
+            {conversations.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center shadow-sm">
+                <Mail size={64} className="mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-500 text-lg">No messages yet</p>
+                <Button asChild size="lg" className="mt-6 bg-[#118C8C]">
+                  <Link to="/contact">Send a Message</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm">
+                {conversations.map(convo => (
+                  <div
+                    key={convo.subject}
+                    onClick={() => openConversation(convo)}
+                    className="p-6 border-b last:border-0 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-4">
+                      {convo.messages.some(m => m.status === "unread") ? (
+                        <Circle className="text-blue-500" size={12} fill="currentColor" />
+                      ) : (
+                        <Circle className="text-gray-400" size={12} />
+                      )}
+                      <div>
+                        <p className="font-bold">{convo.subject}</p>
+                        <p className="text-sm text-gray-600">
+                          Latest: {convo.latestDate?.toDate?.().toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
+                    <ArrowRight className="text-gray-400" size={20} />
                   </div>
                 ))}
               </div>
@@ -182,6 +278,58 @@ const BuyerDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* FULL CONVERSATION MODAL — FIXED */}
+      {selectedConversation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-2xl font-bold text-[#118C8C]">{selectedConversation.subject}</h2>
+                <Button variant="ghost" onClick={() => setSelectedConversation(null)}>
+                  <X size={24} />
+                </Button>
+              </div>
+
+              <div className="space-y-6">
+                {selectedConversation.messages
+                  .sort((a, b) => a.createdAt?.toDate() - b.createdAt?.toDate())
+                  .map(msg => (
+                    <div
+                      key={msg.id}
+                      className={`p-6 rounded-lg ${
+                        getSenderName(msg) === "You" ? "bg-gray-50 ml-auto max-w-md" : "bg-blue-50 mr-auto max-w-md"
+                      }`}
+                    >
+                      <p className="text-sm font-medium mb-2">
+                        {getSenderName(msg)} • {msg.createdAt?.toDate?.().toLocaleString()}
+                      </p>
+                      <p className="text-gray-800">{msg.message}</p>
+                    </div>
+                  ))}
+
+                {/* Reply Box */}
+                <div className="mt-8">
+                  <textarea
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    placeholder="Type your reply..."
+                    className="w-full px-4 py-3 border rounded-lg h-32"
+                  />
+                  <div className="flex justify-end gap-4 mt-4">
+                    <Button variant="outline" onClick={() => setSelectedConversation(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={sendReply} className="bg-[#118C8C]">
+                      <Send className="mr-2" /> Send Reply
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
