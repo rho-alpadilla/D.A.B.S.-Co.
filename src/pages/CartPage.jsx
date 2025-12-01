@@ -1,3 +1,4 @@
+// src/pages/CartPage.jsx ← FINAL: PHP MAIN CURRENCY (NO MORE BUG!)
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -5,51 +6,52 @@ import { Trash2, ArrowRight, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
-import { useStore } from '@/context/StoreContext';
 import { useToast } from '@/components/ui/use-toast';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/lib/firebase'; // ← to get current user
+import { useAuth } from '@/lib/firebase';
+
+// PHP IS MAIN CURRENCY — USD IS CALCULATED FROM PHP
+const PHP_TO_USD = 1 / 58;
+const formatPrice = (phpPrice) => {
+  if (!phpPrice) return "₱0 ($0.00)";
+  const usd = (phpPrice * PHP_TO_USD).toFixed(2);  // ← CENTS!
+  return `₱${phpPrice.toLocaleString()} ($${usd})`;
+};
 
 const CartPage = () => {
   const { cartItems, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
-  const { user } = useAuth(); // ← get logged-in userr
-  const { addOrder } = useStore();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const handleCheckout = async () => {
-  if (cartItems.length === 0) return;
+    if (cartItems.length === 0) return;
 
-  try {
-    // Save real order to Firestore
-    await addDoc(collection(db, "orders"), {
-      items: cartItems,
-      total: cartTotal,
-      buyerEmail: user?.email || "guest@dabs.co",
-      buyerName: user?.displayName || "Guest Buyer",
-      status: "pending",
-      createdAt: new Date(),
-    });
+    try {
+      await addDoc(collection(db, "orders"), {
+        items: cartItems,
+        total: cartTotal,
+        buyerEmail: user?.email || "guest@dabs.co",
+        buyerName: user?.displayName || "Guest Buyer",
+        status: "pending",
+        createdAt: new Date(),
+      });
 
-    // Clear cart after successful order
-    clearCart();
+      clearCart();
 
-    toast({
-      title: "Order Placed Successfully!",
-      description: "Thank you! The admin has been notified and will contact you soon.",
-    });
-
-    // Optional: redirect to thank you page later
-    // navigate('/thank-you');
-  } catch (error) {
-    toast({
-      title: "Checkout Failed",
-      description: "Please try again or contact support.",
-      variant: "destructive",
-    });
-    console.error("Checkout error:", error);
-  }
-};
+      toast({
+        title: "Order Placed Successfully!",
+        description: "Thank you! The admin has been notified and will contact you soon.",
+      });
+    } catch (error) {
+      toast({
+        title: "Checkout Failed",
+        description: "Please try again or contact support.",
+        variant: "destructive",
+      });
+      console.error("Checkout error:", error);
+    }
+  };
 
   return (
     <>
@@ -83,11 +85,17 @@ const CartPage = () => {
                   className="flex gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100"
                 >
                   <div className="w-24 h-24 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
-                    <img alt={item.title} className="w-full h-full object-cover" src="https://images.unsplash.com/photo-1602426745024-c25a1f43299a" />
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <ShoppingBag size={32} className="text-gray-400" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-grow flex flex-col justify-between">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-semibold text-gray-900">{item.title}</h3>
+                      <h3 className="font-semibold text-gray-900">{item.name}</h3>
                       <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600">
                         <Trash2 size={18} />
                       </button>
@@ -101,11 +109,14 @@ const CartPage = () => {
                           type="number" 
                           min="1" 
                           value={item.quantity}
-                          onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
+                          onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
                           className="w-16 border rounded px-2 py-1 text-sm"
                         />
                       </div>
-                      <p className="font-bold text-[#118C8C]">${item.price * item.quantity}</p>
+                      {/* PHP MAIN + USD WITH CENTS — FIXED FOREVER */}
+                      <p className="font-bold text-[#118C8C]">
+                        {formatPrice(item.price * item.quantity)}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -118,7 +129,7 @@ const CartPage = () => {
               <div className="space-y-3 mb-6 border-b border-gray-100 pb-6">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span>${cartTotal}</span>
+                  <span>{formatPrice(cartTotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Shipping</span>
@@ -126,12 +137,12 @@ const CartPage = () => {
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Tax (Est.)</span>
-                  <span>${(cartTotal * 0.08).toFixed(2)}</span>
+                  <span>{formatPrice(cartTotal * 0.08)}</span>
                 </div>
               </div>
               <div className="flex justify-between text-xl font-bold text-gray-900 mb-6">
                 <span>Total</span>
-                <span>${(cartTotal * 1.08).toFixed(2)}</span>
+                <span>{formatPrice(cartTotal * 1.08)}</span>
               </div>
               <Button onClick={handleCheckout} className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3 h-auto">
                 Proceed to Checkout
