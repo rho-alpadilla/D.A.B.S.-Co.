@@ -1,4 +1,4 @@
-// src/pages/GalleryPage.jsx ← FINAL: LIVE CURRENCY API + DROPDOWN
+// src/pages/GalleryPage.jsx ← FINAL: SHOW STOCK + LUXURY
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -8,20 +8,22 @@ import { db } from '@/lib/firebase';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
+import { useCurrency } from '@/context/CurrencyContext';
 
 const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
+  const { formatPrice } = useCurrency();
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pricelists"), (snapshot) => {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
+        inStock: doc.data().inStock !== false,
+        stockQuantity: doc.data().stockQuantity || 0
       }));
       setProducts(data);
       setLoading(false);
@@ -36,6 +38,13 @@ const GalleryPage = () => {
   const getCategoryItems = (category) => {
     if (category === 'all') return products;
     return products.filter(p => p.category === category);
+  };
+
+  const getStockText = (product) => {
+    if (!product.inStock) return <span className="text-red-600 font-bold">Out of stock</span>;
+    if (product.stockQuantity === 0) return <span className="text-red-600 font-bold">Out of stock</span>;
+    if (product.stockQuantity <= 5) return <span className="text-orange-600 font-bold">Only {product.stockQuantity} left!</span>;
+    return <span className="text-green-600 font-bold">{product.stockQuantity} available</span>;
   };
 
   const categories = [
@@ -101,7 +110,7 @@ const GalleryPage = () => {
                           <img
                             src={item.imageUrl}
                             alt={item.name}
-                            className="w-full h-full object-cover group-hover:group-hover:scale-110 transition-transform duration-500"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -111,7 +120,7 @@ const GalleryPage = () => {
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Link to={`/product/${item.id}`}>
                             <Button variant="secondary" size="lg" className="bg-white text-gray-900 hover:bg-gray-100">
-                              <Eye size={20} className="mr-2" /> View Details
+                              View Details
                             </Button>
                           </Link>
                         </div>
@@ -120,11 +129,18 @@ const GalleryPage = () => {
                       <div className="p-6">
                         <div className="flex justify-between items-start mb-3">
                           <h3 className="text-xl font-bold text-[#118C8C] line-clamp-2">{item.name}</h3>
-                          {/* LIVE CURRENCY FROM API */}
                           <span className="text-2xl font-bold text-[#F2BB16]">
                             {formatPrice(item.price)}
                           </span>
                         </div>
+
+                        {/* STOCK STATUS — FOR EVERYONE */}
+                        <div className="mb-4">
+                          <p className="text-sm font-medium">
+                            {getStockText(item)}
+                          </p>
+                        </div>
+
                         <p className="text-gray-600 text-sm line-clamp-2 mb-4">{item.description}</p>
                         <div className="flex gap-3">
                           <Link to={`/product/${item.id}`} className="flex-1">

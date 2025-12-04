@@ -1,12 +1,12 @@
-// src/pages/ProductDetailPage.jsx ← FINAL: LIVE CURRENCY API + DROPDOWN
-import React, { useState, useEffect, useRef, useContext } from 'react';
+// src/pages/ProductDetailPage.jsx ← FINAL: ADMIN SEES STOCK + LUXURY
+import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useParams, Link } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
-import { useCurrency } from '@/context/CurrencyContext'; // ← NEW: Global currency
+import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ShoppingBag, Edit, Save, X, Upload } from 'lucide-react';
 
@@ -22,7 +22,7 @@ const ProductDetailPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.email.includes('admin');
   const { addToCart } = useCart();
-  const { currency, formatPrice } = useCurrency(); // ← LIVE CURRENCY FROM API
+  const { formatPrice } = useCurrency();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,11 @@ const ProductDetailPage = () => {
       if (snap.exists()) {
         const data = { id: snap.id, ...snap.data() };
         setProduct(data);
-        setForm(data);
+        setForm({
+          ...data,
+          inStock: data.inStock !== false,
+          stockQuantity: data.stockQuantity || 0
+        });
         setImagePreview(data.imageUrl || "");
       } else {
         setProduct(null);
@@ -78,11 +82,12 @@ const ProductDetailPage = () => {
     try {
       await updateDoc(doc(db, "pricelists", id), {
         name: form.name.trim(),
-        price: Number(form.price), // ← ALWAYS PHP
+        price: Number(form.price),
         description: form.description.trim(),
         category: form.category,
         imageUrl: form.imageUrl,
         inStock: form.inStock,
+        stockQuantity: Number(form.stockQuantity) || 0,
         updatedAt: new Date()
       });
       setEditing(false);
@@ -90,6 +95,20 @@ const ProductDetailPage = () => {
     } catch (err) {
       alert("Save failed");
     }
+  };
+
+  // Stock status for BUYERS
+  const getBuyerStockStatus = () => {
+    if (!product.inStock) return <span className="text-red-600 font-bold">Out of Stock</span>;
+    if (product.stockQuantity > 0 && product.stockQuantity <= 5)
+      return <span className="text-orange-600 font-bold">Only {product.stockQuantity} left!</span>;
+    return <span className="text-green-600 font-bold">In Stock</span>;
+  };
+
+  // Stock status for ADMIN (IMMEDIATE)
+  const getAdminStockStatus = () => {
+    if (!product.inStock) return <span className="text-red-600 font-bold">Out of Stock (0)</span>;
+    return <span className="text-gray-800 font-bold">In Stock: {product.stockQuantity}</span>;
   };
 
   if (loading) {
@@ -121,11 +140,11 @@ const ProductDetailPage = () => {
         <div className="container mx-auto px-6 max-w-5xl">
           <div className="flex justify-between items-center mb-8">
             <Link to="/gallery" className="inline-flex items-center gap-2 text-[#118C8C] hover:underline">
-              <ArrowLeft size={20} /> Back to Gallery
+              Back to Gallery
             </Link>
             {isAdmin && !editing && (
               <Button onClick={() => setEditing(true)} variant="outline" className="border-[#118C8C] text-[#118C8C]">
-                <Edit className="mr-2" /> Edit Product
+                Edit Product
               </Button>
             )}
           </div>
@@ -145,7 +164,7 @@ const ProductDetailPage = () => {
                   <div className="absolute bottom-4 left-4">
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                     <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                      <Upload className="mr-2" /> {uploading ? "Uploading..." : "Change Image"}
+                      {uploading ? "Uploading..." : "Change Image"}
                     </Button>
                   </div>
                 </div>
@@ -185,7 +204,7 @@ const ProductDetailPage = () => {
                       required
                     />
                     <p className="text-lg text-gray-600">
-                      Current in {currency}: {formatPrice(product.price)}
+                      Current: {formatPrice(product.price)}
                     </p>
                   </div>
                   <select
@@ -196,14 +215,30 @@ const ProductDetailPage = () => {
                     <option value="">Select Category</option>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={form.inStock}
-                      onChange={e => setForm({ ...form, inStock: e.target.checked })}
-                    />
-                    <span className="text-gray-700">In Stock</span>
-                  </label>
+
+                  {/* STOCK MANAGEMENT */}
+                  <div className="space-y-6 pt-6 border-t">
+                    <label className="flex items-center gap-4 text-lg">
+                      <input
+                        type="checkbox"
+                        checked={form.inStock}
+                        onChange={e => setForm({ ...form, inStock: e.target.checked })}
+                        className="w-6 h-6 text-[#118C8C] rounded focus:ring-[#118C8C]"
+                      />
+                      <span className="font-medium">In Stock</span>
+                    </label>
+                    <div>
+                      <label className="block text-lg font-medium mb-2">Stock Quantity</label>
+                      <input
+                        type="number"
+                        value={form.stockQuantity}
+                        onChange={e => setForm({ ...form, stockQuantity: e.target.value })}
+                        className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-xl"
+                        placeholder="0"
+                        min="0"
+                      />
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>
@@ -216,10 +251,17 @@ const ProductDetailPage = () => {
                   <p className="text-lg text-gray-700 leading-relaxed mb-10">
                     {product.description}
                   </p>
+
+                  {/* STOCK STATUS — ADMIN SEES QUANTITY */}
+                  <div className="mb-6">
+                    <p className="text-xl font-bold">
+                      {isAdmin ? getAdminStockStatus() : getBuyerStockStatus()}
+                    </p>
+                  </div>
                 </>
               )}
 
-              {/* PRICE — LIVE FROM API */}
+              {/* PRICE */}
               <div className="py-6">
                 <span className="text-5xl font-bold text-[#F2BB16]">
                   {formatPrice(product.price)}
@@ -227,11 +269,15 @@ const ProductDetailPage = () => {
               </div>
 
               {/* BUYER BUTTONS */}
-              {!isAdmin && !editing && (
+              {!isAdmin && !editing && product.inStock && (
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" onClick={() => addToCart(product)} className="bg-[#118C8C] hover:bg-[#0d7070] flex-1 font-semibold">
-                    <ShoppingBag className="mr-3" size={22} />
-                    Add to Cart
+                  <Button 
+                    size="lg" 
+                    onClick={() => addToCart(product)} 
+                    className="bg-[#118C8C] hover:bg-[#0d7070] flex-1 font-semibold"
+                    disabled={product.stockQuantity === 0}
+                  >
+                    {product.stockQuantity === 0 ? "Out of Stock" : "Add to Cart"}
                   </Button>
                   <Button size="lg" variant="outline" className="border-[#118C8C] text-[#118C8C] flex-1">
                     Contact for Custom Order
@@ -239,20 +285,20 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              {/* ADMIN EDIT BUTTONS */}
+              {/* ADMIN BUTTONS */}
               {isAdmin && editing && (
                 <div className="flex gap-4">
                   <Button size="lg" onClick={saveEdits} className="bg-green-600 hover:bg-green-700">
-                    <Save className="mr-2" /> Save Changes
+                    Save Changes
                   </Button>
                   <Button size="lg" variant="outline" onClick={() => setEditing(false)}>
-                    <X className="mr-2" /> Cancel
+                    Cancel
                   </Button>
                 </div>
               )}
 
               <p className="text-sm text-gray-500 pt-8 border-t">
-                Product ID: {product.id} • {product.inStock ? "In Stock" : "Out of Stock"}
+                Product ID: {product.id}
               </p>
             </div>
           </div>

@@ -1,12 +1,12 @@
-// src/pages/AdminPanel.jsx ← FINAL: LIVE CURRENCY API + FULL CONVERSATION
+// src/pages/AdminPanel.jsx ← FINAL & COMPLETE: STOCK SUBTRACTED + EVERYTHING
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/firebase';
-import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
+import { useAuth } from  '@/lib/firebase';
+import { useCurrency } from '@/context/CurrencyContext';
 import { auth, db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,7 +31,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 const AdminPanel = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
+  const { formatPrice } = useCurrency();
   const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -55,7 +55,6 @@ const AdminPanel = () => {
       snap => setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
-    // GROUPED MESSAGES BY SUBJECT
     const unsubMessages = onSnapshot(
       query(collection(db, "messages"), orderBy("createdAt", "desc")),
       snap => {
@@ -82,11 +81,50 @@ const AdminPanel = () => {
     return () => { unsubRole(); unsubProducts(); unsubOrders(); unsubMessages(); };
   }, [user]);
 
+  // STOCK SUBTRACTED WHEN ORDER IS PROCESSED
   const updateOrderStatus = async (orderId, newStatus) => {
-    try {
-      await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-    } catch (err) {
-      alert("Failed to update status");
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Only act when status becomes "processing" or "completed"
+    if (newStatus === "processing" || newStatus === "completed") {
+      const items = order.items || [];
+
+      try {
+        for (const item of items) {
+          const productRef = doc(db, "pricelists", item.id);
+          const productSnap = await getDoc(productRef);
+
+          if (productSnap.exists()) {
+            const productData = productSnap.data();
+            const currentStock = productData.stockQuantity || 0;
+            const newStock = currentStock - item.quantity;
+
+            if (newStock < 0) {
+              alert(`Not enough stock for "${item.name}" — only ${currentStock} available`);
+              return;
+            }
+
+            await updateDoc(productRef, {
+              stockQuantity: newStock,
+              inStock: newStock > 0
+            });
+          }
+        }
+
+        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+        alert(`Order #${orderId.slice(0,8)} marked as ${newStatus}! Stock updated.`);
+      } catch (err) {
+        alert("Failed to update stock or order");
+        console.error(err);
+      }
+    } else {
+      // For pending/cancelled — just update status
+      try {
+        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+      } catch (err) {
+        alert("Failed to update status");
+      }
     }
   };
 
@@ -152,7 +190,6 @@ const AdminPanel = () => {
 
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-7xl">
-          {/* Header */}
           <motion.div className="bg-white p-8 rounded-2xl shadow-lg mb-8 border-l-4 border-[#118C8C] flex justify-between items-center">
             <div>
               <div className="flex items-center gap-2 text-[#118C8C] font-bold"><Lock /> ADMIN PANEL</div>
@@ -197,7 +234,7 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* ORDERS TAB */}
+            {/* ORDERS TAB — STOCK SUBTRACTED */}
             <TabsContent value="orders">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
@@ -260,7 +297,7 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* MESSAGES TAB — FULL CONVERSATION */}
+            {/* MESSAGES TAB */}
             <TabsContent value="messages">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
