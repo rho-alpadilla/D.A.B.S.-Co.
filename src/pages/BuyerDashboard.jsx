@@ -1,13 +1,13 @@
-// src/pages/BuyerDashboard.jsx ← FINAL: LIVE CURRENCY + FULL CONVERSATION
+// src/pages/BuyerDashboard.jsx ← FINAL: PROFILE PIC + @username
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { useCart } from '@/context/CartContext';
-import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
+import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { ShoppingBag, Package, Mail, LogOut, ArrowRight, Clock, CheckCircle, Truck, Send, X, Circle } from 'lucide-react';
 
@@ -15,17 +15,34 @@ const BuyerDashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { cartItems, cartCount } = useCart();
-  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
+  const { formatPrice } = useCurrency();
   const [orders, setOrders] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState("");
+  const [photoURL, setPhotoURL] = useState(""); // ← LIVE PROFILE PIC
+
+  // Fetch username + photoURL from Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const userRef = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setUsername(data.username || user.email.split('@')[0]);
+        setPhotoURL(data.photoURL || "");
+      }
+    });
+
+    return () => unsub();
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
 
-    // Orders
     const qOrders = query(
       collection(db, "orders"),
       where("buyerEmail", "==", user.email),
@@ -35,7 +52,6 @@ const BuyerDashboard = () => {
       setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // Messages — grouped by subject
     const qMessages = query(
       collection(db, "messages"),
       where("buyerEmail", "==", user.email),
@@ -129,13 +145,29 @@ const BuyerDashboard = () => {
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-6xl">
 
-          {/* Welcome */}
+          {/* Welcome — PROFILE PIC + @username */}
           <div className="bg-white rounded-2xl shadow-sm p-8 mb-10 text-center">
-            <div className="w-24 h-24 bg-[#118C8C] rounded-full mx-auto mb-4 flex items-center justify-center text-white text-4xl font-bold">
-              {user.email[0].toUpperCase()}
+            <div className="flex flex-col items-center gap-6">
+              <div className="relative">
+                {photoURL ? (
+                  <img 
+                    src={photoURL} 
+                    alt="Profile" 
+                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                  />
+                ) : (
+                  <div className="w-32 h-32 bg-[#118C8C] rounded-full flex items-center justify-center text-white text-5xl font-bold border-4 border-white shadow-lg">
+                    {username[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900">
+                  Welcome back, <span className="text-[#118C8C]">@{username}</span>!
+                </h1>
+                <p className="text-gray-600 mt-2">Your orders and messages</p>
+              </div>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900">Welcome back, {user.email.split('@')[0]}!</h1>
-            <p className="text-gray-600 mt-2">Your orders and messages</p>
           </div>
 
           {/* My Cart */}
@@ -166,7 +198,6 @@ const BuyerDashboard = () => {
                       <p className="font-semibold">{item.name}</p>
                       <p className="text-sm text-gray-600">x{item.quantity}</p>
                     </div>
-                    {/* LIVE CURRENCY */}
                     <p className="font-bold text-[#118C8C]">
                       {formatPrice(item.price * item.quantity)}
                     </p>

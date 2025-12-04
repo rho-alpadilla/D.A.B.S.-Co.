@@ -1,19 +1,18 @@
-// src/App.jsx ← FINAL VERSION: HOMEPAGE FIRST, NO POPUP, CLEAN ROUTES
+// src/App.jsx ← FINAL: PROFILE ROUTE ADDED
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 
-// Providers (Firebase Auth, Cart, Store)
+// Providers
 import { AuthProvider, useAuth } from '@/lib/firebase';
 import { CartProvider } from '@/context/CartContext';
 
-
-// Layout Components
+// Layout
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ChatWidget from '@/components/ChatWidget';
 
-// Pages (All Public)
+// Pages
 import HomePage from '@/pages/HomePage';
 import GalleryPage from '@/pages/GalleryPage';
 import ProductDetailPage from '@/pages/ProductDetailPage';
@@ -25,19 +24,17 @@ import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage';
 import TermsPage from '@/pages/TermsPage';
 import FAQsPage from '@/pages/FAQsPage';
 
-// Auth Pages
-import LoginPage from '@/pages/LoginPage';           // ← We use this now
+import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import BuyerDashboard from '@/pages/BuyerDashboard';
+import ProfilePage from '@/pages/ProfilePage'; // ← ADDED!
 
-// Admin (Protected)
 import AdminPanel from '@/pages/AdminPanel';
 
-// Protected Route — Only logged-in admins can access
+// Protected Admin Route
 const ProtectedAdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  // While checking login status → show loading
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF8F1]">
@@ -46,71 +43,65 @@ const ProtectedAdminRoute = ({ children }) => {
     );
   }
 
-  // If not logged in → go to login page
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Optional: Extra check if user is actually admin (from Firestore)
-  // You already do this inside AdminPanel, so it's safe
   return children;
 };
 
 function App() {
   return (
     <AuthProvider>
+      <CartProvider>
+        <Router>
+          <div className="min-h-screen flex flex-col bg-[#FAF8F1]">
+            <Header />
 
-        <CartProvider>
-          <Router>
-            <div className="min-h-screen flex flex-col bg-[#FAF8F1]">
-              {/* HEADER — Always visible on all pages */}
-              <Header />
+            <main className="flex-grow">
+              <Routes>
+                {/* PUBLIC */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/gallery" element={<GalleryPage />} />
+                <Route path="/product/:id" element={<ProductDetailPage />} />
+                <Route path="/pricelists" element={<PricelistsPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/faqs" element={<FAQsPage />} />
 
-              {/* MAIN CONTENT */}
-              <main className="flex-grow">
-                <Routes>
-                  {/* PUBLIC ROUTES — These show immediately when user opens site */}
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/gallery" element={<GalleryPage />} />
-                  <Route path="/product/:id" element={<ProductDetailPage />} />
-                  <Route path="/pricelists" element={<PricelistsPage />} />
-                  <Route path="/about" element={<AboutPage />} />
-                  <Route path="/contact" element={<ContactPage />} />
-                  <Route path="/cart" element={<CartPage />} />
-                  <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                  <Route path="/terms" element={<TermsPage />} />
-                  <Route path="/faqs" element={<FAQsPage />} />
+                {/* AUTH */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
+                
+                {/* NEW: PROFILE PAGE */}
+                <Route path="/profile" element={<ProfilePage />} />
 
-                  {/* AUTH PAGES */}
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
-                  <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
+                {/* ADMIN */}
+                <Route
+                  path="/admin-panel"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AdminPanel />
+                    </ProtectedAdminRoute>
+                  }
+                />
 
-                  {/* ADMIN PANEL — FULLY PROTECTED */}
-                  <Route
-                    path="/admin-panel"
-                    element={
-                      <ProtectedAdminRoute>
-                        <AdminPanel />
-                      </ProtectedAdminRoute>
-                    }
-                  />
+                {/* Redirects */}
+                <Route path="/admin" element={<Navigate to="/admin-panel" />} />
+                <Route path="*" element={<HomePage />} />
+              </Routes>
+            </main>
 
-                  {/* Redirect old links */}
-                  <Route path="/admin" element={<Navigate to="/admin-panel" />} />
-
-                  {/* 404 → Go home */}
-                  <Route path="*" element={<HomePage />} />
-                </Routes>
-              </main>
-
-              <Footer />
-              <ChatWidget />
-              <Toaster />
-            </div>
-          </Router>
-        </CartProvider>
-
+            <Footer />
+            <ChatWidget />
+            <Toaster />
+          </div>
+        </Router>
+      </CartProvider>
     </AuthProvider>
   );
 }

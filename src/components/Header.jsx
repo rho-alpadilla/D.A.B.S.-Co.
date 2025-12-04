@@ -1,16 +1,15 @@
-// src/components/Header.jsx ← FINAL: 35+ CURRENCIES + SEARCH (NO ERROR!)
+// src/components/Header.jsx ← FINAL: PROFILE PIC UPDATES INSTANTLY
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ShoppingCart, LogOut, Settings, Globe, Search } from 'lucide-react';
+import { Menu, X, ShoppingCart, LogOut, Settings, Globe, Search, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -18,6 +17,7 @@ const Header = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [photoURL, setPhotoURL] = useState(""); // ← LIVE PROFILE PIC
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,22 +32,24 @@ const Header = () => {
     curr.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Listen to user document for photoURL changes
   useEffect(() => {
     if (!user) {
+      setPhotoURL("");
       setIsAdmin(false);
       return;
     }
 
-    const userDoc = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userDoc, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().role === 'admin') {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
+    const userRef = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(userRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setPhotoURL(data.photoURL || "");
+        setIsAdmin(data.role === 'admin');
       }
     });
 
-    return unsubscribe;
+    return unsub;
   }, [user]);
 
   const baseNavLinks = [
@@ -104,7 +106,7 @@ const Header = () => {
 
             {/* Right Side */}
             <div className="flex items-center gap-6">
-              {/* Currency Dropdown + SEARCH */}
+              {/* Currency Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setIsCurrencyOpen(!isCurrencyOpen)}
@@ -124,7 +126,6 @@ const Header = () => {
                       exit={{ opacity: 0, y: -10 }}
                       className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50"
                     >
-                      {/* Search Input (Native — No Error!) */}
                       <div className="p-4 border-b border-gray-100">
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -139,7 +140,6 @@ const Header = () => {
                         </div>
                       </div>
 
-                      {/* Currency List */}
                       <div className="max-h-96 overflow-y-auto">
                         {filteredCurrencies.length === 0 ? (
                           <p className="p-6 text-center text-gray-500">No currency found</p>
@@ -175,7 +175,7 @@ const Header = () => {
                 </AnimatePresence>
               </div>
 
-              {/* Cart — hidden for admin */}
+              {/* Cart */}
               {!isAdmin && (
                 <Link to="/cart" className="relative text-gray-700 hover:text-[#118C8C] transition">
                   <ShoppingCart size={24} />
@@ -187,16 +187,24 @@ const Header = () => {
                 </Link>
               )}
 
-              {/* User Avatar + Dropdown */}
+              {/* User Dropdown — NOW SHOWS LIVE PROFILE PIC */}
               {user ? (
                 <div className="relative">
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                     className="flex items-center gap-3 rounded-full hover:bg-gray-100 px-3 py-2 transition"
                   >
-                    <div className="w-10 h-10 rounded-full bg-[#118C8C] flex items-center justify-center text-white font-bold text-lg">
-                      {user.email[0].toUpperCase()}
-                    </div>
+                    {photoURL ? (
+                      <img
+                        src={photoURL}
+                        alt="Profile"
+                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#118C8C] flex items-center justify-center text-white font-bold text-lg">
+                        {user.email[0].toUpperCase()}
+                      </div>
+                    )}
                     {isAdmin && (
                       <span className="hidden lg:block bg-amber-500 text-white text-xs px-3 py-1 rounded-full font-bold">
                         Admin
@@ -223,6 +231,14 @@ const Header = () => {
                         >
                           <Settings size={18} />
                           Dashboard
+                        </Link>
+                        <Link
+                          to="/profile"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-5 py-3 text-gray-700 hover:bg-gray-50 transition"
+                        >
+                          <User size={18} />
+                          Profile
                         </Link>
                         <button
                           onClick={handleLogout}
@@ -321,6 +337,13 @@ const Header = () => {
                     className="block px-4 py-3 text-[#118C8C] font-medium hover:bg-gray-50"
                   >
                     Dashboard
+                  </Link>
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block px-4 py-3 text-[#118C8C] font-medium hover:bg-gray-50"
+                  >
+                    Profile
                   </Link>
                   <button
                     onClick={handleLogout}
