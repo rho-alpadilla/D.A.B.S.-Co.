@@ -1,7 +1,7 @@
-// src/components/Header.jsx ← FINAL: NO MORE DROPDOWN CONFLICT
+// src/components/Header.jsx ← FINAL: 35+ CURRENCIES + SEARCH (NO ERROR!)
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ShoppingCart, LogOut, Settings, Globe } from 'lucide-react';
+import { Menu, X, ShoppingCart, LogOut, Settings, Globe, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
@@ -14,8 +14,9 @@ import { db } from '@/lib/firebase';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);   // ← NEW
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);   // ← NEW
+  const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -26,7 +27,11 @@ const Header = () => {
   const { cartCount } = useCart();
   const { currency, setCurrency, CURRENCIES } = useCurrency();
 
-  // Read admin role
+  const filteredCurrencies = CURRENCIES.filter(curr =>
+    curr.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    curr.code.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   useEffect(() => {
     if (!user) {
       setIsAdmin(false);
@@ -82,7 +87,7 @@ const Header = () => {
                 key={link.path}
                 to={link.path}
                 className={`text-lg font-medium transition-colors relative ${
-                  isActive(link.path) ? 'text-[#118C8C8C]' : 'text-gray-700 hover:text-[#118C8C]'
+                  isActive(link.path) ? 'text-[#118C8C]' : 'text-gray-700 hover:text-[#118C8C]'
                 }`}
               >
                 {link.label}
@@ -99,7 +104,7 @@ const Header = () => {
 
             {/* Right Side */}
             <div className="flex items-center gap-6">
-              {/* Currency Dropdown */}
+              {/* Currency Dropdown + SEARCH */}
               <div className="relative">
                 <button
                   onClick={() => setIsCurrencyOpen(!isCurrencyOpen)}
@@ -117,23 +122,54 @@ const Header = () => {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50"
+                      className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50"
                     >
-                      {CURRENCIES.map(curr => (
-                        <button
-                          key={curr.code}
-                          onClick={() => {
-                            setCurrency(curr.code);
-                            setIsCurrencyOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition flex items-center gap-3 ${
-                            currency === curr.code ? 'bg-[#118C8C]/10 font-bold' : ''
-                          }`}
-                        >
-                          <span className="text-xl">{curr.symbol}</span>
-                          <span>{curr.name}</span>
-                        </button>
-                      ))}
+                      {/* Search Input (Native — No Error!) */}
+                      <div className="p-4 border-b border-gray-100">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                          <input
+                            type="text"
+                            placeholder="Search currency..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#118C8C] focus:border-transparent"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+
+                      {/* Currency List */}
+                      <div className="max-h-96 overflow-y-auto">
+                        {filteredCurrencies.length === 0 ? (
+                          <p className="p-6 text-center text-gray-500">No currency found</p>
+                        ) : (
+                          filteredCurrencies.map(curr => (
+                            <button
+                              key={curr.code}
+                              onClick={() => {
+                                setCurrency(curr.code);
+                                setIsCurrencyOpen(false);
+                                setSearchQuery("");
+                              }}
+                              className={`w-full text-left px-6 py-4 hover:bg-gray-50 transition flex items-center justify-between ${
+                                currency === curr.code ? 'bg-[#118C8C]/10 font-bold' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-4">
+                                <span className="text-2xl">{curr.symbol}</span>
+                                <div>
+                                  <p className="font-medium">{curr.name}</p>
+                                  <p className="text-xs text-gray-500">{curr.code}</p>
+                                </div>
+                              </div>
+                              {currency === curr.code && (
+                                <span className="text-[#118C8C] font-bold">Check</span>
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

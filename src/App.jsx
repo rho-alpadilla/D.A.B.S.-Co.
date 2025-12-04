@@ -6,7 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 // Providers (Firebase Auth, Cart, Store)
 import { AuthProvider, useAuth } from '@/lib/firebase';
 import { CartProvider } from '@/context/CartContext';
-import { StoreProvider } from '@/context/StoreContext';
+
 
 // Layout Components
 import Header from '@/components/Header';
@@ -59,7 +59,7 @@ const ProtectedAdminRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <StoreProvider>
+
         <CartProvider>
           <Router>
             <div className="min-h-screen flex flex-col bg-[#FAF8F1]">
@@ -110,7 +110,7 @@ function App() {
             </div>
           </Router>
         </CartProvider>
-      </StoreProvider>
+
     </AuthProvider>
   );
 }
