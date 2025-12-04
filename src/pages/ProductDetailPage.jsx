@@ -1,22 +1,14 @@
-// src/pages/ProductDetailPage.jsx ← FINAL: USD SHOWS CENTS (e.g., $8.00)
-import React, { useState, useEffect, useRef } from 'react';
+// src/pages/ProductDetailPage.jsx ← FINAL: LIVE CURRENCY API + DROPDOWN
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Helmet } from 'react-helmet';
 import { useParams, Link } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext'; // ← NEW: Global currency
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ShoppingBag, Edit, Save, X, Upload } from 'lucide-react';
-
-const PHP_RATE = 58;
-
-// Format: ₱12,000 ($207.59)
-const formatPrice = (phpPrice) => {
-  if (!phpPrice) return "₱0 ($0.00)";
-  const usd = (phpPrice / PHP_RATE).toFixed(2);  // ← NOW SHOWS CENTS!
-  return `₱${phpPrice.toLocaleString()} ($${usd})`;
-};
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -30,6 +22,8 @@ const ProductDetailPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.email.includes('admin');
   const { addToCart } = useCart();
+  const { currency, formatPrice } = useCurrency(); // ← LIVE CURRENCY FROM API
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -84,7 +78,7 @@ const ProductDetailPage = () => {
     try {
       await updateDoc(doc(db, "pricelists", id), {
         name: form.name.trim(),
-        price: Number(form.price),
+        price: Number(form.price), // ← ALWAYS PHP
         description: form.description.trim(),
         category: form.category,
         imageUrl: form.imageUrl,
@@ -191,7 +185,7 @@ const ProductDetailPage = () => {
                       required
                     />
                     <p className="text-lg text-gray-600">
-                      USD: ${(form.price ? (form.price / PHP_RATE).toFixed(2) : "0.00")}
+                      Current in {currency}: {formatPrice(product.price)}
                     </p>
                   </div>
                   <select
@@ -225,14 +219,14 @@ const ProductDetailPage = () => {
                 </>
               )}
 
-              {/* PRICE DISPLAY — PHP MAIN + USD WITH CENTS */}
+              {/* PRICE — LIVE FROM API */}
               <div className="py-6">
                 <span className="text-5xl font-bold text-[#F2BB16]">
                   {formatPrice(product.price)}
                 </span>
               </div>
 
-              {/* BUYER BUTTONS — HIDDEN FOR ADMIN */}
+              {/* BUYER BUTTONS */}
               {!isAdmin && !editing && (
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Button size="lg" onClick={() => addToCart(product)} className="bg-[#118C8C] hover:bg-[#0d7070] flex-1 font-semibold">

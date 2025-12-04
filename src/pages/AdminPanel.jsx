@@ -1,9 +1,10 @@
-// src/pages/AdminPanel.jsx ← FINAL & PERFECT (COPY-PASTE THIS)
+// src/pages/AdminPanel.jsx ← FINAL: LIVE CURRENCY API + FULL CONVERSATION
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
+import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
 import { auth, db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -27,17 +28,10 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-// PHP MAIN CURRENCY
-const PHP_TO_USD = 1 / 58;
-const formatPHP = (php) => {
-  if (!php) return "₱0 ($0.00)";
-  const usd = (php * PHP_TO_USD).toFixed(2);
-  return `₱${php.toLocaleString()} ($${usd})`;
-};
-
 const AdminPanel = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
   const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -132,7 +126,7 @@ const AdminPanel = () => {
   const chartData = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [{
-      label: 'Income (₱)',
+      label: 'Income',
       data: [69600, 87000, 104400, 127600, 162400, totalIncome || 0],
       borderColor: '#118C8C',
       backgroundColor: 'rgba(17, 140, 140, 0.1)',
@@ -158,6 +152,7 @@ const AdminPanel = () => {
 
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-7xl">
+          {/* Header */}
           <motion.div className="bg-white p-8 rounded-2xl shadow-lg mb-8 border-l-4 border-[#118C8C] flex justify-between items-center">
             <div>
               <div className="flex items-center gap-2 text-[#118C8C] font-bold"><Lock /> ADMIN PANEL</div>
@@ -196,7 +191,7 @@ const AdminPanel = () => {
                 </div>
                 <div className="bg-white p-8 rounded-xl shadow text-center">
                   <DollarSign className="mx-auto text-yellow-500 mb-4" size={48} />
-                  <p className="text-5xl font-bold">{formatPHP(totalIncome)}</p>
+                  <p className="text-5xl font-bold">{formatPrice(totalIncome)}</p>
                   <p className="text-gray-600">Total Income</p>
                 </div>
               </div>
@@ -234,7 +229,7 @@ const AdminPanel = () => {
                               ))}
                             </ul>
                           </td>
-                          <td className="p-4 font-bold">{formatPHP(order.total || 0)}</td>
+                          <td className="p-4 font-bold">{formatPrice(order.total || 0)}</td>
                           <td className="p-4">
                             <select
                               value={order.status || "pending"}
@@ -386,12 +381,12 @@ const AdminPanel = () => {
                 <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-12 rounded-3xl shadow-2xl text-center">
                   <TrendingUp size={80} className="mx-auto mb-6" />
                   <h3 className="text-4xl font-bold mb-4">Next Month Prediction</h3>
-                  <p className="text-7xl font-bold">{formatPHP(predictedIncome)}</p>
+                  <p className="text-7xl font-bold">{formatPrice(predictedIncome)}</p>
                   <p className="text-2xl mt-6 opacity-90">Based on recent growth trend</p>
                 </div>
 
                 <div className="bg-white p-10 rounded-3xl shadow-lg">
-                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8 text-center">Income Over Time (₱)</h3>
+                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8 text-center">Income Over Time</h3>
                   <Line data={chartData} options={{ responsive: true, plugins: { legend: { display: false } }}} />
                 </div>
               </div>

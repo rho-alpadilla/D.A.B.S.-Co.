@@ -1,4 +1,4 @@
-// src/pages/CartPage.jsx ← FINAL: PHP MAIN CURRENCY (NO MORE BUG!)
+// src/pages/CartPage.jsx ← FINAL: LIVE CURRENCY API + DROPDOWN
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -6,22 +6,16 @@ import { Trash2, ArrowRight, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
 import { useToast } from '@/components/ui/use-toast';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 
-// PHP IS MAIN CURRENCY — USD IS CALCULATED FROM PHP
-const PHP_TO_USD = 1 / 58;
-const formatPrice = (phpPrice) => {
-  if (!phpPrice) return "₱0 ($0.00)";
-  const usd = (phpPrice * PHP_TO_USD).toFixed(2);  // ← CENTS!
-  return `₱${phpPrice.toLocaleString()} ($${usd})`;
-};
-
 const CartPage = () => {
   const { cartItems, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
   const { user } = useAuth();
+  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
   const { toast } = useToast();
 
   const handleCheckout = async () => {
@@ -30,7 +24,7 @@ const CartPage = () => {
     try {
       await addDoc(collection(db, "orders"), {
         items: cartItems,
-        total: cartTotal,
+        total: cartTotal, // ← PHP total
         buyerEmail: user?.email || "guest@dabs.co",
         buyerName: user?.displayName || "Guest Buyer",
         status: "pending",
@@ -113,7 +107,7 @@ const CartPage = () => {
                           className="w-16 border rounded px-2 py-1 text-sm"
                         />
                       </div>
-                      {/* PHP MAIN + USD WITH CENTS — FIXED FOREVER */}
+                      {/* LIVE CURRENCY FROM API */}
                       <p className="font-bold text-[#118C8C]">
                         {formatPrice(item.price * item.quantity)}
                       </p>

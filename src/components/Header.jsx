@@ -1,10 +1,11 @@
-// src/components/Header.jsx
+// src/components/Header.jsx ← FINAL: NO MORE DROPDOWN CONFLICT
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ShoppingCart, LogOut, Settings } from 'lucide-react';
+import { Menu, X, ShoppingCart, LogOut, Settings, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -13,7 +14,8 @@ import { db } from '@/lib/firebase';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);   // ← NEW
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);   // ← NEW
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -22,8 +24,9 @@ const Header = () => {
   const user = authData?.user || null;
   const loading = authData?.loading || false;
   const { cartCount } = useCart();
+  const { currency, setCurrency, CURRENCIES } = useCurrency();
 
-  // Read admin role from Firestore
+  // Read admin role
   useEffect(() => {
     if (!user) {
       setIsAdmin(false);
@@ -56,7 +59,8 @@ const Header = () => {
 
   const handleLogout = async () => {
     await signOut(auth);
-    setIsDropdownOpen(false);
+    setIsCurrencyOpen(false);
+    setIsUserMenuOpen(false);
     setIsMenuOpen(false);
     navigate('/');
   };
@@ -78,7 +82,7 @@ const Header = () => {
                 key={link.path}
                 to={link.path}
                 className={`text-lg font-medium transition-colors relative ${
-                  isActive(link.path) ? 'text-[#118C8C]' : 'text-gray-700 hover:text-[#118C8C]'
+                  isActive(link.path) ? 'text-[#118C8C8C]' : 'text-gray-700 hover:text-[#118C8C]'
                 }`}
               >
                 {link.label}
@@ -95,6 +99,46 @@ const Header = () => {
 
             {/* Right Side */}
             <div className="flex items-center gap-6">
+              {/* Currency Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsCurrencyOpen(!isCurrencyOpen)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition"
+                >
+                  <Globe size={18} />
+                  <span className="font-medium">
+                    {CURRENCIES.find(c => c.code === currency)?.symbol} {currency}
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {isCurrencyOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50"
+                    >
+                      {CURRENCIES.map(curr => (
+                        <button
+                          key={curr.code}
+                          onClick={() => {
+                            setCurrency(curr.code);
+                            setIsCurrencyOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition flex items-center gap-3 ${
+                            currency === curr.code ? 'bg-[#118C8C]/10 font-bold' : ''
+                          }`}
+                        >
+                          <span className="text-xl">{curr.symbol}</span>
+                          <span>{curr.name}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               {/* Cart — hidden for admin */}
               {!isAdmin && (
                 <Link to="/cart" className="relative text-gray-700 hover:text-[#118C8C] transition">
@@ -111,7 +155,7 @@ const Header = () => {
               {user ? (
                 <div className="relative">
                   <button
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                     className="flex items-center gap-3 rounded-full hover:bg-gray-100 px-3 py-2 transition"
                   >
                     <div className="w-10 h-10 rounded-full bg-[#118C8C] flex items-center justify-center text-white font-bold text-lg">
@@ -124,15 +168,13 @@ const Header = () => {
                     )}
                   </button>
 
-                  {/* Dropdown */}
                   <AnimatePresence>
-                    {isDropdownOpen && (
+                    {isUserMenuOpen && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-[9999]"
-                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border border-gray-200 overflow-hidden z-[9999]"
                       >
                         <div className="p-4 bg-gradient-to-br from-[#118C8C]/5 to-transparent border-b border-gray-100">
                           <p className="font-semibold text-gray-900">{user.email}</p>
@@ -140,7 +182,7 @@ const Header = () => {
                         </div>
                         <Link
                           to={isAdmin ? '/admin-panel' : '/buyer-dashboard'}
-                          onClick={() => setIsDropdownOpen(false)}
+                          onClick={() => setIsUserMenuOpen(false)}
                           className="flex items-center gap-3 px-5 py-3 text-gray-700 hover:bg-gray-50 transition"
                         >
                           <Settings size={18} />
@@ -202,6 +244,22 @@ const Header = () => {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden mt-4 space-y-3 bg-white pb-4"
             >
+              {/* Currency in Mobile */}
+              <div className="px-4 py-3">
+                <p className="text-sm font-medium text-gray-600 mb-2">Currency</p>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full px-4 py-3 border rounded-lg bg-white"
+                >
+                  {CURRENCIES.map(curr => (
+                    <option key={curr.code} value={curr.code}>
+                      {curr.symbol} {curr.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {navLinks.map((link) => (
                 <Link
                   key={link.path}

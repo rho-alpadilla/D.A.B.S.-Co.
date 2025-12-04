@@ -1,4 +1,4 @@
-// src/pages/BuyerDashboard.jsx ← FINAL: ADMIN REPLIES SHOW AS "Admin"
+// src/pages/BuyerDashboard.jsx ← FINAL: LIVE CURRENCY + FULL CONVERSATION
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
 import { Button } from '@/components/ui/button';
 import { ShoppingBag, Package, Mail, LogOut, ArrowRight, Clock, CheckCircle, Truck, Send, X, Circle } from 'lucide-react';
 
@@ -14,6 +15,7 @@ const BuyerDashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { cartItems, cartCount } = useCart();
+  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
   const [orders, setOrders] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -83,7 +85,7 @@ const BuyerDashboard = () => {
         message: replyText,
         status: "unread",
         createdAt: serverTimestamp(),
-        isAdminReply: false  // ← helps identify buyer replies
+        isAdminReply: false
       });
 
       setReplyText("");
@@ -93,13 +95,9 @@ const BuyerDashboard = () => {
     }
   };
 
-  // FIXED: Correctly identify sender
   const getSenderName = (msg) => {
-    // If message has isAdminReply flag
     if (msg.isAdminReply === true) return "Admin";
     if (msg.isAdminReply === false) return "You";
-    
-    // Fallback: check if buyerEmail matches current user
     return msg.buyerEmail === user?.email ? "You" : "Admin";
   };
 
@@ -168,7 +166,10 @@ const BuyerDashboard = () => {
                       <p className="font-semibold">{item.name}</p>
                       <p className="text-sm text-gray-600">x{item.quantity}</p>
                     </div>
-                    <p className="font-bold text-[#118C8C]">${(item.price * item.quantity).toFixed(2)}</p>
+                    {/* LIVE CURRENCY */}
+                    <p className="font-bold text-[#118C8C]">
+                      {formatPrice(item.price * item.quantity)}
+                    </p>
                   </div>
                 ))}
                 {cartItems.length > 3 && (
@@ -217,7 +218,7 @@ const BuyerDashboard = () => {
                           {order.status || "Pending"}
                         </span>
                         <p className="font-bold text-2xl text-[#F2BB16] mt-2">
-                          ₱{(order.total || 0).toLocaleString()}
+                          {formatPrice(order.total || 0)}
                         </p>
                       </div>
                     </div>
@@ -279,7 +280,7 @@ const BuyerDashboard = () => {
         </div>
       </div>
 
-      {/* FULL CONVERSATION MODAL — FIXED */}
+      {/* FULL CONVERSATION MODAL */}
       {selectedConversation && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -308,7 +309,6 @@ const BuyerDashboard = () => {
                     </div>
                   ))}
 
-                {/* Reply Box */}
                 <div className="mt-8">
                   <textarea
                     value={replyText}

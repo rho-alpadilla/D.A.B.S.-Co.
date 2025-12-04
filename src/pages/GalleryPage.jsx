@@ -1,4 +1,4 @@
-// src/pages/GalleryPage.jsx ← FINAL: PHP MAIN + USD WITH CENTS
+// src/pages/GalleryPage.jsx ← FINAL: LIVE CURRENCY API + DROPDOWN
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -8,19 +8,14 @@ import { db } from '@/lib/firebase';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-// PHP MAIN CURRENCY — USD WITH CENTS
-const PHP_TO_USD = 1 / 58;
-const formatPrice = (phpPrice) => {
-  if (!phpPrice) return "₱0 ($0.00)";
-  const usd = (phpPrice * PHP_TO_USD).toFixed(2);  // ← SHOWS CENTS!
-  return `₱${phpPrice.toLocaleString()} ($${usd})`;
-};
+import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
 
 const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pricelists"), (snapshot) => {
@@ -106,7 +101,7 @@ const GalleryPage = () => {
                           <img
                             src={item.imageUrl}
                             alt={item.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            className="w-full h-full object-cover group-hover:group-hover:scale-110 transition-transform duration-500"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -125,7 +120,7 @@ const GalleryPage = () => {
                       <div className="p-6">
                         <div className="flex justify-between items-start mb-3">
                           <h3 className="text-xl font-bold text-[#118C8C] line-clamp-2">{item.name}</h3>
-                          {/* PHP MAIN + USD WITH CENTS */}
+                          {/* LIVE CURRENCY FROM API */}
                           <span className="text-2xl font-bold text-[#F2BB16]">
                             {formatPrice(item.price)}
                           </span>

@@ -1,14 +1,14 @@
-// src/pages/PricelistsPage.jsx ← FINAL VERSION: ADD NEW PRODUCT + NO ERRORS
-import React, { useState, useEffect, useRef } from 'react';  // ← Added useRef here
+// src/pages/PricelistsPage.jsx ← FINAL: LIVE CURRENCY API + ADMIN EDITS PHP
+import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload, Save, X } from 'lucide-react';
+import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -20,6 +20,7 @@ const CATEGORIES = [
 const PricelistsPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.email.includes('admin');
+  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
 
   const [pricing, setPricing] = useState({
     needlepoint: [
@@ -70,7 +71,7 @@ const PricelistsPage = () => {
     return () => unsub();
   }, []);
 
-  // Image upload (Cloudinary)
+  // Image upload
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -121,7 +122,7 @@ const PricelistsPage = () => {
     }
   };
 
-  // Edit price (inline)
+  // Edit price
   const startEdit = (section, index, field, value) => {
     setEditing({ section, index, field });
     setTempValue(value);
@@ -150,7 +151,6 @@ const PricelistsPage = () => {
     setTempValue('');
   };
 
-  // Save all pricing
   const savePricing = async () => {
     try {
       await updateDoc(doc(db, "settings", "pricelists"), { data: pricing });
@@ -161,12 +161,6 @@ const PricelistsPage = () => {
     }
   };
 
-  const formatPrice = (php) => {
-    if (php === 0) return "Quote";
-    const usd = Math.round(php * (1 / 58));
-    return `₱${php.toLocaleString()} ($${usd})`;
-  };
-
   return (
     <>
       <Helmet><title>Pricelists - D.A.B.S. Co.</title></Helmet>
@@ -174,7 +168,7 @@ const PricelistsPage = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-4">Our Pricelists</h1>
-          <p className="text-lg text-gray-600">Prices in Philippine Peso (₱) • USD in parentheses</p>
+          <p className="text-lg text-gray-600">Change price thru •(₱)</p>
         </div>
 
         {/* ADMIN SAVE BUTTON */}
@@ -398,7 +392,7 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
-        {/* ADD NEW PRODUCT — BELOW CANVAS */}
+        {/* ADD NEW PRODUCT */}
         {isAdmin && (
           <div className="text-center my-20">
             <Button

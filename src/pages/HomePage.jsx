@@ -1,4 +1,4 @@
-// src/pages/HomePage.jsx ← FINAL: CTA HIDDEN FOR ADMIN
+// src/pages/HomePage.jsx ← FINAL: LIVE CURRENCY + CTA HIDDEN FOR ADMIN
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/lib/firebase';  // ← Added to detect admin
+import { useAuth } from '@/lib/firebase';
+import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
 
 const HomePage = () => {
   const { user } = useAuth();
-  const isAdmin = user?.email.includes('admin');  // ← Detect admin
+  const isAdmin = user?.email.includes('admin');
+  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
 
   const [products, setProducts] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -85,7 +87,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* FEATURED CAROUSEL */}
+      {/* FEATURED CAROUSEL — LIVE CURRENCY */}
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-6">
           <h2 className="text-4xl md:text-5xl font-bold text-center text-[#118C8C] mb-16">
@@ -126,8 +128,9 @@ const HomePage = () => {
                       </p>
 
                       <div className="flex items-center justify-between">
+                        {/* LIVE CURRENCY FROM API */}
                         <span className="text-4xl md:text-5xl font-bold text-[#F2BB16]">
-                          ${p.price}
+                          {formatPrice(p.price)}
                         </span>
 
                         <Link to={`/product/${p.id}`}>
