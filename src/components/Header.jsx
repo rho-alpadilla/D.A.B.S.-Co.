@@ -174,7 +174,7 @@ const Header = () => {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border border-gray-200 overflow-hidden z-[9999]"
+                        className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-[9999]"
                       >
                         <div className="p-4 bg-gradient-to-br from-[#118C8C]/5 to-transparent border-b border-gray-100">
                           <p className="font-semibold text-gray-900">{user.email}</p>
