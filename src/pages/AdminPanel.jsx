@@ -1,9 +1,9 @@
-// src/pages/AdminPanel.jsx ← FINAL & COMPLETE: STOCK SUBTRACTED + EVERYTHING
+// src/pages/AdminPanel.jsx ← FINAL: CANCELLATION + NO ERRORS
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from  '@/lib/firebase';
+import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
 import { auth, db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
@@ -23,7 +23,8 @@ import {
 } from 'chart.js';
 import {
   Package, ShoppingCart, TrendingUp, DollarSign,
-  LogOut, Lock, CheckCircle, Mail, Circle, Send, X
+  LogOut, Lock, CheckCircle, Mail, Circle, Send, X, 
+  AlertCircle, Truck, Clock
 } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -81,12 +82,51 @@ const AdminPanel = () => {
     return () => { unsubRole(); unsubProducts(); unsubOrders(); unsubMessages(); };
   }, [user]);
 
-  // STOCK SUBTRACTED WHEN ORDER IS PROCESSED
+  // RETURN STOCK + UPDATE STATUS
+  const handleCancellation = async (orderId, action) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    try {
+      if (action === "approve") {
+        for (const item of order.items || []) {
+          const productRef = doc(db, "pricelists", item.id);
+          const productSnap = await getDoc(productRef);
+          if (productSnap.exists()) {
+            const data = productSnap.data();
+            const newStock = (data.stockQuantity || 0) + item.quantity;
+            await updateDoc(productRef, {
+              stockQuantity: newStock,
+              inStock: true
+            });
+          }
+        }
+
+        await updateDoc(doc(db, "orders", orderId), {
+          status: "Cancelled – Pending Refund",
+          cancelledAt: new Date(),
+          cancelledBy: "admin"
+        });
+        alert("Cancellation approved! Stock returned.");
+      }
+
+      if (action === "refunded") {
+        await updateDoc(doc(db, "orders", orderId), {
+          status: "Refunded",
+          refundedAt: new Date()
+        });
+        alert("Order marked as Refunded");
+      }
+    } catch (err) {
+      alert("Failed to process cancellation");
+      console.error(err);
+    }
+  };
+
   const updateOrderStatus = async (orderId, newStatus) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    // Only act when status becomes "processing" or "completed"
     if (newStatus === "processing" || newStatus === "completed") {
       const items = order.items || [];
 
@@ -101,7 +141,7 @@ const AdminPanel = () => {
             const newStock = currentStock - item.quantity;
 
             if (newStock < 0) {
-              alert(`Not enough stock for "${item.name}" — only ${currentStock} available`);
+              alert(`Not enough stock for "${item.name}"!`);
               return;
             }
 
@@ -113,19 +153,32 @@ const AdminPanel = () => {
         }
 
         await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-        alert(`Order #${orderId.slice(0,8)} marked as ${newStatus}! Stock updated.`);
+        alert(`Order marked as ${newStatus}! Stock updated.`);
       } catch (err) {
-        alert("Failed to update stock or order");
-        console.error(err);
+        alert("Failed to update");
       }
     } else {
-      // For pending/cancelled — just update status
-      try {
-        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-      } catch (err) {
-        alert("Failed to update status");
-      }
+      await updateDoc(doc(db, "orders", orderId), { status: newStatus });
     }
+  };
+
+  const getStatusBadge = (status) => {
+    const map = {
+      "pending": { text: "Pending", color: "bg-yellow-100 text-yellow-700", icon: <Clock size={16} /> },
+      "processing": { text: "Processing", color: "bg-blue-100 text-blue-700", icon: <Truck size={16} /> },
+      "completed": { text: "Completed", color: "bg-green-100 text-green-700", icon: <CheckCircle size={16} /> },
+      "Cancellation Requested": { text: "Cancellation Requested", color: "bg-orange-100 text-orange-700", icon: <AlertCircle size={16} /> },
+      "Cancelled – Pending Refund": { text: "Pending Refund", color: "bg-red-100 text-red-700", icon: <AlertCircle size={16} /> },
+      "Refunded": { text: "Refunded", color: "bg-purple-100 text-purple-700", icon: <CheckCircle size={16} /> },
+      "cancelled": { text: "Cancelled", color: "bg-gray-100 text-gray-700", icon: <X size={16} /> }
+    };
+
+    const item = map[status] || map.pending;
+    return (
+      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${item.color}`}>
+        {item.icon} {item.text}
+      </span>
+    );
   };
 
   const openConversation = (convo) => {
@@ -192,7 +245,7 @@ const AdminPanel = () => {
         <div className="container mx-auto px-4 max-w-7xl">
           <motion.div className="bg-white p-8 rounded-2xl shadow-lg mb-8 border-l-4 border-[#118C8C] flex justify-between items-center">
             <div>
-              <div className="flex items-center gap-2 text-[#118C8C] font-bold"><Lock /> ADMIN PANEL</div>
+              <div className="flex items-center gap-2 text-[#118C8C] font-bold">ADMIN PANEL</div>
               <h1 className="text-3xl font-bold">Store Management</h1>
             </div>
             <Button variant="outline" onClick={() => signOut(auth).then(() => navigate("/"))} className="text-red-600">
@@ -234,12 +287,12 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* ORDERS TAB — STOCK SUBTRACTED */}
+            {/* ORDERS TAB — FULL CANCELLATION FLOW */}
             <TabsContent value="orders">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
                   <h2 className="text-2xl font-bold text-[#118C8C]">Customer Orders</h2>
-                  <p className="text-gray-600">Manage and update order status</p>
+                  <p className="text-gray-600">Manage orders and cancellations</p>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -251,7 +304,7 @@ const AdminPanel = () => {
                         <th className="p-4 text-left">Items</th>
                         <th className="p-4 text-left">Total</th>
                         <th className="p-4 text-left">Status</th>
-                        <th className="p-4 text-left">Date</th>
+                        <th className="p-4 text-left">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -268,19 +321,43 @@ const AdminPanel = () => {
                           </td>
                           <td className="p-4 font-bold">{formatPrice(order.total || 0)}</td>
                           <td className="p-4">
-                            <select
-                              value={order.status || "pending"}
-                              onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                              className="px-4 py-2 border rounded-lg bg-white text-sm"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="processing">Processing</option>
-                              <option value="completed">Completed</option>
-                              <option value="cancelled">Cancelled</option>
-                            </select>
+                            {getStatusBadge(order.status)}
                           </td>
-                          <td className="p-4 text-sm text-gray-600">
-                            {order.createdAt?.toDate?.().toLocaleDateString() || "N/A"}
+                          <td className="p-4">
+                            <div className="flex flex-wrap gap-2">
+                              {["pending", "processing", "completed", "cancelled"].includes(order.status || "") && (
+                                <select
+                                  value={order.status || "pending"}
+                                  onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                  className="px-3 py-1 border rounded text-sm"
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="processing">Processing</option>
+                                  <option value="completed">Completed</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              )}
+
+                              {order.status === "Cancellation Requested" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleCancellation(order.id, "approve")}
+                                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                                >
+                                  Approve Cancellation
+                                </Button>
+                              )}
+
+                              {order.status === "Cancelled – Pending Refund" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleCancellation(order.id, "refunded")}
+                                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                                >
+                                  Mark as Refunded
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -297,7 +374,7 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* MESSAGES TAB */}
+           {/* MESSAGES TAB */}
             <TabsContent value="messages">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">

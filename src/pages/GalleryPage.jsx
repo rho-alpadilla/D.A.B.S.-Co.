@@ -1,12 +1,12 @@
-// src/pages/GalleryPage.jsx ← FINAL: SHOW STOCK + LUXURY
+// src/pages/GalleryPage.jsx ← FINAL: SHOWS AVERAGE RATING
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Eye } from 'lucide-react';
+import { ShoppingBag, Eye, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
 
@@ -14,21 +14,31 @@ const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const { formatPrice } = useCurrency();
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "pricelists"), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
+    const unsub = onSnapshot(collection(db, "pricelists"), async (snapshot) => {
+      const productsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         inStock: doc.data().inStock !== false,
         stockQuantity: doc.data().stockQuantity || 0
       }));
-      setProducts(data);
-      setLoading(false);
-    }, (err) => {
-      console.error("Error loading products:", err);
+
+      // Load average ratings
+      const enriched = await Promise.all(
+        productsData.map(async (product) => {
+          const q = query(collection(db, "reviews"), where("productId", "==", product.id));
+          const snap = await getDocs(q);
+          const reviews = snap.docs.map(d => d.data());
+          const avg = reviews.length > 0 
+            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
+            : 0;
+          return { ...product, averageRating: Number(avg.toFixed(1)), reviewCount: reviews.length };
+        })
+      );
+
+      setProducts(enriched);
       setLoading(false);
     });
 
@@ -47,6 +57,16 @@ const GalleryPage = () => {
     return <span className="text-green-600 font-bold">{product.stockQuantity} available</span>;
   };
 
+  const renderStars = (rating) => {
+    return (
+      <div className="flex gap-1">
+        {[1,2,3,4,5].map(i => (
+          <Star key={i} size={14} className={i <= rating ? "text-yellow-500 fill-current" : "text-gray-300"} />
+        ))}
+      </div>
+    );
+  };
+
   const categories = [
     { id: 'all', label: 'All Items' },
     { id: 'Hand-painted needlepoint canvas', label: 'Needlepoint Canvas' },
@@ -57,18 +77,10 @@ const GalleryPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Gallery - D.A.B.S. Co.</title>
-        <meta name="description" content="Browse our handcrafted needlepoint, crochet, portraits, and canvas paintings." />
-      </Helmet>
+      <Helmet><title>Gallery - D.A.B.S. Co.</title></Helmet>
 
       <div className="container mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-12"
-        >
+        <motion.div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-4">Our Gallery</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Every piece tells a story. Handmade with love, just for you.
@@ -78,11 +90,7 @@ const GalleryPage = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-12 bg-white shadow-sm">
             {categories.map(cat => (
-              <TabsTrigger
-                key={cat.id}
-                value={cat.id}
-                className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white font-medium"
-              >
+              <TabsTrigger key={cat.id} value={cat.id} className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white font-medium">
                 {cat.label}
               </TabsTrigger>
             ))}
@@ -93,7 +101,6 @@ const GalleryPage = () => {
               {loading ? (
                 <div className="text-center py-20">
                   <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="mt-6 text-gray-600">Loading your beautiful creations...</p>
                 </div>
               ) : getCategoryItems(cat.id).length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
@@ -107,11 +114,7 @@ const GalleryPage = () => {
                     >
                       <div className="aspect-square overflow-hidden relative bg-gray-100">
                         {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          />
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gray-200">
                             <ShoppingBag size={48} className="text-gray-400" />
@@ -120,7 +123,7 @@ const GalleryPage = () => {
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Link to={`/product/${item.id}`}>
                             <Button variant="secondary" size="lg" className="bg-white text-gray-900 hover:bg-gray-100">
-                              View Details
+                              <Eye size={20} className="mr-2" /> View Details
                             </Button>
                           </Link>
                         </div>
@@ -128,27 +131,33 @@ const GalleryPage = () => {
 
                       <div className="p-6">
                         <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-xl font-bold text-[#118C8C] line-clamp-2">{item.name}</h3>
+                          <h3 className="text-xl font-bold text-[#118C] line-clamp-2">{item.name}</h3>
                           <span className="text-2xl font-bold text-[#F2BB16]">
                             {formatPrice(item.price)}
                           </span>
                         </div>
 
-                        {/* STOCK STATUS — FOR EVERYONE */}
-                        <div className="mb-4">
-                          <p className="text-sm font-medium">
+                        {/* RATING + STOCK */}
+                        <div className="flex items-center justify-between mb-3">
+                          {item.reviewCount > 0 ? (
+                            <div className="flex items-center gap-2">
+                              {renderStars(item.averageRating)}
+                              <span className="text-sm text-gray-600">({item.reviewCount})</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-500">No reviews yet</span>
+                          )}
+                          <div className="text-sm">
                             {getStockText(item)}
-                          </p>
+                          </div>
                         </div>
 
-                        <p className="text-gray-600 text-sm line-clamp-2 mb-4">{item.description}</p>
-                        <div className="flex gap-3">
-                          <Link to={`/product/${item.id}`} className="flex-1">
-                            <Button className="w-full bg-[#118C8C] hover:bg-[#0d7070]">
-                              View Product
-                            </Button>
-                          </Link>
-                        </div>
+                        <p className="text-gray-600 text-sm line-clamp-2 mb-2 mb-4">{item.description}</p>
+                        <Link to={`/product/${item.id}`} className="block">
+                          <Button className="w-full bg-[#118C8C] hover:bg-[#0d7070]">
+                            View Product
+                          </Button>
+                        </Link>
                       </div>
                     </motion.div>
                   ))}
@@ -157,7 +166,6 @@ const GalleryPage = () => {
                 <div className="text-center py-20">
                   <ShoppingBag size={80} className="mx-auto text-gray-300 mb-6" />
                   <p className="text-xl text-gray-500">No items in this category yet.</p>
-                  <p className="text-gray-400 mt-2">Check back soon — new pieces are always in the works!</p>
                 </div>
               )}
             </TabsContent>
