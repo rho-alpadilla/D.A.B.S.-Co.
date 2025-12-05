@@ -1,4 +1,4 @@
-// src/pages/AdminPanel.jsx ← FINAL: totalSold INCREASES ON COMPLETED ORDER
+// src/pages/AdminPanel.jsx ← FINAL: PRO ANALYTICS + TOP/LEAST SOLD + REVENUE
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -13,24 +13,26 @@ import {
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ArcElement
 } from 'chart.js';
 import {
   Package, ShoppingCart, TrendingUp, DollarSign,
   LogOut, Lock, CheckCircle, Mail, Circle, Send, X, 
-  AlertCircle, Truck, Clock
+  AlertCircle, Truck, Clock, Award, Zap
 } from "lucide-react";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -42,6 +44,9 @@ const AdminPanel = () => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [replyText, setReplyText] = useState("");
+
+  // ANALYTICS DATA
+  const [productStats, setProductStats] = useState([]);
 
   useEffect(() => {
     if (!user) return;
@@ -63,7 +68,6 @@ const AdminPanel = () => {
       query(collection(db, "messages"), orderBy("createdAt", "desc")),
       snap => {
         const allMessages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
         const grouped = {};
         allMessages.forEach(msg => {
           const key = msg.subject || "No Subject";
@@ -73,11 +77,9 @@ const AdminPanel = () => {
           grouped[key].messages.push(msg);
           if (msg.createdAt > grouped[key].latestDate) grouped[key].latestDate = msg.createdAt;
         });
-
         const convos = Object.values(grouped).sort((a, b) =>
           (b.latestDate?.toDate?.() || 0) - (a.latestDate?.toDate?.() || 0)
         );
-
         setConversations(convos);
       }
     );
@@ -85,27 +87,55 @@ const AdminPanel = () => {
     return () => { unsubRole(); unsubProducts(); unsubOrders(); unsubMessages(); };
   }, [user]);
 
-  // RETURN STOCK + UPDATE STATUS
+  // === ANALYTICS: CALCULATE PRODUCT STATS ===
+  useEffect(() => {
+    if (orders.length === 0 || products.length === 0) return;
+
+    const statsMap = {};
+
+    products.forEach(p => {
+      statsMap[p.id] = {
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        totalSold: p.totalSold || 0,
+        revenue: 0,
+        imageUrl: p.imageUrl
+      };
+    });
+
+    // Process completed orders only
+    orders
+      .filter(o => o.status === "completed")
+      .forEach(order => {
+        order.items?.forEach(item => {
+          if (statsMap[item.id]) {
+            statsMap[item.id].revenue += item.price * item.quantity;
+       }});
+      });
+
+    const statsArray = Object.values(statsMap)
+      .sort((a, b) => b.totalSold - a.totalSold);
+
+    setProductStats(statsArray);
+  }, [orders, products]);
+
+  // === ORDER STATUS LOGIC (unchanged) ===
   const handleCancellation = async (orderId, action) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
     try {
       if (action === "approve") {
-        // Return stock
         for (const item of order.items || []) {
           const productRef = doc(db, "pricelists", item.id);
           const productSnap = await getDoc(productRef);
           if (productSnap.exists()) {
             const data = productSnap.data();
             const newStock = (data.stockQuantity || 0) + item.quantity;
-            await updateDoc(productRef, {
-              stockQuantity: newStock,
-              inStock: true
-            });
+            await updateDoc(productRef, { stockQuantity: newStock, inStock: true });
           }
         }
-
         await updateDoc(doc(db, "orders", orderId), {
           status: "Cancelled – Pending Refund",
           cancelledAt: new Date(),
@@ -115,10 +145,7 @@ const AdminPanel = () => {
       }
 
       if (action === "refunded") {
-        await updateDoc(doc(db, "orders", orderId), {
-          status: "Refunded",
-          refundedAt: new Date()
-        });
+        await updateDoc(doc(db, "orders", orderId), { status: "Refunded", refundedAt: new Date() });
         alert("Order marked as Refunded");
       }
     } catch (err) {
@@ -127,44 +154,32 @@ const AdminPanel = () => {
     }
   };
 
-  // MAIN STATUS CHANGE — NOW INCREMENTS totalSold ON "completed"
   const updateOrderStatus = async (orderId, newStatus) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
     try {
-      // Only subtract stock & increment totalSold when becoming "completed"
       if (newStatus === "completed") {
-        const items = order.items || [];
-
-        const promises = items.map(async (item) => {
+        const promises = (order.items || []).map(async (item) => {
           const productRef = doc(db, "pricelists", item.id);
           const productSnap = await getDoc(productRef);
-
           if (productSnap.exists()) {
             const data = productSnap.data();
             const currentStock = data.stockQuantity || 0;
             const newStock = currentStock - item.quantity;
-
-            if (newStock < 0) {
-              throw new Error(`Not enough stock for "${item.name}"`);
-            }
-
-            // Subtract stock + increment totalSold
+            if (newStock < 0) throw new Error(`Not enough stock for "${item.name}"`);
             await updateDoc(productRef, {
               stockQuantity: newStock,
               inStock: newStock > 0,
-              totalSold: increment(item.quantity)  // THIS MAKES TOP SELLERS WORK!
+              totalSold: increment(item.quantity)
             });
           }
         });
-
         await Promise.all(promises);
       }
 
-      // Update order status
       await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-      alert(`Order #${orderId.slice(0,8)} marked as ${newStatus}!`);
+      alert(`Order marked as ${newStatus}!`);
     } catch (err) {
       alert(err.message || "Failed to update order");
       console.error(err);
@@ -181,57 +196,25 @@ const AdminPanel = () => {
       "Refunded": { text: "Refunded", color: "bg-purple-100 text-purple-700", icon: <CheckCircle size={16} /> },
       "cancelled": { text: "Cancelled", color: "bg-gray-100 text-gray-700", icon: <X size={16} /> }
     };
-
     const item = map[status] || map.pending;
-    return (
-      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${item.color}`}>
-        {item.icon} {item.text}
-      </span>
-    );
+    return <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${item.color}`}>{item.icon} {item.text}</span>;
   };
 
-  const openConversation = (convo) => {
-    setSelectedConversation(convo);
-    setReplyText("");
-  };
+  // === BASIC STATS ===
+  const totalIncome = orders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalOrders = orders.filter(o => o.status === "completed").length;
+  orders.length;
+  const avgOrderValue = totalOrders > 0 ? totalIncome / totalOrders : 0;
 
-  const sendReply = async () => {
-    if (!replyText.trim() || !selectedConversation) return;
-
-    try {
-      await addDoc(collection(db, "messages"), {
-        buyerEmail: selectedConversation.buyerEmail,
-        buyerName: selectedConversation.buyerName,
-        subject: selectedConversation.subject,
-        message: replyText,
-        status: "unread",
-        createdAt: serverTimestamp(),
-        isAdminReply: true
-      });
-
-      setReplyText("");
-      alert("Reply sent!");
-      setSelectedConversation(null);
-    } catch (err) {
-      alert("Failed to send reply");
-    }
-  };
-
-  const totalIncome = orders
-    .filter(o => o.status === "completed")
-    .reduce((sum, o) => sum + (o.total || 0), 0);
-
-  const predictedIncome = totalIncome > 0 ? Math.round(totalIncome * 1.15) : 0;
-
-  const chartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  // === CHARTS ===
+  const revenueChartData = {
+    labels: productStats.slice(0, 10).map(p => p.name.length > 15 ? p.name.substring(0,15)+"..." : p.name),
     datasets: [{
-      label: 'Income',
-      data: [69600, 87000, 104400, 127600, 162400, totalIncome || 0],
+      label: 'Revenue',
+      data: productStats.slice(0, 10).map(p => p.revenue),
+      backgroundColor: 'rgba(17, 140, 140, 0.8)',
       borderColor: '#118C8C',
-      backgroundColor: 'rgba(17, 140, 140, 0.1)',
-      tension: 0.4,
-      fill: true
+      borderWidth: 2
     }]
   };
 
@@ -497,19 +480,90 @@ const AdminPanel = () => {
               </div>
             )}
 
-            {/* ANALYTICS TAB */}
+            {/* ANALYTICS TAB — NOW INSANE */}
             <TabsContent value="analytics">
-              <div className="space-y-10">
+              <div className="space-y-12">
+
+                {/* SUMMARY CARDS */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-gradient-to-br from-[#118C8C] to-[#0d7070] text-white p-8 rounded-2xl shadow-xl">
+                    <DollarSign size={48} className="mb-4" />
+                    <p className="text-4xl font-bold">{formatPrice(totalIncome)}</p>
+                    <p className="text-lg opacity-90">Total Revenue</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-600 to-purple-800 text-white p-8 rounded-2xl shadow-xl">
+                    <ShoppingCart size={48} className="mb-4" />
+                    <p className="text-4xl font-bold">{totalOrders}</p>
+                    <p className="text-lg opacity-90">Total Orders</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-8 rounded-2xl shadow-xl">
+                    <TrendingUp size={48} className="mb-4" />
+                    <p className="text-4xl font-bold">{formatPrice(avgOrderValue.toFixed(0))}</p>
+                    <p className="text-lg opacity-90">Avg Order Value</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-pink-500 to-rose-600 text-white p-8 rounded-2xl shadow-xl">
+                    <Award size={48} className="mb-4" />
+                    <p className="text-4xl font-bold">{productStats[0]?.totalSold || 0}</p>
+                    <p className="text-lg opacity-90">Best Seller Units</p>
+                  </div>
+                </div>
+
+                {/* TOP 10 BEST SELLERS */}
+                <div className="bg-white rounded-3xl shadow-xl p-8">
+                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8 flex items-center gap-3">
+                    <Award className="text-yellow-500" /> Top 10 Best Sellers
+                  </h3>
+                  <div className="space-y-4">
+                    {productStats.slice(0, 10).map((p, i) => (
+                      <div key={p.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
+                        <div className="flex items-center gap-4">
+                          <span className="text-2xl font-bold text-gray-400 w-8">#{i+1}</span>
+                          <div className="w-16 h-16 rounded-lg overflow-hidden">
+                            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <div className="bg-gray-200 w-full h-full" />}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-lg">{p.name}</p>
+                            <p className="text-sm text-gray-600">{p.totalSold} units • {formatPrice(p.revenue)} revenue</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-[#F2BB16]">{formatPrice(p.price)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* LEAST 10 SOLD */}
+                <div className="bg-white rounded-3xl shadow-xl p-8">
+                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8">Least Sold Products</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {productStats.slice(-10).reverse().map((p, i) => (
+                      <div key={p.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                        <div className="w-12 h-12 rounded overflow-hidden">
+                          {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <div className="bg-gray-200 w-full h-full" />}
+                        </div>
+                        <div>
+                          <p className="font-medium">{p.name}</p>
+                          <p className="text-sm text-gray-600">{p.totalSold} sold • Stock: {p.stockQuantity || 0}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* REVENUE BY PRODUCT CHART */}
+                <div className="bg-white rounded-3xl shadow-xl p-8">
+                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8">Revenue by Product (Top 10)</h3>
+                  <Bar data={revenueChartData} options={{ responsive: true, plugins: { legend: { display: false }}}} />
+                </div>
+
+                {/* INCOME PREDICTION */}
                 <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-12 rounded-3xl shadow-2xl text-center">
                   <TrendingUp size={80} className="mx-auto mb-6" />
                   <h3 className="text-4xl font-bold mb-4">Next Month Prediction</h3>
-                  <p className="text-7xl font-bold">{formatPrice(predictedIncome)}</p>
-                  <p className="text-2xl mt-6 opacity-90">Based on recent growth trend</p>
-                </div>
-
-                <div className="bg-white p-10 rounded-3xl shadow-lg">
-                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8 text-center">Income Over Time</h3>
-                  <Line data={chartData} options={{ responsive: true, plugins: { legend: { display: false } }}} />
+                  <p className="text-7xl font-bold">{formatPrice(Math.round(totalIncome * 1.15))}</p>
+                  <p className="text-2xl mt-6 opacity-90">+15% growth estimate</p>
                 </div>
               </div>
             </TabsContent>
