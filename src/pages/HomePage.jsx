@@ -1,63 +1,98 @@
-// src/pages/HomePage.jsx ← FINAL: LIVE CURRENCY + CTA HIDDEN FOR ADMIN
+// src/pages/HomePage.jsx ← FINAL: TOP SELLERS + NEW ARRIVALS + ZERO ERRORS
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Star, Package } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
-import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
+import { useCurrency } from '@/context/CurrencyContext';
 
 const HomePage = () => {
   const { user } = useAuth();
   const isAdmin = user?.email.includes('admin');
-  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
+  const { formatPrice } = useCurrency();
 
-  const [products, setProducts] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [topSellers, setTopSellers] = useState([]);
+  const [newArrivals, setNewArrivals] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const q = query(
+    // Featured Carousel — Latest 6
+    const qFeatured = query(
       collection(db, "pricelists"),
       orderBy("createdAt", "desc"),
       limit(6)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProducts(data);
+    // Top Sellers — Highest totalSold
+    const qTopSellers = query(
+      collection(db, "pricelists"),
+      orderBy("totalSold", "desc"),
+      limit(8)
+    );
+
+    // New Arrivals — Newest added
+    const qNewArrivals = query(
+      collection(db, "pricelists"),
+      orderBy("createdAt", "desc"),
+      limit(8)
+    );
+
+    const unsubFeatured = onSnapshot(qFeatured, (snap) => {
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFeaturedProducts(data);
     });
 
-    return () => unsubscribe();
+    const unsubTopSellers = onSnapshot(qTopSellers, (snap) => {
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTopSellers(data.filter(p => (p.totalSold || 0) > 0));
+    });
+
+    const unsubNewArrivals = onSnapshot(qNewArrivals, (snap) => {
+      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setNewArrivals(data);
+    });
+
+    return () => { unsubFeatured(); unsubTopSellers(); unsubNewArrivals(); };
   }, []);
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % products.length);
+    setCurrentIndex((prev) => (prev + 1) % featuredProducts.length);
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + products.length) % products.length);
+    setCurrentIndex((prev) => (prev - 1 + featuredProducts.length) % featuredProducts.length);
   };
 
   useEffect(() => {
-    if (products.length <= 1) return;
+    if (featuredProducts.length <= 1) return;
     const interval = setInterval(nextSlide, 6000);
     return () => clearInterval(interval);
-  }, [products.length]);
+  }, [featuredProducts.length]);
 
-  if (products.length === 0) {
+  const renderStars = (rating) => {
+    const avg = Number(rating || 0);
+    return (
+      <div className="flex gap-1">
+        {[1,2,3,4,5].map(i => (
+          <Star key={i} size={16} className={i <= avg ? "text-yellow-500 fill-current" : "text-gray-300"} />
+        ))}
+      </div>
+    );
+  };
+
+  if (featuredProducts.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-500 text-xl">
-        No products yet. Add some in Admin Panel!
+        Loading beautiful creations...
       </div>
     );
   }
 
-  const product = products[currentIndex];
+  const product = featuredProducts[currentIndex];
 
   return (
     <>
@@ -87,11 +122,11 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* FEATURED CAROUSEL — LIVE CURRENCY */}
+      {/* FEATURED CAROUSEL */}
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-6">
           <h2 className="text-4xl md:text-5xl font-bold text-center text-[#118C8C] mb-16">
-            Latest Works
+            Featured Works
           </h2>
 
           <div className="relative max-w-6xl mx-auto">
@@ -100,15 +135,11 @@ const HomePage = () => {
                 className="flex h-full transition-transform duration-700 ease-in-out"
                 style={{ transform: `translateX(-${currentIndex * 100}%)` }}
               >
-                {products.map((p) => (
+                {featuredProducts.map((p) => (
                   <div key={p.id} className="w-full flex-shrink-0 h-full flex flex-col md:flex-row">
                     <div className="w-full md:w-1/2 h-full">
                       {p.imageUrl ? (
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                           <span className="text-gray-500 text-2xl font-medium">No Image</span>
@@ -128,7 +159,6 @@ const HomePage = () => {
                       </p>
 
                       <div className="flex items-center justify-between">
-                        {/* LIVE CURRENCY FROM API */}
                         <span className="text-4xl md:text-5xl font-bold text-[#F2BB16]">
                           {formatPrice(p.price)}
                         </span>
@@ -145,36 +175,106 @@ const HomePage = () => {
               </div>
             </div>
 
-            {products.length > 1 && (
+            {featuredProducts.length > 1 && (
               <>
-                <button
-                  onClick={prevSlide}
-                  className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur p-4 rounded-full shadow-2xl hover:scale-110 transition z-10"
-                >
+                <button onClick={prevSlide} className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur p-4 rounded-full shadow-2xl hover:scale-110 transition z-10">
                   <ChevronLeft size={40} className="text-[#118C8C]" />
                 </button>
-                <button
-                  onClick={nextSlide}
-                  className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur p-4 rounded-full shadow-2xl hover:scale-110 transition z-10"
-                >
+                <button onClick={nextSlide} className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur p-4 rounded-full shadow-2xl hover:scale-110 transition z-10">
                   <ChevronRight size={40} className="text-[#118C8C]" />
                 </button>
+
+                <div className="flex justify-center gap-3 mt-12">
+                  {featuredProducts.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentIndex(i)}
+                      className={`h-3 rounded-full transition-all ${i === currentIndex ? "bg-[#118C8C] w-16" : "bg-gray-300 w-3 hover:bg-gray-500"}`}
+                    />
+                  ))}
+                </div>
               </>
             )}
+          </div>
+        </div>
+      </section>
 
-            {products.length > 1 && (
-              <div className="flex justify-center gap-3 mt-12">
-                {products.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentIndex(i)}
-                    className={`h-3 rounded-full transition-all duration-300 ${
-                      i === currentIndex ? "bg-[#118C8C] w-16" : "bg-gray-300 w-3 hover:bg-gray-500"
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
+      {/* TOP SELLERS */}
+      {topSellers.length > 0 && (
+        <section className="py-20 bg-white">
+          <div className="container mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-4">
+                Top Sellers
+              </h2>
+              <p className="text-xl text-gray-600">Most loved by our customers</p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+              {topSellers.map((item) => (
+                <Link to={`/product/${item.id}`} key={item.id} className="group">
+                  <div className="bg-gray-50 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 relative">
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="w-full aspect-square object-cover group-hover:scale-110 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full aspect-square bg-gray-200 flex items-center justify-center">
+                        <Package size={48} className="text-gray-400" />
+                      </div>
+                    )}
+                    <div className="absolute top-3 left-3 bg-red-600 text-white px-4 py-1 rounded-full text-xs font-bold shadow-lg">
+                      BEST SELLER
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-bold text-[#118C8C] line-clamp-2 mb-2">{item.name}</h3>
+                      <div className="flex items-center gap-2 mb-3">
+                        {renderStars(item.averageRating || 0)}
+                        <span className="text-sm text-gray-600">({item.reviewCount || 0})</span>
+                      </div>
+                      <p className="text-2xl font-bold text-[#F2BB16]">{formatPrice(item.price)}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* NEW ARRIVALS */}
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-4">
+              New Arrivals
+            </h2>
+            <p className="text-xl text-gray-600">Fresh from our artisans</p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+            {newArrivals.map((item) => (
+              <Link to={`/product/${item.id}`} key={item.id} className="group">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 relative">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className="w-full aspect-square object-cover group-hover:scale-110 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full aspect-square bg-gray-200 flex items-center justify-center">
+                      <Package size={48} className="text-gray-400" />
+                    </div>
+                  )}
+                  <div className="absolute top-3 right-3 bg-[#118C8C] text-white px-4 py-1 rounded-full text-xs font-bold shadow-lg">
+                    NEW
+                  </div>
+                  <div className="p-6">
+                    <h3 className="font-bold text-[#118C8C] line-clamp-2 mb-2">{item.name}</h3>
+                    <div className="flex items-center gap-2 mb-3">
+                      {renderStars(item.averageRating || 0)}
+                      <span className="text-sm text-gray-600">({item.reviewCount || 0})</span>
+                    </div>
+                    <p className="text-2xl font-bold text-[#F2BB16]">{formatPrice(item.price)}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>

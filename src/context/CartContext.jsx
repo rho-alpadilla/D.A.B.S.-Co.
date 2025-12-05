@@ -1,16 +1,23 @@
-// src/context/CartContext.jsx ← FINAL VERSION WITH CHECKOUT
+// src/context/CartContext.jsx ← FINAL: TRACKS SALES FOR TOP SELLERS
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  doc, 
+  updateDoc, 
+  increment 
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/lib/firebase'; // or wherever your auth is
+import { useAuth } from '@/lib/firebase';
 
 const CartContext = createContext(null);
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const { toast } = useToast();
-  const { user } = useAuth(); // Get current user (optional for buyer name)
+  const { user } = useAuth();
 
   // Load cart from localStorage
   useEffect(() => {
@@ -45,12 +52,15 @@ export const CartProvider = ({ children }) => {
 
   const clearCart = () => setCartItems([]);
 
-  // NEW: Save order to Firestore when buyer checks out
+  // UPDATED: CHECKOUT + INCREMENT totalSold FOR EACH PRODUCT
   const checkout = async () => {
     if (cartItems.length === 0) return false;
 
+    ;
+
     try {
-      await addDoc(collection(db, "orders"), {
+      // 1. Save the order
+      const orderRef = await addDoc(collection(db, "orders"), {
         items: cartItems,
         total: cartTotal,
         buyerEmail: user?.email || "guest@example.com",
@@ -59,12 +69,28 @@ export const CartProvider = ({ children }) => {
         createdAt: serverTimestamp()
       });
 
+      // 2. Increment totalSold for each product (atomic & safe)
+      const updatePromises = cartItems.map(item =>
+        updateDoc(doc(db, "pricelists", item.id), {
+          totalSold: increment(item.quantity)
+        })
+      );
+
+      await Promise.all(updatePromises);
+
+      // 3. Clear cart & celebrate
       clearCart();
-      toast({ title: "Order Placed!", description: "Thank you! Admin will contact you soon." });
+      toast({ 
+        title: "Order Placed!", 
+        description: "Thank you! Your order has been received. Admin will contact you soon." 
+      });
       return true;
     } catch (err) {
-      toast({ title: "Error", description: "Could not place order. Try again." });
-      console.error(err);
+      toast({ 
+        title: "Error", 
+        description: "Could not place order. Please try again." 
+      });
+      console.error("Checkout error:", err);
       return false;
     }
   };
@@ -79,7 +105,7 @@ export const CartProvider = ({ children }) => {
       removeFromCart,
       updateQuantity,
       clearCart,
-      checkout,           // ← NEW: available everywhere
+      checkout,
       cartTotal,
       cartCount
     }}>

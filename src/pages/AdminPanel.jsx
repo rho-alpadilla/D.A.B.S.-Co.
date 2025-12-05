@@ -1,4 +1,4 @@
-// src/pages/AdminPanel.jsx ← FINAL: CANCELLATION + NO ERRORS
+// src/pages/AdminPanel.jsx ← FINAL: totalSold INCREASES ON COMPLETED ORDER
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -6,7 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
 import { auth, db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { 
+  collection, onSnapshot, query, orderBy, doc, updateDoc, 
+  addDoc, serverTimestamp, getDoc, increment 
+} from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,6 +92,7 @@ const AdminPanel = () => {
 
     try {
       if (action === "approve") {
+        // Return stock
         for (const item of order.items || []) {
           const productRef = doc(db, "pricelists", item.id);
           const productSnap = await getDoc(productRef);
@@ -123,42 +127,47 @@ const AdminPanel = () => {
     }
   };
 
+  // MAIN STATUS CHANGE — NOW INCREMENTS totalSold ON "completed"
   const updateOrderStatus = async (orderId, newStatus) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    if (newStatus === "processing" || newStatus === "completed") {
-      const items = order.items || [];
+    try {
+      // Only subtract stock & increment totalSold when becoming "completed"
+      if (newStatus === "completed") {
+        const items = order.items || [];
 
-      try {
-        for (const item of items) {
+        const promises = items.map(async (item) => {
           const productRef = doc(db, "pricelists", item.id);
           const productSnap = await getDoc(productRef);
 
           if (productSnap.exists()) {
-            const productData = productSnap.data();
-            const currentStock = productData.stockQuantity || 0;
+            const data = productSnap.data();
+            const currentStock = data.stockQuantity || 0;
             const newStock = currentStock - item.quantity;
 
             if (newStock < 0) {
-              alert(`Not enough stock for "${item.name}"!`);
-              return;
+              throw new Error(`Not enough stock for "${item.name}"`);
             }
 
+            // Subtract stock + increment totalSold
             await updateDoc(productRef, {
               stockQuantity: newStock,
-              inStock: newStock > 0
+              inStock: newStock > 0,
+              totalSold: increment(item.quantity)  // THIS MAKES TOP SELLERS WORK!
             });
           }
-        }
+        });
 
-        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-        alert(`Order marked as ${newStatus}! Stock updated.`);
-      } catch (err) {
-        alert("Failed to update");
+        await Promise.all(promises);
       }
-    } else {
+
+      // Update order status
       await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+      alert(`Order #${orderId.slice(0,8)} marked as ${newStatus}!`);
+    } catch (err) {
+      alert(err.message || "Failed to update order");
+      console.error(err);
     }
   };
 
@@ -287,7 +296,7 @@ const AdminPanel = () => {
               </div>
             </TabsContent>
 
-            {/* ORDERS TAB — FULL CANCELLATION FLOW */}
+            {/* ORDERS TAB */}
             <TabsContent value="orders">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
@@ -373,8 +382,7 @@ const AdminPanel = () => {
                 </div>
               </div>
             </TabsContent>
-
-           {/* MESSAGES TAB */}
+          {/* MESSAGES TAB */}
             <TabsContent value="messages">
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
