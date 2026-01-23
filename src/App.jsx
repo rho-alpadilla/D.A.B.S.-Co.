@@ -1,4 +1,4 @@
-// src/App.jsx ← FINAL: PROFILE ROUTE ADDED
+// src/App.jsx ← GLOBAL FLOWING BACKGROUND (ALL PAGES)
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -27,8 +27,7 @@ import FAQsPage from '@/pages/FAQsPage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import BuyerDashboard from '@/pages/BuyerDashboard';
-import ProfilePage from '@/pages/ProfilePage'; // ← ADDED!
-
+import ProfilePage from '@/pages/ProfilePage';
 import AdminPanel from '@/pages/AdminPanel';
 
 // Protected Admin Route
@@ -37,7 +36,7 @@ const ProtectedAdminRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF8F1]">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -55,7 +54,27 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <Router>
-          <div className="min-h-screen flex flex-col bg-[#FAF8F1]">
+          {/* 🌊 GLOBAL BACKGROUND WRAPPER */}
+          <div
+            className="min-h-screen flex flex-col"
+            style={{
+              backgroundColor: "#FAF8F1",
+              backgroundImage: `
+                radial-gradient(circle at 20% 20%, rgba(17,140,140,0.35), transparent 45%),
+                radial-gradient(circle at 80% 30%, rgba(242,187,22,0.30), transparent 45%),
+                radial-gradient(circle at 40% 80%, rgba(17,140,140,0.25), transparent 50%),
+                linear-gradient(
+                  180deg,
+                  #dff1ef 0%,
+                  #eaf6f3 30%,
+                  #f6f2dc 60%,
+                  #faf8f1 100%
+                )
+              `,
+              backgroundAttachment: "fixed",
+              backgroundRepeat: "no-repeat",
+            }}
+          >
             <Header />
 
             <main className="flex-grow">
@@ -76,8 +95,6 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
-                
-                {/* NEW: PROFILE PAGE */}
                 <Route path="/profile" element={<ProfilePage />} />
 
                 {/* ADMIN */}
