@@ -2,6 +2,7 @@
 // FULL-PAGE BACKGROUND (NO WHITE SECTIONS) — ~20% opacity (lighter background)
 // ✅ Featured slider is BACK
 // ✅ Top Sellers + New Arrivals show ONLY 4 + "View all" button -> /gallery
+// ✅ Featured slider made SMALLER (no longer takes whole screen)
 
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
@@ -291,19 +292,21 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* ================= FEATURED (ADDED BACK) ================= */}
-        <section className="relative py-20 md:py-24">
-          <div className="mx-auto max-w-7xl px-6 relative z-10">
-            <div className="flex items-end justify-between mb-12">
+        {/* ================= FEATURED (SMALLER) ================= */}
+        <section className="relative py-8 md:py-10">
+          <div className="mx-auto max-w-6xl px-6 relative z-10">
+            {/* smaller heading + button under title */}
+            <div className="mb-6">
               <div className="relative">
-                <div className="flex items-center gap-3 mb-3">
-                  <Sparkles size={24} className="text-[#F2BB16]" />
-                  <span className="text-sm font-bold text-[#0d7070] uppercase tracking-widest">
+                <div className="flex items-center gap-3 mb-2">
+                  <Sparkles size={18} className="text-[#F2BB16]" />
+                  <span className="text-xs font-bold text-[#0d7070] uppercase tracking-widest">
                     Featured Collection
                   </span>
                 </div>
+
                 <h2
-                  className="text-4xl md:text-6xl font-bold text-slate-900 relative inline-block"
+                  className="text-3xl md:text-5xl font-bold text-slate-900 relative inline-block"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
                   Artist&apos;s Spotlight
@@ -322,17 +325,19 @@ const HomePage = () => {
                     />
                   </svg>
                 </h2>
-              </div>
 
-              <Link to="/gallery" className="hidden md:block">
-                <Button
-                  variant="outline"
-                  className="rounded-xl border-2 border-[#118C8C] text-[#0b5f5f] bg-white/60 hover:bg-[#118C8C] hover:text-white backdrop-blur-sm"
-                >
-                  View All Artworks
-                  <ArrowRight className="ml-2" size={16} />
-                </Button>
-              </Link>
+                <div className="mt-3">
+                  <Link to="/gallery">
+                    <Button
+                      variant="outline"
+                      className="rounded-xl border-2 border-[#118C8C] text-[#0b5f5f] bg-white/60 hover:bg-[#118C8C] hover:text-white backdrop-blur-sm"
+                    >
+                      View All Artworks
+                      <ArrowRight className="ml-2" size={16} />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             </div>
 
             <div className="relative">
@@ -351,11 +356,12 @@ const HomePage = () => {
                   {featuredProducts.map((p) => (
                     <div key={p.id} className="w-full flex-shrink-0">
                       <div className="bg-transparent">
-                        <div className="grid lg:grid-cols-2 gap-10 p-8 lg:p-12">
-                          {/* LEFT IMAGE */}
+                        {/* smaller padding/gap + center align */}
+                        <div className="grid lg:grid-cols-2 gap-6 p-5 lg:p-6 items-center">
+                          {/* LEFT IMAGE (shorter than square) */}
                           <div className="relative group">
                             <div
-                              className="aspect-square rounded-2xl overflow-hidden bg-white shadow-xl border-4 border-[#118C8C]/14 relative"
+                              className="aspect-[4/3] lg:aspect-[5/4] rounded-2xl overflow-hidden bg-white shadow-xl border-4 border-[#118C8C]/14 relative"
                               style={{ boxShadow: 'inset 0 0 30px rgba(17,140,140,0.12)' }}
                             >
                               {p.imageUrl ? (
@@ -366,17 +372,17 @@ const HomePage = () => {
                                     className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
                                   />
                                   <div className="absolute inset-0 shadow-[inset_0_0_30px_rgba(0,0,0,0.10)] pointer-events-none" />
-                                  <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/60 via-black/18 to-transparent">
-                                    <div className="text-white font-semibold text-lg leading-tight line-clamp-1">
+                                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 via-black/18 to-transparent">
+                                    <div className="text-white font-semibold text-base leading-tight line-clamp-1">
                                       {p.name}
                                     </div>
-                                    <div className="text-white/85 text-sm">{formatPrice(p.price)}</div>
+                                    <div className="text-white/85 text-xs">{formatPrice(p.price)}</div>
                                   </div>
                                 </>
                               ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
-                                  <Palette size={80} className="text-gray-300 mb-4" />
-                                  <span className="text-gray-400 font-light">Artwork Preview</span>
+                                  <Palette size={64} className="text-gray-300 mb-3" />
+                                  <span className="text-gray-400 font-light text-sm">Artwork Preview</span>
                                 </div>
                               )}
                             </div>
@@ -392,30 +398,30 @@ const HomePage = () => {
                             </div>
                           </div>
 
-                          {/* RIGHT DETAILS */}
+                          {/* RIGHT DETAILS (slightly smaller text) */}
                           <div className="flex flex-col justify-center relative">
-                            <div className="inline-flex items-center gap-2 text-[#0b5f5f] mb-4 bg-[#118C8C]/12 px-4 py-2 rounded-full w-fit">
-                              <Palette size={18} className="fill-current" />
-                              <span className="text-sm font-bold uppercase tracking-wider">Featured Artwork</span>
+                            <div className="inline-flex items-center gap-2 text-[#0b5f5f] mb-3 bg-[#118C8C]/12 px-4 py-2 rounded-full w-fit">
+                              <Palette size={16} className="fill-current" />
+                              <span className="text-xs font-bold uppercase tracking-wider">Featured Artwork</span>
                             </div>
 
                             <h3
-                              className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-4 leading-tight"
+                              className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-3 leading-tight"
                               style={{ fontFamily: "'Playfair Display', serif" }}
                             >
                               {p.name}
                             </h3>
 
-                            <p className="text-lg text-slate-800/90 mb-8 leading-relaxed italic">
+                            <p className="text-base text-slate-800/90 mb-6 leading-relaxed italic">
                               "
                               {p.description ||
                                 'A masterpiece crafted with passion, where every detail speaks to the soul.'}
                               "
                             </p>
 
-                            <div className="flex flex-wrap items-center gap-4 mb-8">
+                            <div className="flex flex-wrap items-center gap-4 mb-6">
                               <div className="flex items-baseline gap-2">
-                                <span className="text-5xl font-bold text-[#0b5f5f]">
+                                <span className="text-4xl font-bold text-[#0b5f5f]">
                                   {formatPrice(p.price)}
                                 </span>
                               </div>
@@ -423,7 +429,7 @@ const HomePage = () => {
                               {p.averageRating > 0 && (
                                 <div className="flex items-center gap-2 px-4 py-2 bg-amber-50/90 rounded-xl border border-amber-200 backdrop-blur-sm">
                                   {renderStars(p.averageRating)}
-                                  <span className="text-sm text-gray-700 font-medium">
+                                  <span className="text-xs text-gray-700 font-medium">
                                     ({p.reviewCount || 0} reviews)
                                   </span>
                                 </div>
@@ -432,18 +438,18 @@ const HomePage = () => {
 
                             <div className="flex flex-wrap gap-4">
                               <Link to={`/product/${p.id}`}>
-                                <Button className="bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] hover:from-[#0b5f5f] hover:to-[#118C8C] text-white px-8 py-6 rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all hover:scale-[1.03]">
-                                  <Brush className="mr-2" size={20} />
+                                <Button className="bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] hover:from-[#0b5f5f] hover:to-[#118C8C] text-white px-7 py-5 rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all hover:scale-[1.02]">
+                                  <Brush className="mr-2" size={18} />
                                   View Artwork
-                                  <ArrowRight className="ml-2" size={18} />
+                                  <ArrowRight className="ml-2" size={16} />
                                 </Button>
                               </Link>
 
                               <Button
                                 variant="outline"
-                                className="px-8 py-6 rounded-2xl font-semibold border-2 border-[#118C8C] text-[#0b5f5f] bg-white/60 hover:bg-[#118C8C]/14 backdrop-blur-sm transition-all"
+                                className="px-7 py-5 rounded-2xl font-semibold border-2 border-[#118C8C] text-[#0b5f5f] bg-white/60 hover:bg-[#118C8C]/14 backdrop-blur-sm transition-all"
                               >
-                                <Heart className="mr-2" size={20} />
+                                <Heart className="mr-2" size={18} />
                                 Add to Wishlist
                               </Button>
                             </div>
@@ -470,7 +476,7 @@ const HomePage = () => {
                     <ChevronRight size={28} className="text-[#0b5f5f]" />
                   </button>
 
-                  <div className="flex justify-center gap-3 mt-8">
+                  <div className="flex justify-center gap-3 mt-6">
                     {featuredProducts.map((_, idx) => (
                       <button
                         key={idx}
@@ -595,7 +601,7 @@ const HomePage = () => {
                 className="text-4xl md:text-6xl font-bold text-slate-900 mb-4 relative inline-block"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
-                New Arrivals
+                Recent Works
                 <svg className="absolute -bottom-2 left-0 w-full h-6" viewBox="0 0 500 30" preserveAspectRatio="none">
                   <path
                     d="M0,15 Q125,10 250,15 T500,15"
