@@ -1,6 +1,7 @@
 // src/pages/HomePage.jsx
 // FULL-PAGE BACKGROUND (NO WHITE SECTIONS) — ~20% opacity (lighter background)
-// Keeps your data + logic the same, only changes design/background visibility.
+// ✅ Featured slider is BACK
+// ✅ Top Sellers + New Arrivals show ONLY 4 + "View all" button -> /gallery
 
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
@@ -60,9 +61,12 @@ const HomePage = () => {
     };
   }, []);
 
-  const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % featuredProducts.length);
+  const nextSlide = () =>
+    setCurrentIndex((prev) => (featuredProducts.length ? (prev + 1) % featuredProducts.length : 0));
   const prevSlide = () =>
-    setCurrentIndex((prev) => (prev - 1 + featuredProducts.length) % featuredProducts.length);
+    setCurrentIndex((prev) =>
+      featuredProducts.length ? (prev - 1 + featuredProducts.length) % featuredProducts.length : 0
+    );
 
   useEffect(() => {
     if (featuredProducts.length <= 1) return;
@@ -111,7 +115,6 @@ const HomePage = () => {
         className="relative min-h-screen overflow-hidden"
         style={{
           backgroundColor: '#FAF8F1',
-          // ✅ lighter background (~20% opacity)
           backgroundImage: `
             radial-gradient(rgba(17,140,140,0.20) 1px, transparent 1px),
             radial-gradient(rgba(242,187,22,0.12) 1px, transparent 1px),
@@ -213,7 +216,6 @@ const HomePage = () => {
             />
           </svg>
 
-          {/* soft bottom fade */}
           <div className="absolute inset-x-0 bottom-0 h-80 bg-gradient-to-b from-transparent to-[#FAF8F1]" />
         </div>
 
@@ -233,13 +235,17 @@ const HomePage = () => {
               >
                 D.A.B.S. Co.
               </span>
-              <svg className="absolute -bottom-4 left-0 w-full h-8" viewBox="0 0 500 40" preserveAspectRatio="none">
+              <svg
+                className="absolute -bottom-4 left-0 w-full h-8"
+                viewBox="0 0 500 40"
+                preserveAspectRatio="none"
+              >
                 <path
                   d="M0,20 Q125,10 250,20 T500,20"
                   stroke="#F2BB16"
                   strokeWidth="6"
                   fill="none"
-                  opacity="0.80"
+                  opacity="0.8"
                   strokeLinecap="round"
                 />
               </svg>
@@ -285,9 +291,203 @@ const HomePage = () => {
           </div>
         </section>
 
-        {/* ================= FEATURED ================= */}
-        {/* (unchanged) */}
-        {/* ... keep your Featured section exactly as-is ... */}
+        {/* ================= FEATURED (ADDED BACK) ================= */}
+        <section className="relative py-20 md:py-24">
+          <div className="mx-auto max-w-7xl px-6 relative z-10">
+            <div className="flex items-end justify-between mb-12">
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-3">
+                  <Sparkles size={24} className="text-[#F2BB16]" />
+                  <span className="text-sm font-bold text-[#0d7070] uppercase tracking-widest">
+                    Featured Collection
+                  </span>
+                </div>
+                <h2
+                  className="text-4xl md:text-6xl font-bold text-slate-900 relative inline-block"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Artist&apos;s Spotlight
+                  <svg
+                    className="absolute -bottom-2 left-0 w-full h-6"
+                    viewBox="0 0 400 30"
+                    preserveAspectRatio="none"
+                  >
+                    <path
+                      d="M0,15 Q100,5 200,15 T400,15"
+                      stroke="#118C8C"
+                      strokeWidth="4"
+                      fill="none"
+                      opacity="0.4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </h2>
+              </div>
+
+              <Link to="/gallery" className="hidden md:block">
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-2 border-[#118C8C] text-[#0b5f5f] bg-white/60 hover:bg-[#118C8C] hover:text-white backdrop-blur-sm"
+                >
+                  View All Artworks
+                  <ArrowRight className="ml-2" size={16} />
+                </Button>
+              </Link>
+            </div>
+
+            <div className="relative">
+              <div
+                className="rounded-3xl overflow-hidden shadow-2xl border-8 border-white/80 relative bg-white/22 backdrop-blur-md"
+                style={{
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.10), inset 0 0 0 1px rgba(17,140,140,0.14)',
+                }}
+              >
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iY2FudmFzIiB4PSIwIiB5PSIwIiB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+PHJlY3Qgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iI2YwZjBmMCIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9InVybCgjY2FudmFzKSIvPjwvc3ZnPg==')] opacity-30 pointer-events-none z-10"></div>
+
+                <div
+                  className="flex transition-transform duration-1000 ease-out"
+                  style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+                >
+                  {featuredProducts.map((p) => (
+                    <div key={p.id} className="w-full flex-shrink-0">
+                      <div className="bg-transparent">
+                        <div className="grid lg:grid-cols-2 gap-10 p-8 lg:p-12">
+                          {/* LEFT IMAGE */}
+                          <div className="relative group">
+                            <div
+                              className="aspect-square rounded-2xl overflow-hidden bg-white shadow-xl border-4 border-[#118C8C]/14 relative"
+                              style={{ boxShadow: 'inset 0 0 30px rgba(17,140,140,0.12)' }}
+                            >
+                              {p.imageUrl ? (
+                                <>
+                                  <img
+                                    src={p.imageUrl}
+                                    alt={p.name}
+                                    className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
+                                  />
+                                  <div className="absolute inset-0 shadow-[inset_0_0_30px_rgba(0,0,0,0.10)] pointer-events-none" />
+                                  <div className="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-black/60 via-black/18 to-transparent">
+                                    <div className="text-white font-semibold text-lg leading-tight line-clamp-1">
+                                      {p.name}
+                                    </div>
+                                    <div className="text-white/85 text-sm">{formatPrice(p.price)}</div>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                                  <Palette size={80} className="text-gray-300 mb-4" />
+                                  <span className="text-gray-400 font-light">Artwork Preview</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {p.category && (
+                              <div className="absolute -top-3 -left-3 px-4 py-2 bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] text-white rounded-xl shadow-lg transform -rotate-2">
+                                <span className="text-xs font-bold uppercase tracking-wider">{p.category}</span>
+                              </div>
+                            )}
+
+                            <div className="absolute -bottom-3 -right-3 px-4 py-2 bg-white rounded-xl shadow-lg border-2 border-[#F2BB16]/35 italic font-serif text-[#0b5f5f]">
+                              D.A.B.S.
+                            </div>
+                          </div>
+
+                          {/* RIGHT DETAILS */}
+                          <div className="flex flex-col justify-center relative">
+                            <div className="inline-flex items-center gap-2 text-[#0b5f5f] mb-4 bg-[#118C8C]/12 px-4 py-2 rounded-full w-fit">
+                              <Palette size={18} className="fill-current" />
+                              <span className="text-sm font-bold uppercase tracking-wider">Featured Artwork</span>
+                            </div>
+
+                            <h3
+                              className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-4 leading-tight"
+                              style={{ fontFamily: "'Playfair Display', serif" }}
+                            >
+                              {p.name}
+                            </h3>
+
+                            <p className="text-lg text-slate-800/90 mb-8 leading-relaxed italic">
+                              "
+                              {p.description ||
+                                'A masterpiece crafted with passion, where every detail speaks to the soul.'}
+                              "
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-4 mb-8">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-5xl font-bold text-[#0b5f5f]">
+                                  {formatPrice(p.price)}
+                                </span>
+                              </div>
+
+                              {p.averageRating > 0 && (
+                                <div className="flex items-center gap-2 px-4 py-2 bg-amber-50/90 rounded-xl border border-amber-200 backdrop-blur-sm">
+                                  {renderStars(p.averageRating)}
+                                  <span className="text-sm text-gray-700 font-medium">
+                                    ({p.reviewCount || 0} reviews)
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-4">
+                              <Link to={`/product/${p.id}`}>
+                                <Button className="bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] hover:from-[#0b5f5f] hover:to-[#118C8C] text-white px-8 py-6 rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all hover:scale-[1.03]">
+                                  <Brush className="mr-2" size={20} />
+                                  View Artwork
+                                  <ArrowRight className="ml-2" size={18} />
+                                </Button>
+                              </Link>
+
+                              <Button
+                                variant="outline"
+                                className="px-8 py-6 rounded-2xl font-semibold border-2 border-[#118C8C] text-[#0b5f5f] bg-white/60 hover:bg-[#118C8C]/14 backdrop-blur-sm transition-all"
+                              >
+                                <Heart className="mr-2" size={20} />
+                                Add to Wishlist
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {featuredProducts.length > 1 && (
+                <>
+                  <button
+                    onClick={prevSlide}
+                    className="absolute -left-5 top-1/2 -translate-y-1/2 bg-white/88 backdrop-blur-md p-4 rounded-full shadow-2xl hover:scale-105 transition z-20 border-2 border-[#118C8C]/24 hover:border-[#118C8C]"
+                  >
+                    <ChevronLeft size={28} className="text-[#0b5f5f]" />
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="absolute -right-5 top-1/2 -translate-y-1/2 bg-white/88 backdrop-blur-md p-4 rounded-full shadow-2xl hover:scale-105 transition z-20 border-2 border-[#118C8C]/24 hover:border-[#118C8C]"
+                  >
+                    <ChevronRight size={28} className="text-[#0b5f5f]" />
+                  </button>
+
+                  <div className="flex justify-center gap-3 mt-8">
+                    {featuredProducts.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentIndex(idx)}
+                        className={`transition-all ${
+                          idx === currentIndex
+                            ? 'w-12 h-3 bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] rounded-full shadow-lg'
+                            : 'w-3 h-3 bg-white/70 rounded-full hover:bg-white/90 border border-black/5'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
 
         {/* ================= TOP SELLERS ================= */}
         {topSellersToShow.length > 0 && (
@@ -312,7 +512,6 @@ const HomePage = () => {
                 </p>
               </div>
 
-              {/* ✅ show ONLY 4 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 {topSellersToShow.map((item, idx) => (
                   <Link to={`/product/${item.id}`} key={item.id} className="group">
@@ -367,7 +566,6 @@ const HomePage = () => {
                 ))}
               </div>
 
-              {/* ✅ View all button -> Gallery */}
               <div className="mt-12 flex justify-center">
                 <Link to="/gallery">
                   <Button
@@ -414,7 +612,6 @@ const HomePage = () => {
               </p>
             </div>
 
-            {/* ✅ show ONLY 4 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {newArrivalsToShow.map((item) => (
                 <Link to={`/product/${item.id}`} key={item.id} className="group">
@@ -467,7 +664,6 @@ const HomePage = () => {
               ))}
             </div>
 
-            {/* ✅ View all button -> Gallery */}
             <div className="mt-12 flex justify-center">
               <Link to="/gallery">
                 <Button
@@ -483,8 +679,79 @@ const HomePage = () => {
         </section>
 
         {/* ================= CTA ================= */}
-        {/* (unchanged) */}
-        {/* ... keep your CTA section exactly as-is ... */}
+        {!isAdmin && (
+          <section className="relative py-28 md:py-32 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#118C8C] via-[#0d7070] to-[#0a5555]" />
+            <div className="absolute inset-0 opacity-20 pointer-events-none">
+              <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 1000 500" preserveAspectRatio="none">
+                <path
+                  d="M0,250 Q250,150 500,250 T1000,250"
+                  stroke="white"
+                  strokeWidth="30"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M0,300 Q250,200 500,300 T1000,300"
+                  stroke="#F2BB16"
+                  strokeWidth="20"
+                  fill="none"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+
+            <div className="mx-auto max-w-6xl px-6 relative z-10 text-center">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/20 backdrop-blur-md rounded-full mb-8 border-2 border-white/30">
+                <Palette size={20} className="text-[#F2BB16]" />
+                <span className="text-sm font-bold text-white uppercase tracking-wider">Limited Commission Slots</span>
+                <Brush size={20} className="text-white" />
+              </div>
+
+              <h2
+                className="text-4xl md:text-6xl font-bold text-white mb-6 max-w-4xl mx-auto leading-tight"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Let&apos;s Create Your Masterpiece
+              </h2>
+
+              <p className="text-lg md:text-2xl text-white/90 mb-4 max-w-3xl mx-auto italic">
+                "Art is not what you see, but what you make others see"
+              </p>
+
+              <p className="text-base md:text-lg text-white/80 mb-12 max-w-2xl mx-auto leading-relaxed">
+                Commission a custom artwork and work directly with our artists to bring your vision to life
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link to="/pricelists">
+                  <Button
+                    size="lg"
+                    className="bg-[#F2BB16] hover:bg-[#e6af0f] text-slate-900 font-bold text-xl px-12 py-8 rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-[#F2BB16]/30 transition-all hover:scale-[1.03]"
+                  >
+                    <Palette className="mr-3" size={24} />
+                    Start Commission
+                    <ArrowRight className="ml-3" size={24} />
+                  </Button>
+                </Link>
+                <Link to="/gallery">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-3 border-white text-white hover:bg-white hover:text-[#118C8C] font-bold text-xl px-12 py-8 rounded-2xl backdrop-blur-sm transition-all hover:scale-[1.03]"
+                  >
+                    <Brush className="mr-3" size={24} />
+                    View Gallery
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="mt-16 pt-10 border-t border-white/20">
+                <p className="text-white/70 font-serif italic text-lg">Crafted with passion by D.A.B.S. Co.</p>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </>
   );
