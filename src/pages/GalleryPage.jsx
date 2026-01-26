@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { collection, onSnapshot, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Eye, Star, Search, ArrowUpDown } from 'lucide-react';
@@ -26,7 +26,7 @@ const GalleryPage = () => {
         ...doc.data(),
         inStock: doc.data().inStock !== false,
         stockQuantity: doc.data().stockQuantity || 0,
-        totalSold: doc.data().totalSold || 0  // ← MAKE SURE THIS IS LOADED
+        totalSold: doc.data().totalSold || 0
       }));
 
       const enriched = await Promise.all(
@@ -34,13 +34,13 @@ const GalleryPage = () => {
           const q = query(collection(db, "reviews"), where("productId", "==", product.id));
           const snap = await getDocs(q);
           const reviews = snap.docs.map(d => d.data());
-          const avg = reviews.length > 0 
-            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
+          const avg = reviews.length > 0
+            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
             : 0;
-          return { 
-            ...product, 
-            averageRating: Number(avg.toFixed(1)), 
-            reviewCount: reviews.length 
+          return {
+            ...product,
+            averageRating: Number(avg.toFixed(1)),
+            reviewCount: reviews.length
           };
         })
       );
@@ -82,10 +82,13 @@ const GalleryPage = () => {
     return filteredProducts.filter(p => p.category === category);
   };
 
+  // ✅ NEW: IDs used for Prev/Next on Product Details (respects current tab + search + sort)
+  const getNavIdsForTab = (tabId) => getCategoryItems(tabId).map(p => p.id);
+
   const getStockText = (product) => {
-    if (!product.inStock || product.stockQuantity === 0) 
+    if (!product.inStock || product.stockQuantity === 0)
       return <span className="text-red-600 font-bold">Out of stock</span>;
-    if (product.stockQuantity <= 5) 
+    if (product.stockQuantity <= 5)
       return <span className="text-orange-600 font-bold">Only {product.stockQuantity} left!</span>;
     return <span className="text-green-600 font-bold">{product.stockQuantity} available</span>;
   };
@@ -151,7 +154,11 @@ const GalleryPage = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-12 bg-white shadow-sm">
             {categories.map(cat => (
-              <TabsTrigger key={cat.id} value={cat.id} className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white font-medium">
+              <TabsTrigger
+                key={cat.id}
+                value={cat.id}
+                className="data-[state=active]:bg-[#118C8C] data-[state=active]:text-white font-medium"
+              >
                 {cat.label}
               </TabsTrigger>
             ))}
@@ -167,7 +174,7 @@ const GalleryPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                   {getCategoryItems(cat.id).map((item, index) => {
                     const isTopSeller = item.totalSold > 0 && sortOrder === "topSellers";
-                    const showBadge = isTopSeller || item.totalSold >= 5; // Show even if not sorted
+                    const showBadge = isTopSeller || item.totalSold >= 5;
 
                     return (
                       <motion.div
@@ -177,7 +184,6 @@ const GalleryPage = () => {
                         transition={{ duration: 0.4, delay: index * 0.05 }}
                         className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group relative"
                       >
-                        {/* BEST SELLER BADGE — SHOWS EVEN IF NOT SORTED */}
                         {showBadge && (
                           <div className="absolute top-4 left-4 z-10 bg-red-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg animate-pulse">
                             BEST SELLER
@@ -186,14 +192,23 @@ const GalleryPage = () => {
 
                         <div className="aspect-square overflow-hidden relative bg-gray-100">
                           {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gray-200">
                               <ShoppingBag size={48} className="text-gray-400" />
                             </div>
                           )}
+
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Link to={`/product/${item.id}`}>
+                            {/* ✅ UPDATED: pass ids so Product Details can do Prev/Next within this tab */}
+                            <Link
+                              to={`/product/${item.id}`}
+                              state={{ ids: getNavIdsForTab(cat.id), fromTab: cat.id }}
+                            >
                               <Button variant="secondary" size="lg" className="bg-white text-gray-900 hover:bg-gray-100">
                                 <Eye size={20} className="mr-2" /> View Details
                               </Button>
@@ -218,13 +233,17 @@ const GalleryPage = () => {
                             ) : (
                               <span className="text-sm text-gray-500">No reviews yet</span>
                             )}
-                            <div className="text-sm">
-                              {getStockText(item)}
-                            </div>
+                            <div className="text-sm">{getStockText(item)}</div>
                           </div>
 
                           <p className="text-gray-600 text-sm line-clamp-2 mb-4">{item.description}</p>
-                          <Link to={`/product/${item.id}`} className="block">
+
+                          {/* ✅ UPDATED: pass ids so Product Details can do Prev/Next within this tab */}
+                          <Link
+                            to={`/product/${item.id}`}
+                            state={{ ids: getNavIdsForTab(cat.id), fromTab: cat.id }}
+                            className="block"
+                          >
                             <Button className="w-full bg-[#118C8C] hover:bg-[#0d7070]">
                               View Product
                             </Button>

@@ -1,8 +1,18 @@
-// src/pages/ProductDetailPage.jsx ← FINAL: ADMIN CAN REPLY TO REVIEWS (FULL CODE)
+// src/pages/ProductDetailPage.jsx ← FINAL: ADMIN CAN REPLY + "YOU MAY ALSO LIKE"
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useParams, Link } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  limit,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
@@ -11,10 +21,10 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, ShoppingBag, Edit, Save, X, Upload, Star, MessageCircle } from 'lucide-react';
 
 const CATEGORIES = [
-  "Hand-painted needlepoint canvas",
-  "Crocheted products",
-  "Sample portraitures",
-  "Painting on Canvas"
+  'Hand-painted needlepoint canvas',
+  'Crocheted products',
+  'Sample portraitures',
+  'Painting on Canvas',
 ];
 
 const ProductDetailPage = () => {
@@ -29,29 +39,34 @@ const ProductDetailPage = () => {
   const [averageRating, setAverageRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
   const [loading, setLoading] = useState(true);
+
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [uploading, setUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState("");
+  const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
 
   // Admin reply state
   const [replyingTo, setReplyingTo] = useState(null);
-  const [replyText, setReplyText] = useState("");
+  const [replyText, setReplyText] = useState('');
+
+  // ✅ "You may also like"
+  const [recommended, setRecommended] = useState([]);
+  const [loadingRecommended, setLoadingRecommended] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
-    const unsubProduct = onSnapshot(doc(db, "pricelists", id), (snap) => {
+    const unsubProduct = onSnapshot(doc(db, 'pricelists', id), (snap) => {
       if (snap.exists()) {
         const data = { id: snap.id, ...snap.data() };
         setProduct(data);
         setForm({
           ...data,
           inStock: data.inStock !== false,
-          stockQuantity: data.stockQuantity || 0
+          stockQuantity: data.stockQuantity || 0,
         });
-        setImagePreview(data.imageUrl || "");
+        setImagePreview(data.imageUrl || '');
       } else {
         setProduct(null);
       }
@@ -60,18 +75,21 @@ const ProductDetailPage = () => {
 
     const loadReviews = async () => {
       const q = query(
-        collection(db, "reviews"),
-        where("productId", "==", id),
-        orderBy("createdAt", "desc")
+        collection(db, 'reviews'),
+        where('productId', '==', id),
+        orderBy('createdAt', 'desc')
       );
       const snap = await getDocs(q);
-      const reviewsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const reviewsData = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setReviews(reviewsData);
 
       if (reviewsData.length > 0) {
         const avg = reviewsData.reduce((sum, r) => sum + r.rating, 0) / reviewsData.length;
         setAverageRating(avg.toFixed(1));
         setTotalReviews(reviewsData.length);
+      } else {
+        setAverageRating(0);
+        setTotalReviews(0);
       }
     };
 
@@ -80,6 +98,50 @@ const ProductDetailPage = () => {
     return () => unsubProduct();
   }, [id]);
 
+  // ✅ Load "You may also like" after product is available
+  useEffect(() => {
+    const loadRecommended = async () => {
+      if (!product?.category) return;
+
+      setLoadingRecommended(true);
+      try {
+        // Try same-category first (no orderBy to avoid composite index headaches)
+        const qSameCat = query(
+          collection(db, 'pricelists'),
+          where('category', '==', product.category),
+          limit(12)
+        );
+        const snap = await getDocs(qSameCat);
+        let items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.id !== product.id);
+
+        // If not enough, fallback to any items
+        if (items.length < 4) {
+          const qAll = query(collection(db, 'pricelists'), limit(12));
+          const snapAll = await getDocs(qAll);
+          const allItems = snapAll.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((p) => p.id !== product.id);
+
+          // merge unique
+          const seen = new Set(items.map((x) => x.id));
+          for (const x of allItems) {
+            if (!seen.has(x.id)) items.push(x);
+            if (items.length >= 8) break;
+          }
+        }
+
+        setRecommended(items.slice(0, 4));
+      } catch (e) {
+        console.error(e);
+        setRecommended([]);
+      } finally {
+        setLoadingRecommended(false);
+      }
+    };
+
+    loadRecommended();
+  }, [product?.id, product?.category]);
+
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -87,26 +149,26 @@ const ProductDetailPage = () => {
     setImagePreview(URL.createObjectURL(file));
 
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "dabs-co-unsigned");
+    formData.append('file', file);
+    formData.append('upload_preset', 'dabs-co-unsigned');
 
     try {
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData }
+        { method: 'POST', body: formData }
       );
       const data = await res.json();
-      setForm(prev => ({ ...prev, imageUrl: data.secure_url }));
+      setForm((prev) => ({ ...prev, imageUrl: data.secure_url }));
       setImagePreview(data.secure_url);
     } catch (err) {
-      alert("Upload failed");
+      alert('Upload failed');
     }
     setUploading(false);
   };
 
   const saveEdits = async () => {
     try {
-      await updateDoc(doc(db, "pricelists", id), {
+      await updateDoc(doc(db, 'pricelists', id), {
         name: form.name.trim(),
         price: Number(form.price),
         description: form.description.trim(),
@@ -114,12 +176,12 @@ const ProductDetailPage = () => {
         imageUrl: form.imageUrl,
         inStock: form.inStock,
         stockQuantity: Number(form.stockQuantity) || 0,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
       setEditing(false);
-      alert("Product updated!");
+      alert('Product updated!');
     } catch (err) {
-      alert("Save failed");
+      alert('Save failed');
     }
   };
 
@@ -127,17 +189,17 @@ const ProductDetailPage = () => {
     if (!replyText.trim()) return;
 
     try {
-      await updateDoc(doc(db, "reviews", reviewId), {
+      await updateDoc(doc(db, 'reviews', reviewId), {
         adminReply: replyText.trim(),
         adminRepliedAt: new Date(),
-        adminRepliedBy: user.email
+        adminRepliedBy: user.email,
       });
 
-      setReplyText("");
+      setReplyText('');
       setReplyingTo(null);
-      alert("Reply sent!");
+      alert('Reply sent!');
     } catch (err) {
-      alert("Failed to send reply");
+      alert('Failed to send reply');
       console.error(err);
     }
   };
@@ -145,11 +207,11 @@ const ProductDetailPage = () => {
   const renderStars = (rating) => {
     return (
       <div className="flex gap-1">
-        {[1,2,3,4,5].map(i => (
+        {[1, 2, 3, 4, 5].map((i) => (
           <Star
             key={i}
             size={20}
-            className={i <= rating ? "text-yellow-500 fill-current" : "text-gray-300"}
+            className={i <= rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}
           />
         ))}
       </div>
@@ -191,7 +253,9 @@ const ProductDetailPage = () => {
 
   return (
     <>
-      <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
+      <Helmet>
+        <title>{product.name} - D.A.B.S. Co.</title>
+      </Helmet>
 
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-6 max-w-5xl">
@@ -220,9 +284,15 @@ const ProductDetailPage = () => {
                     </div>
                   )}
                   <div className="absolute bottom-4 left-4">
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
                     <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                      <Upload className="mr-2" /> {uploading ? "Uploading..." : "Change Image"}
+                      <Upload className="mr-2" /> {uploading ? 'Uploading...' : 'Change Image'}
                     </Button>
                   </div>
                 </div>
@@ -239,26 +309,63 @@ const ProductDetailPage = () => {
             <div className="p-10 md:p-16 flex flex-col justify-center space-y-8">
               {editing ? (
                 <>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="text-4xl md:text-5xl font-bold text-[#118C8C] border-b-2 border-gray-300 focus:border-[#118C8C] outline-none" required />
-                  <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="text-lg text-gray-700 border rounded-lg p-4 h-40" required />
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="text-4xl md:text-5xl font-bold text-[#118C8C] border-b-2 border-gray-300 focus:border-[#118C8C] outline-none"
+                    required
+                  />
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className="text-lg text-gray-700 border rounded-lg p-4 h-40"
+                    required
+                  />
                   <div className="space-y-2">
                     <label className="text-xl font-bold text-[#118C8C]">Price in PHP (₱)</label>
-                    <input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="text-5xl font-bold text-[#F2BB16] w-full border-b-4 border-[#F2BB16] focus:border-[#118C8C] outline-none bg-transparent" placeholder="12000" required />
+                    <input
+                      type="number"
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      className="text-5xl font-bold text-[#F2BB16] w-full border-b-4 border-[#F2BB16] focus:border-[#118C8C] outline-none bg-transparent"
+                      placeholder="12000"
+                      required
+                    />
                     <p className="text-lg text-gray-600">Current: {formatPrice(product.price)}</p>
                   </div>
-                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="px-4 py-3 border rounded-lg text-lg">
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="px-4 py-3 border rounded-lg text-lg"
+                  >
                     <option value="">Select Category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
 
                   <div className="space-y-6 pt-6 border-t">
                     <label className="flex items-center gap-4 text-lg">
-                      <input type="checkbox" checked={form.inStock} onChange={e => setForm({ ...form, inStock: e.target.checked })} className="w-6 h-6 text-[#118C8C] rounded focus:ring-[#118C8C]" />
+                      <input
+                        type="checkbox"
+                        checked={form.inStock}
+                        onChange={(e) => setForm({ ...form, inStock: e.target.checked })}
+                        className="w-6 h-6 text-[#118C8C] rounded focus:ring-[#118C8C]"
+                      />
                       <span className="font-medium">In Stock</span>
                     </label>
                     <div>
                       <label className="block text-lg font-medium mb-2">Stock Quantity</label>
-                      <input type="number" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-xl" placeholder="0" min="0" />
+                      <input
+                        type="number"
+                        value={form.stockQuantity}
+                        onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
+                        className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-xl"
+                        placeholder="0"
+                        min="0"
+                      />
                     </div>
                   </div>
                 </>
@@ -267,9 +374,7 @@ const ProductDetailPage = () => {
                   <span className="text-sm font-bold text-[#F2BB16] uppercase tracking-wider mb-3">
                     {product.category}
                   </span>
-                  <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-6">
-                    {product.name}
-                  </h1>
+                  <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-6">{product.name}</h1>
 
                   {totalReviews > 0 && (
                     <div className="flex items-center gap-3 mb-4">
@@ -279,28 +384,27 @@ const ProductDetailPage = () => {
                     </div>
                   )}
 
-                  <p className="text-lg text-gray-700 leading-relaxed mb-10">
-                    {product.description}
-                  </p>
+                  <p className="text-lg text-gray-700 leading-relaxed mb-10">{product.description}</p>
 
                   <div className="mb-6">
-                    <p className="text-xl font-bold">
-                      {isAdmin ? getAdminStockStatus() : getBuyerStockStatus()}
-                    </p>
+                    <p className="text-xl font-bold">{isAdmin ? getAdminStockStatus() : getBuyerStockStatus()}</p>
                   </div>
                 </>
               )}
 
               <div className="py-6">
-                <span className="text-5xl font-bold text-[#F2BB16]">
-                  {formatPrice(product.price)}
-                </span>
+                <span className="text-5xl font-bold text-[#F2BB16]">{formatPrice(product.price)}</span>
               </div>
 
               {!isAdmin && !editing && product.inStock && (
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" onClick={() => addToCart(product)} className="bg-[#118C8C] hover:bg-[#0d7070] flex-1 font-semibold" disabled={product.stockQuantity === 0}>
-                    {product.stockQuantity === 0 ? "Out of Stock" : "Add to Cart"}
+                  <Button
+                    size="lg"
+                    onClick={() => addToCart(product)}
+                    className="bg-[#118C8C] hover:bg-[#0d7070] flex-1 font-semibold"
+                    disabled={product.stockQuantity === 0}
+                  >
+                    {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
                   </Button>
                   <Button size="lg" variant="outline" className="border-[#118C8C] text-[#118C8C] flex-1">
                     Contact for Custom Order
@@ -319,10 +423,52 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              <p className="text-sm text-gray-500 pt-8 border-t">
-                Product ID: {product.id}
-              </p>
+              <p className="text-sm text-gray-500 pt-8 border-t">Product ID: {product.id}</p>
             </div>
+          </div>
+
+          {/* ✅ YOU MAY ALSO LIKE */}
+          <div className="mt-12">
+            <h2 className="text-2xl md:text-3xl font-extrabold text-teal-600 mb-6">You may also like</h2>
+
+            {loadingRecommended ? (
+              <div className="bg-white rounded-3xl shadow-lg p-10">
+                <div className="w-12 h-12 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin mx-auto" />
+              </div>
+            ) : recommended.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {recommended.map((p) => (
+                  <Link
+                    key={p.id}
+                    to={`/product/${p.id}`}
+                    className="group bg-white rounded-2xl shadow-md hover:shadow-xl transition overflow-hidden border border-gray-100"
+                  >
+                    <div className="aspect-square bg-gray-100 overflow-hidden">
+                      {p.imageUrl ? (
+                        <img
+                          src={p.imageUrl}
+                          alt={p.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ShoppingBag size={44} className="text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4">
+                      <p className="text-sm font-semibold text-gray-900 line-clamp-2">{p.name}</p>
+                      <p className="mt-2 text-lg font-extrabold text-teal-600">{formatPrice(p.price)}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl shadow-lg p-10 text-center text-gray-500">
+                No recommendations yet.
+              </div>
+            )}
           </div>
 
           {/* REVIEWS SECTION — ADMIN CAN REPLY */}
@@ -330,30 +476,32 @@ const ProductDetailPage = () => {
             <div className="mt-12 bg-white rounded-3xl shadow-lg p-10">
               <h2 className="text-3xl font-bold text-[#118C8C] mb-8">Customer Reviews</h2>
               <div className="space-y-8">
-                {reviews.map(review => (
+                {reviews.map((review) => (
                   <div key={review.id} className="border-b pb-8 last:border-0">
                     {/* Customer Review */}
                     <div className="flex items-start gap-4">
                       {review.buyerPhoto ? (
-                        <img src={review.buyerPhoto} alt={review.buyerName} className="w-14 h-14 rounded-full object-cover" />
+                        <img
+                          src={review.buyerPhoto}
+                          alt={review.buyerName}
+                          className="w-14 h-14 rounded-full object-cover"
+                        />
                       ) : (
                         <div className="w-14 h-14 bg-[#118C8C] rounded-full flex items-center justify-center text-white font-bold text-xl">
-                          {review.buyerName[0]?.toUpperCase() || "U"}
+                          {review.buyerName[0]?.toUpperCase() || 'U'}
                         </div>
                       )}
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-bold text-lg">{review.buyerName}</p>
-                            <div className="flex gap-1 mt-1">
-                              {renderStars(review.rating)}
-                            </div>
+                            <div className="flex gap-1 mt-1">{renderStars(review.rating)}</div>
                           </div>
                           <p className="text-sm text-gray-500">
                             {review.createdAt?.toDate?.().toLocaleDateString()}
                           </p>
                         </div>
-                        <p className="text-gray-700 mt-3">{review.comment || "No comment"}</p>
+                        <p className="text-gray-700 mt-3">{review.comment || 'No comment'}</p>
                       </div>
                     </div>
 
@@ -373,36 +521,45 @@ const ProductDetailPage = () => {
                         </div>
                         <p className="text-gray-800">{review.adminReply}</p>
                       </div>
-                    ) : isAdmin && (
-                      <div className="mt-6 ml-20">
-                        {replyingTo === review.id ? (
-                          <div className="flex gap-3">
-                            <textarea
-                              value={replyText}
-                              onChange={(e) => setReplyText(e.target.value)}
-                              placeholder="Write a reply..."
-                              className="flex-1 px-4 py-3 border rounded-lg resize-none h-24"
-                            />
-                            <div className="flex flex-col gap-2">
-                              <Button onClick={() => sendReply(review.id)} size="sm" className="bg-[#118C8C]">
-                                Send
-                              </Button>
-                              <Button onClick={() => { setReplyingTo(null); setReplyText(""); }} variant="outline" size="sm">
-                                Cancel
-                              </Button>
+                    ) : (
+                      isAdmin && (
+                        <div className="mt-6 ml-20">
+                          {replyingTo === review.id ? (
+                            <div className="flex gap-3">
+                              <textarea
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder="Write a reply..."
+                                className="flex-1 px-4 py-3 border rounded-lg resize-none h-24"
+                              />
+                              <div className="flex flex-col gap-2">
+                                <Button onClick={() => sendReply(review.id)} size="sm" className="bg-[#118C8C]">
+                                  Send
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setReplyingTo(null);
+                                    setReplyText('');
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <Button
-                            onClick={() => setReplyingTo(review.id)}
-                            variant="outline"
-                            size="sm"
-                            className="text-[#118C8C] border-[#118C8C] hover:bg-[#118C8C]/10"
-                          >
-                            <MessageCircle className="mr-2" size={16} /> Reply
-                          </Button>
-                        )}
-                      </div>
+                          ) : (
+                            <Button
+                              onClick={() => setReplyingTo(review.id)}
+                              variant="outline"
+                              size="sm"
+                              className="text-[#118C8C] border-[#118C8C] hover:bg-[#118C8C]/10"
+                            >
+                              <MessageCircle className="mr-2" size={16} /> Reply
+                            </Button>
+                          )}
+                        </div>
+                      )
                     )}
                   </div>
                 ))}
