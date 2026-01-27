@@ -50,17 +50,6 @@ const ProductDetailPage = () => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState("");
 
-useEffect(() => {
-  if (!user || !product?.category) return;
-
-  const userRef = doc(db, 'users', user.uid);
-  const category = product.category;
-
-  // Increment view count for this category
-  updateDoc(userRef, {
-    [`viewedCategories.${category}`]: increment(1)
-  }).catch(err => console.log("View track failed:", err));
-}, [user, product?.category]);
 
   useEffect(() => {
     if (!id) return;

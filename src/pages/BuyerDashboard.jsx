@@ -1,4 +1,4 @@
-// src/pages/BuyerDashboard.jsx ← FIXED: ORDERS TABLE + NO formatPrice / getStatusBadge ERRORS
+// src/pages/BuyerDashboard.jsx ← CLEANED: REMOVED TOP PICKS + KEPT VIEW MORE/LESS
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { 
   collection, query, where, orderBy, onSnapshot, 
-  doc, updateDoc, getDocs 
+  doc, updateDoc 
 } from 'firebase/firestore';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -15,10 +15,10 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ShoppingBag, Package, Mail, LogOut, ArrowRight, 
-  Clock, CheckCircle, Truck, Send, X, Circle, AlertCircle, Star
+  Clock, CheckCircle, Truck, Send, X, Circle, AlertCircle, Star, ChevronDown, ChevronUp 
 } from 'lucide-react';
 
-// STATUS BADGE FUNCTION (moved outside component)
+// STATUS BADGE FUNCTION
 const getStatusBadge = (status) => {
   const styles = {
     "Paid / Processing": "bg-blue-100 text-blue-700",
@@ -50,7 +50,7 @@ const getStatusBadge = (status) => {
   );
 };
 
-// CAN REVIEW / CANCEL FUNCTIONS (moved outside)
+// REVIEW / CANCEL HELPERS
 const isOrderReviewed = (order) => order.reviewed === true;
 const canReview = (order) => order.status === "completed" && !isOrderReviewed(order);
 const canRequestCancellation = (order) => ["Paid / Processing", "processing"].includes(order.status) && !order.cancellationRequestedAt;
@@ -67,8 +67,14 @@ const BuyerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
   const [greeting] = useState("Welcome back");
-  const [topPicks, setTopPicks] = useState([]);
-  const [favoriteCategory, setFavoriteCategory] = useState(null);
+
+  // Pagination per tab (visible count)
+  const [visibleCounts, setVisibleCounts] = useState({
+    all: 5,
+    pending: 5,
+    completed: 5,
+    cancelled: 5
+  });
 
   // REVIEW MODAL
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -76,7 +82,7 @@ const BuyerDashboard = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
 
-  // Fetch user data & favorite category
+  // Fetch user data (only username now)
   useEffect(() => {
     if (!user) return;
 
@@ -85,12 +91,6 @@ const BuyerDashboard = () => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUsername(data.username || user.email.split('@')[0]);
-
-        const categoryCounts = data.viewedCategories || {};
-        const maxCategory = Object.entries(categoryCounts)
-          .reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0])[0];
-
-        setFavoriteCategory(maxCategory || null);
       }
     });
 
@@ -148,24 +148,6 @@ const BuyerDashboard = () => {
     return () => unsubMessages();
   }, [user]);
 
-  // Load Top Picks
-  useEffect(() => {
-    if (!favoriteCategory) return;
-
-    const loadTopPicks = async () => {
-      const q = query(
-        collection(db, "pricelists"),
-        where("category", "==", favoriteCategory),
-        limit(6)
-      );
-      const snap = await getDocs(q);
-      const picks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setTopPicks(picks);
-    };
-
-    loadTopPicks();
-  }, [favoriteCategory]);
-
   const requestCancellation = async (orderId) => {
     if (!confirm("Request cancellation?")) return;
     try {
@@ -212,10 +194,6 @@ const BuyerDashboard = () => {
     }
   };
 
-  const isOrderReviewed = (order) => order.reviewed === true;
-  const canReview = (order) => order.status === "completed" && !isOrderReviewed(order);
-  const canRequestCancellation = (order) => ["Paid / Processing", "processing"].includes(order.status) && !order.cancellationRequestedAt;
-
   const handleLogout = () => signOut(auth).then(() => navigate('/login'));
 
   const openConversation = (convo) => {
@@ -255,10 +233,26 @@ const BuyerDashboard = () => {
     return null;
   }
 
+  // Group orders
   const pendingOrders = orders.filter(o => ["pending", "Paid / Processing", "processing"].includes(o.status));
   const completedOrders = orders.filter(o => o.status === "completed");
   const cancelledOrders = orders.filter(o => ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status));
   const allOrders = orders;
+
+  // Load more / less per tab
+  const loadMore = (tab) => {
+    setVisibleCounts(prev => ({
+      ...prev,
+      [tab]: prev[tab] + 5
+    }));
+  };
+
+  const loadLess = (tab) => {
+    setVisibleCounts(prev => ({
+      ...prev,
+      [tab]: Math.max(5, prev[tab] - 5)
+    }));
+  };
 
   return (
     <>
@@ -319,7 +313,7 @@ const BuyerDashboard = () => {
             )}
           </div>
 
-          {/* ORDERS TABBED TABLE */}
+          {/* ORDERS TABBED TABLE WITH VIEW MORE / VIEW LESS */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
               <Package className="text-[#F2BB16]" size={32} />
@@ -344,55 +338,44 @@ const BuyerDashboard = () => {
                 </TabsList>
 
                 <TabsContent value="all">
-                  <OrderTable orders={allOrders} formatPrice={formatPrice} />
+                  <OrderTable 
+                    orders={allOrders} 
+                    visibleCount={visibleCounts.all}
+                    onLoadMore={() => loadMore('all')}
+                    onLoadLess={() => loadLess('all')}
+                    formatPrice={formatPrice}
+                  />
                 </TabsContent>
                 <TabsContent value="pending">
-                  <OrderTable orders={pendingOrders} formatPrice={formatPrice} />
+                  <OrderTable 
+                    orders={pendingOrders} 
+                    visibleCount={visibleCounts.pending}
+                    onLoadMore={() => loadMore('pending')}
+                    onLoadLess={() => loadLess('pending')}
+                    formatPrice={formatPrice}
+                  />
                 </TabsContent>
                 <TabsContent value="completed">
-                  <OrderTable orders={completedOrders} formatPrice={formatPrice} />
+                  <OrderTable 
+                    orders={completedOrders} 
+                    visibleCount={visibleCounts.completed}
+                    onLoadMore={() => loadMore('completed')}
+                    onLoadLess={() => loadLess('completed')}
+                    formatPrice={formatPrice}
+                  />
                 </TabsContent>
                 <TabsContent value="cancelled">
-                  <OrderTable orders={cancelledOrders} formatPrice={formatPrice} />
+                  <OrderTable 
+                    orders={cancelledOrders} 
+                    visibleCount={visibleCounts.cancelled}
+                    onLoadMore={() => loadMore('cancelled')}
+                    onLoadLess={() => loadLess('cancelled')}
+                    formatPrice={formatPrice}
+                  />
                 </TabsContent>
               </Tabs>
             )}
           </div>
-
-          {/* TOP PICKS FOR YOU */}
-          {favoriteCategory && topPicks.length > 0 && (
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <Star className="text-[#F2BB16]" size={32} />
-                Top Picks for You ({favoriteCategory})
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {topPicks.map(item => (
-                  <Link 
-                    key={item.id} 
-                    to={`/product/${item.id}`}
-                    className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
-                  >
-                    <div className="aspect-square">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                          <ShoppingBag size={32} className="text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-semibold text-[#118C8C] line-clamp-2">{item.name}</h3>
-                      <p className="text-lg font-bold text-[#F2BB16] mt-2">
-                        {formatPrice(item.price)}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Messages */}
           <div className="mb-12">
@@ -503,8 +486,8 @@ const BuyerDashboard = () => {
   );
 };
 
-// Reusable Order Table (now receives formatPrice as prop)
-const OrderTable = ({ orders, formatPrice }) => {
+// Reusable Order Table with View More / View Less
+const OrderTable = ({ orders, visibleCount, onLoadMore, onLoadLess, formatPrice }) => {
   if (orders.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -512,6 +495,10 @@ const OrderTable = ({ orders, formatPrice }) => {
       </div>
     );
   }
+
+  const displayedOrders = orders.slice(0, visibleCount);
+  const hasMore = visibleCount < orders.length;
+  const hasLess = visibleCount > 5;
 
   return (
     <div className="overflow-x-auto">
@@ -527,7 +514,7 @@ const OrderTable = ({ orders, formatPrice }) => {
           </tr>
         </thead>
         <tbody>
-          {orders.map(order => (
+          {displayedOrders.map(order => (
             <tr key={order.id} className="border-t hover:bg-gray-50">
               <td className="p-4 font-medium">#{order.id.slice(0,8)}</td>
               <td className="p-4">{order.createdAt?.toDate?.().toLocaleDateString()}</td>
@@ -563,6 +550,30 @@ const OrderTable = ({ orders, formatPrice }) => {
           ))}
         </tbody>
       </table>
+
+      {/* VIEW MORE / VIEW LESS BUTTONS */}
+      <div className="flex justify-center gap-4 py-6">
+        {hasMore && (
+          <Button 
+            variant="outline" 
+            onClick={onLoadMore}
+            className="flex items-center gap-2"
+          >
+            View More ({orders.length - visibleCount} remaining)
+            <ChevronDown size={20} />
+          </Button>
+        )}
+        {hasLess && (
+          <Button 
+            variant="outline" 
+            onClick={onLoadLess}
+            className="flex items-center gap-2"
+          >
+            View Less
+            <ChevronUp size={20} />
+          </Button>
+        )}
+      </div>
     </div>
   );
 };
