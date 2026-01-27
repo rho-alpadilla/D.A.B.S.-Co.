@@ -1,4 +1,4 @@
-// src/App.jsx ← GLOBAL FLOWING BACKGROUND (ALL PAGES)
+// src/App.jsx ← UPDATED: ADDED PROTECTED /CHECKOUT ROUTE
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -20,6 +20,7 @@ import PricelistsPage from '@/pages/PricelistsPage';
 import AboutPage from '@/pages/AboutPage';
 import ContactPage from '@/pages/ContactPage';
 import CartPage from '@/pages/CartPage';
+import CheckoutPage from '@/pages/CheckoutPage'; // ← NEW IMPORT
 import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage';
 import TermsPage from '@/pages/TermsPage';
 import FAQsPage from '@/pages/FAQsPage';
@@ -30,7 +31,26 @@ import BuyerDashboard from '@/pages/BuyerDashboard';
 import ProfilePage from '@/pages/ProfilePage';
 import AdminPanel from '@/pages/AdminPanel';
 
-// Protected Admin Route
+// Protected Route for logged-in users (reusable for buyer pages like checkout)
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+// Protected Admin Route (unchanged)
 const ProtectedAdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -96,6 +116,16 @@ function App() {
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
                 <Route path="/profile" element={<ProfilePage />} />
+
+                {/* CHECKOUT - PROTECTED */}
+                <Route 
+                  path="/checkout" 
+                  element={
+                    <ProtectedRoute>
+                      <CheckoutPage />
+                    </ProtectedRoute>
+                  } 
+                />
 
                 {/* ADMIN */}
                 <Route

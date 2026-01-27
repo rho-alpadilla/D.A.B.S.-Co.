@@ -1,4 +1,4 @@
-// src/pages/GalleryPage.jsx ← FINAL: TOP SELLERS WORKS 100% + VISUAL BADGE
+// src/pages/GalleryPage.jsx ← REVERTED: GUESTS CAN FULLY ACCESS GALLERY AGAIN
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -82,7 +82,6 @@ const GalleryPage = () => {
     return filteredProducts.filter(p => p.category === category);
   };
 
-  // ✅ NEW: IDs used for Prev/Next on Product Details (respects current tab + search + sort)
   const getNavIdsForTab = (tabId) => getCategoryItems(tabId).map(p => p.id);
 
   const getStockText = (product) => {
@@ -204,7 +203,6 @@ const GalleryPage = () => {
                           )}
 
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            {/* ✅ UPDATED: pass ids so Product Details can do Prev/Next within this tab */}
                             <Link
                               to={`/product/${item.id}`}
                               state={{ ids: getNavIdsForTab(cat.id), fromTab: cat.id }}
@@ -238,7 +236,6 @@ const GalleryPage = () => {
 
                           <p className="text-gray-600 text-sm line-clamp-2 mb-4">{item.description}</p>
 
-                          {/* ✅ UPDATED: pass ids so Product Details can do Prev/Next within this tab */}
                           <Link
                             to={`/product/${item.id}`}
                             state={{ ids: getNavIdsForTab(cat.id), fromTab: cat.id }}
