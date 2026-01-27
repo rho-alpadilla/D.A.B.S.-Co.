@@ -1,4 +1,4 @@
-// src/App.jsx ← UPDATED: ADDED PROTECTED /CHECKOUT ROUTE
+// src/App.jsx ← UPDATED: ADDED PROTECTED /ADD-PRODUCT ROUTE
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -17,10 +17,11 @@ import HomePage from '@/pages/HomePage';
 import GalleryPage from '@/pages/GalleryPage';
 import ProductDetailPage from '@/pages/ProductDetailPage';
 import PricelistsPage from '@/pages/PricelistsPage';
+import AddProductPage from '@/pages/AddProductPage'; // ← NEW IMPORT
 import AboutPage from '@/pages/AboutPage';
 import ContactPage from '@/pages/ContactPage';
 import CartPage from '@/pages/CartPage';
-import CheckoutPage from '@/pages/CheckoutPage'; // ← NEW IMPORT
+import CheckoutPage from '@/pages/CheckoutPage';
 import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage';
 import TermsPage from '@/pages/TermsPage';
 import FAQsPage from '@/pages/FAQsPage';
@@ -133,6 +134,16 @@ function App() {
                   element={
                     <ProtectedAdminRoute>
                       <AdminPanel />
+                    </ProtectedAdminRoute>
+                  }
+                />
+
+                {/* ADMIN ADD PRODUCT - PROTECTED */}
+                <Route 
+                  path="/add-product"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AddProductPage />
                     </ProtectedAdminRoute>
                   }
                 />

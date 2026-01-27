@@ -1,14 +1,14 @@
-// src/pages/PricelistsPage.jsx ← FINAL: LIVE CURRENCY API + ADMIN EDITS PHP
-import React, { useState, useEffect, useRef } from 'react';
+// src/pages/PricelistsPage.jsx ← UPDATED: ADD PRODUCT MOVED TO NEW PAGE (/add-product)
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-import { storage } from '@/lib/firebase';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, Save, X } from 'lucide-react';
-import { useCurrency } from '@/context/CurrencyContext'; // ← LIVE CURRENCY
+import { Plus, Save } from 'lucide-react';
+import { useCurrency } from '@/context/CurrencyContext';
+import { useNavigate } from 'react-router-dom';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -19,8 +19,9 @@ const CATEGORIES = [
 
 const PricelistsPage = () => {
   const { user } = useAuth();
-  const isAdmin = user?.email.includes('admin');
-  const { formatPrice } = useCurrency(); // ← GLOBAL LIVE PRICE
+  const isAdmin = user?.email?.includes('admin');
+  const { formatPrice } = useCurrency();
+  const navigate = useNavigate();
 
   const [pricing, setPricing] = useState({
     needlepoint: [
@@ -53,13 +54,6 @@ const PricelistsPage = () => {
 
   const [editing, setEditing] = useState({ section: null, index: null, field: null });
   const [tempValue, setTempValue] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newProduct, setNewProduct] = useState({
-    name: "", price: "", description: "", category: "", imageUrl: "", inStock: true
-  });
-  const [uploading, setUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState("");
-  const fileInputRef = useRef(null);
 
   // Load pricing from Firestore
   useEffect(() => {
@@ -70,57 +64,6 @@ const PricelistsPage = () => {
     });
     return () => unsub();
   }, []);
-
-  // Image upload
-  const handleImageChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploading(true);
-    setImagePreview(URL.createObjectURL(file));
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "dabs-co-unsigned");
-
-    try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await res.json();
-      setNewProduct(prev => ({ ...prev, imageUrl: data.secure_url }));
-    } catch (err) {
-      alert("Upload failed: " + err.message);
-    }
-    setUploading(false);
-  };
-
-  // Add new product
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    if (!newProduct.imageUrl || !newProduct.category) return alert("Image & category required!");
-
-    const productData = {
-      name: newProduct.name.trim(),
-      price: Number(newProduct.price),
-      description: newProduct.description.trim(),
-      category: newProduct.category,
-      imageUrl: newProduct.imageUrl,
-      inStock: newProduct.inStock,
-      createdAt: new Date()
-    };
-
-    try {
-      await addDoc(collection(db, "pricelists"), productData);
-      setShowAddForm(false);
-      setNewProduct({ name: "", price: "", description: "", category: "", imageUrl: "", inStock: true });
-      setImagePreview("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      alert("Product added successfully!");
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
-  };
 
   // Edit price
   const startEdit = (section, index, field, value) => {
@@ -392,89 +335,17 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
-        {/* ADD NEW PRODUCT */}
+        {/* ADD NEW PRODUCT BUTTON - LINK TO NEW PAGE */}
         {isAdmin && (
           <div className="text-center my-20">
             <Button
               size="lg"
-              onClick={() => setShowAddForm(true)}
+              onClick={() => navigate('/add-product')}
               className="bg-[#118C8C] hover:bg-[#0d7070] text-white font-bold text-xl px-12 py-6"
             >
               <Plus className="mr-3" size={28} />
               Add New Product
             </Button>
-          </div>
-        )}
-
-        {/* ADD NEW PRODUCT FORM */}
-        {isAdmin && showAddForm && (
-          <div className="bg-white rounded-3xl shadow-2xl p-12 mb-20 border-4 border-[#118C8C]">
-            <h2 className="text-3xl font-bold text-[#118C8C] mb-10 text-center">Add New Product</h2>
-            <form onSubmit={handleAddProduct} className="space-y-8 max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <input
-                  placeholder="Product Name"
-                  value={newProduct.name}
-                  onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
-                  className="px-6 py-4 border-2 rounded-xl text-lg"
-                  required
-                />
-                <input
-                  type="number"
-                  placeholder="Price in PHP"
-                  value={newProduct.price}
-                  onChange={e => setNewProduct({ ...newProduct, price: e.target.value })}
-                  className="px-6 py-4 border-2 rounded-xl text-lg"
-                  required
-                />
-              </div>
-
-              <textarea
-                placeholder="Description"
-                value={newProduct.description}
-                onChange={e => setNewProduct({ ...newProduct, description: e.target.value })}
-                className="w-full px-6 py-4 border-2 rounded-xl h-40 text-lg"
-                required
-              />
-
-              <select
-                value={newProduct.category}
-                onChange={e => setNewProduct({ ...newProduct, category: e.target.value })}
-                className="w-full px-6 py-4 border-2 rounded-xl text-lg"
-                required
-              >
-                <option value="">Select Category</option>
-                {CATEGORIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-
-              <div>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                <Button type="button" variant="outline" size="lg" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                  <Upload className="mr-3" /> {uploading ? "Uploading..." : "Upload Product Image"}
-                </Button>
-              </div>
-
-              {imagePreview && (
-                <div className="text-center">
-                  <img src={imagePreview} alt="preview" className="w-96 h-96 object-cover rounded-2xl shadow-2xl mx-auto" />
-                </div>
-              )}
-
-              <div className="flex justify-center gap-6">
-                <Button type="submit" size="lg" className="bg-[#118C8C] hover:bg-[#0d7070] px-16 py-6 text-xl font-bold">
-                  <Save className="mr-3" /> Add Product
-                </Button>
-                <Button type="button" variant="outline" size="lg" onClick={() => {
-                  setShowAddForm(false);
-                  setNewProduct({ name: "", price: "", description: "", category: "", imageUrl: "", inStock: true });
-                  setImagePreview("");
-                }}>
-                  <X className="mr-3" /> Cancel
-                </Button>
-              </div>
-            </form>
           </div>
         )}
 
