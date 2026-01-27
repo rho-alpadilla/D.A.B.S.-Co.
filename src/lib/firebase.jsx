@@ -1,8 +1,8 @@
-// src/lib/firebase.jsx   ← keep the .jsx extension!
+// src/lib/firebase.jsx
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';        // ← ADDED THIS LINE
+import { getStorage } from 'firebase/storage';
 import { createContext, useContext, useEffect, useState } from 'react';
 
 const firebaseConfig = {
@@ -17,11 +17,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-export const db = getFirestore(app);
+// ADD THESE EXPORTS (if missing)
+export const db = getFirestore(app);          // ← This was missing in your latest version
 export const auth = getAuth(app);
-export const storage = getStorage(app);        // ← ADDED THIS LINE
+export const storage = getStorage(app);
 
-// Auth Context (unchanged – perfect as-is)
+// Auth Context (unchanged)
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {

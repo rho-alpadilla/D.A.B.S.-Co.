@@ -1,5 +1,5 @@
-// src/pages/CartPage.jsx ← UPDATED: CHECKBOX SELECTION + SELECTED SUBTOTAL + PASS TO CHECKOUT
-import React, { useState, useMemo } from 'react';
+// src/pages/CartPage.jsx ← FIXED: NO AUTO-REMOVE + PERSISTED SELECTION SYNC
+import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Trash2, ArrowRight, ShoppingBag, Square, CheckSquare } from 'lucide-react';
@@ -13,8 +13,21 @@ const CartPage = () => {
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
 
-  // Track selected item IDs (default: all selected)
-  const [selectedIds, setSelectedIds] = useState(() => cartItems.map(item => item.id));
+  // Selected IDs: default to all when cart changes, but persist across renders
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Sync selectedIds when cartItems change (add new items, remove missing ones)
+  useEffect(() => {
+    setSelectedIds(prev => {
+      // Keep only IDs that still exist in cart
+      const validPrev = prev.filter(id => cartItems.some(item => item.id === id));
+      // Add new items that aren't selected yet
+      const newIds = cartItems
+        .filter(item => !validPrev.includes(item.id))
+        .map(item => item.id);
+      return [...validPrev, ...newIds];
+    });
+  }, [cartItems]);
 
   // Toggle individual item
   const toggleSelect = (id) => {
@@ -32,7 +45,7 @@ const CartPage = () => {
     }
   };
 
-  // Calculate subtotal for selected items only
+  // Subtotal for selected items only
   const selectedTotal = useMemo(() => {
     return cartItems
       .filter(item => selectedIds.includes(item.id))
