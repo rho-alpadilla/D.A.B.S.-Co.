@@ -1,4 +1,4 @@
-// src/pages/ProductDetailPage.jsx ← FINAL: UNIFIED "YOU MAY ALSO LIKE" CAROUSEL + NEXT/PREV BUTTONS
+// src/pages/ProductDetailPage.jsx ← FINAL: MULTI-IMAGE EDITING (ADD/REMOVE IMAGES IN ADMIN MODE)
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useParams, Link } from 'react-router-dom';
@@ -13,8 +13,9 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, ShoppingBag, Edit, Save, X, Upload, 
-  Star, MessageCircle, Eye, ChevronLeft, ChevronRight 
+  Star, MessageCircle, ChevronLeft, ChevronRight, Trash2, Plus 
 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -29,6 +30,7 @@ const ProductDetailPage = () => {
   const isAdmin = user?.email.includes('admin');
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
+  const { toast } = useToast();
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -39,8 +41,10 @@ const ProductDetailPage = () => {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
   const [uploading, setUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState("");
   const fileInputRef = useRef(null);
+
+  // Multi-image state
+  const [mainImageIndex, setMainImageIndex] = useState(0);
 
   // Carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -50,11 +54,9 @@ const ProductDetailPage = () => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState("");
 
-
   useEffect(() => {
     if (!id) return;
 
-    // Load current product
     const unsubProduct = onSnapshot(doc(db, "pricelists", id), (snap) => {
       if (snap.exists()) {
         const data = { id: snap.id, ...snap.data() };
@@ -62,16 +64,16 @@ const ProductDetailPage = () => {
         setForm({
           ...data,
           inStock: data.inStock !== false,
-          stockQuantity: data.stockQuantity || 0
+          stockQuantity: data.stockQuantity || 0,
+          imageUrls: data.imageUrls || (data.imageUrl ? [data.imageUrl] : [])
         });
-        setImagePreview(data.imageUrl || "");
+        setMainImageIndex(0);
       } else {
         setProduct(null);
       }
       setLoading(false);
     });
 
-    // Load reviews
     const loadReviews = async () => {
       const q = query(
         collection(db, "reviews"),
@@ -94,26 +96,21 @@ const ProductDetailPage = () => {
     return () => unsubProduct();
   }, [id]);
 
-  // Load all recommendation types and merge into one list
+  // Load recommendations (unchanged)
   useEffect(() => {
     if (!product?.category) return;
 
     const loadRecommendations = async () => {
-      // 1. Similar products (same category)
       const similarQ = query(
         collection(db, "pricelists"),
         where("category", "==", product.category),
         limit(10)
       );
-
-      // 2. Most bought (top sellers globally)
       const topSellersQ = query(
         collection(db, "pricelists"),
         orderBy("totalSold", "desc"),
         limit(10)
       );
-
-      // 3. New arrivals (latest globally)
       const newArrivalsQ = query(
         collection(db, "pricelists"),
         orderBy("createdAt", "desc"),
@@ -126,26 +123,16 @@ const ProductDetailPage = () => {
         getDocs(newArrivalsQ)
       ]);
 
-      const similar = similarSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(p => p.id !== id);
+      const similar = similarSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.id !== id);
+      const topSellers = topSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.id !== id && (p.totalSold || 0) > 0);
+      const newArrivals = newSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.id !== id);
 
-      const topSellers = topSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(p => p.id !== id && (p.totalSold || 0) > 0);
-
-      const newArrivals = newSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(p => p.id !== id);
-
-      // Combine them (prioritize similar → top sellers → new)
       const combined = [
         ...similar.slice(0, 6),
         ...topSellers.slice(0, 4),
         ...newArrivals.slice(0, 4)
       ];
 
-      // Remove duplicates & shuffle slightly for variety
       const unique = Array.from(new Map(combined.map(item => [item.id, item])).values())
         .sort(() => Math.random() - 0.5);
 
@@ -155,7 +142,7 @@ const ProductDetailPage = () => {
     loadRecommendations();
   }, [product?.category, id]);
 
-  // Carousel navigation
+  // Carousel navigation (unchanged)
   const nextSlide = () => {
     setCurrentSlide(prev => (prev + itemsPerPage) % recommended.length);
   };
@@ -164,33 +151,51 @@ const ProductDetailPage = () => {
     setCurrentSlide(prev => (prev - itemsPerPage + recommended.length) % recommended.length);
   };
 
-  const visibleItems = recommended.slice(currentSlide, currentSlide + itemsPerPage);
-  if (visibleItems.length < itemsPerPage) {
-    visibleItems.push(...recommended.slice(0, itemsPerPage - visibleItems.length));
-  }
+  const handleAddImages = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-  const handleImageChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
     setUploading(true);
-    setImagePreview(URL.createObjectURL(file));
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "dabs-co-unsigned");
+    const uploadPromises = files.map(async (file) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "dabs-co-unsigned");
 
-    try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await res.json();
-      setForm(prev => ({ ...prev, imageUrl: data.secure_url }));
-      setImagePreview(data.secure_url);
-    } catch (err) {
-      alert("Upload failed");
-    }
+      try {
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+          { method: "POST", body: formData }
+        );
+        const data = await res.json();
+        return data.secure_url;
+      } catch (err) {
+        toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+        return null;
+      }
+    });
+
+    const newUrls = (await Promise.all(uploadPromises)).filter(url => url);
+    setForm(prev => ({
+      ...prev,
+      imageUrls: [...(prev.imageUrls || []), ...newUrls]
+    }));
+
     setUploading(false);
+    toast({ title: "Success", description: `${newUrls.length} new images added!` });
+  };
+
+  const removeImage = (index) => {
+    setForm(prev => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== index)
+    }));
+    // Adjust main index if removed current one
+    if (index === mainImageIndex) {
+      setMainImageIndex(prev => Math.max(0, prev - 1));
+    } else if (index < mainImageIndex) {
+      setMainImageIndex(prev => prev - 1);
+    }
   };
 
   const saveEdits = async () => {
@@ -200,15 +205,16 @@ const ProductDetailPage = () => {
         price: Number(form.price),
         description: form.description.trim(),
         category: form.category,
-        imageUrl: form.imageUrl,
+        imageUrls: form.imageUrls || [], // Save as array
         inStock: form.inStock,
         stockQuantity: Number(form.stockQuantity) || 0,
         updatedAt: new Date()
       });
       setEditing(false);
-      alert("Product updated!");
+      toast({ title: "Success", description: "Product updated!" });
     } catch (err) {
-      alert("Save failed");
+      toast({ title: "Error", description: "Save failed", variant: "destructive" });
+      console.error(err);
     }
   };
 
@@ -224,9 +230,9 @@ const ProductDetailPage = () => {
 
       setReplyText("");
       setReplyingTo(null);
-      alert("Reply sent!");
+      toast({ title: "Success", description: "Reply sent!" });
     } catch (err) {
-      alert("Failed to send reply");
+      toast({ title: "Error", description: "Failed to send reply", variant: "destructive" });
       console.error(err);
     }
   };
@@ -278,13 +284,29 @@ const ProductDetailPage = () => {
     );
   }
 
+  // Get all images (support old imageUrl and new imageUrls array)
+  const allImages = form.imageUrls && form.imageUrls.length > 0 
+    ? form.imageUrls 
+    : product.imageUrl 
+      ? [product.imageUrl] 
+      : [];
+
+  const currentImage = allImages[mainImageIndex] || null;
+
+  const nextImage = () => {
+    setMainImageIndex(prev => (prev + 1) % allImages.length);
+  };
+
+  const prevImage = () => {
+    setMainImageIndex(prev => (prev - 1 + allImages.length) % allImages.length);
+  };
+
   return (
     <>
       <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
 
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-6 max-w-5xl">
-          {/* BREADCRUMB & EDIT BUTTON */}
           <div className="flex justify-between items-center mb-8">
             <Link to="/gallery" className="inline-flex items-center gap-2 text-[#118C8C] hover:underline">
               <ArrowLeft size={20} /> Back to Gallery
@@ -296,36 +318,101 @@ const ProductDetailPage = () => {
             )}
           </div>
 
-          {/* MAIN PRODUCT CARD */} 
+          {/* MAIN PRODUCT CARD */}
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-0 mb-12">
-            {/* Image */}
-            <div className="relative h-96 md:h-full">
-              {editing ? (
-                <div className="relative h-full">
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-500">No Image</span>
-                    </div>
-                  )}
-                  <div className="absolute bottom-4 left-4">
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                    <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                      <Upload className="mr-2" /> {uploading ? "Uploading..." : "Change Image"}
-                    </Button>
+            {/* Images Section */}
+            <div className="relative">
+              {/* Main Image */}
+              <div className="aspect-square overflow-hidden bg-gray-100 relative group">
+                {currentImage ? (
+                  <img 
+                    src={currentImage} 
+                    alt={`${product.name} - view ${mainImageIndex + 1}`}
+                    className="w-full h-full object-cover transition-opacity duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ShoppingBag size={80} className="text-gray-400" />
                   </div>
+                )}
+
+                {/* Navigation Arrows */}
+                {allImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={prevImage}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-sm"
+                    >
+                      <ChevronLeft size={32} />
+                    </button>
+                    <button
+                      onClick={nextImage}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-sm"
+                    >
+                      <ChevronRight size={32} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Thumbnails / Previews (editable in edit mode) */}
+              {allImages.length > 0 && (
+                <div className="flex gap-2 p-4 bg-gray-50 flex-wrap justify-center">
+                  {allImages.map((img, idx) => (
+                    <div key={idx} className="relative group w-20 h-20">
+                      <button
+                        onClick={() => setMainImageIndex(idx)}
+                        className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all ${
+                          idx === mainImageIndex ? 'border-[#118C8C] shadow-lg scale-105' : 'border-gray-300 hover:border-[#118C8C]/50'
+                        }`}
+                      >
+                        <img src={img} alt={`thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+
+                      {editing && (
+                        <button
+                          onClick={() => {
+                            const newImages = allImages.filter((_, i) => i !== idx);
+                            setForm(prev => ({ ...prev, imageUrls: newImages }));
+                            if (idx === mainImageIndex) setMainImageIndex(0);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ) : product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                  <ShoppingBag size={80} className="text-gray-400" />
+              )}
+
+              {/* Add Images Button (only in edit mode) */}
+              {editing && (
+                <div className="p-4 bg-gray-50 text-center">
+                  <input 
+                    ref={fileInputRef} 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={handleAddImages} 
+                    className="hidden" 
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="lg" 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={uploading}
+                    className="border-[#118C8C] text-[#118C8C] hover:bg-[#118C8C]/10"
+                  >
+                    <Plus className="mr-2" /> {uploading ? "Uploading..." : "Add More Images"}
+                  </Button>
+                  <p className="text-sm text-gray-500 mt-2">Upload multiple images for different angles/views</p>
                 </div>
               )}
             </div>
 
-            {/* Details */}
+            {/* Details Section */}
             <div className="p-10 md:p-16 flex flex-col justify-center space-y-8">
               {editing ? (
                 <>
@@ -506,7 +593,6 @@ const ProductDetailPage = () => {
               </h2>
 
               <div className="relative">
-                {/* Carousel Container */}
                 <div className="overflow-hidden">
                   <div 
                     className="flex transition-transform duration-700 ease-out gap-6"
@@ -532,7 +618,6 @@ const ProductDetailPage = () => {
                               </div>
                             )}
 
-                            {/* Badges */}
                             {(item.totalSold > 5 || item === recommended[0]) && (
                               <div className="absolute top-3 left-3 bg-red-600 text-white px-4 py-1 rounded-full text-xs font-bold shadow">
                                 BEST SELLER
@@ -562,7 +647,6 @@ const ProductDetailPage = () => {
                   </div>
                 </div>
 
-                {/* Navigation Arrows */}
                 {recommended.length > itemsPerPage && (
                   <>
                     <button 

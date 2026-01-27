@@ -1,4 +1,4 @@
-// src/pages/AddProductPage.jsx ← NEW: DEDICATED PAGE FOR ADDING PRODUCTS (ADMIN ONLY)
+// src/pages/AddProductPage.jsx ← UPDATED: MULTIPLE IMAGE UPLOAD SUPPORT
 import React, { useState, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, Save, X, ArrowLeft } from 'lucide-react';
+import { Plus, Upload, Save, X, ArrowLeft, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const CATEGORIES = [
@@ -18,7 +18,7 @@ const CATEGORIES = [
 
 const AddProductPage = () => {
   const { user } = useAuth();
-  const isAdmin = user?.email.includes('admin');
+  const isAdmin = user?.email?.includes('admin');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -27,13 +27,13 @@ const AddProductPage = () => {
     price: "",
     description: "",
     category: "",
-    imageUrl: "",
+    imageUrls: [], // ← Changed to array for multiple images
     inStock: true,
     stockQuantity: 0
   });
 
   const [uploading, setUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState("");
+  const [previews, setPreviews] = useState([]); // array of preview URLs
   const fileInputRef = useRef(null);
 
   if (!isAdmin) {
@@ -50,34 +50,55 @@ const AddProductPage = () => {
     );
   }
 
-  const handleImageChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
     setUploading(true);
-    setImagePreview(URL.createObjectURL(file));
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "dabs-co-unsigned");
+    // Create local previews
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
 
-    try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await res.json();
-      setForm(prev => ({ ...prev, imageUrl: data.secure_url }));
-      setImagePreview(data.secure_url);
-    } catch (err) {
-      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
-    }
-    setUploading(false);
+    // Upload each file sequentially
+    const uploadPromises = files.map(async (file) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "dabs-co-unsigned");
+
+      try {
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+          { method: "POST", body: formData }
+        );
+        const data = await res.json();
+        return data.secure_url;
+      } catch (err) {
+        toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+        return null;
+      }
+    });
+
+    Promise.all(uploadPromises).then(urls => {
+      const validUrls = urls.filter(url => url); // remove failed uploads
+      setForm(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...validUrls] }));
+      setUploading(false);
+      toast({ title: "Success", description: `${validUrls.length} images uploaded!` });
+    });
+  };
+
+  const removePreview = (index) => {
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+    setForm(prev => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== index)
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.imageUrl || !form.category || !form.name || !form.price) {
-      toast({ title: "Error", description: "All fields required", variant: "destructive" });
+    if (!form.imageUrls.length || !form.category || !form.name || !form.price) {
+      toast({ title: "Error", description: "All fields required (including at least one image)", variant: "destructive" });
       return;
     }
 
@@ -90,8 +111,8 @@ const AddProductPage = () => {
         updatedAt: serverTimestamp()
       });
 
-      toast({ title: "Success", description: "Product added!" });
-      navigate('/pricelists'); // or '/gallery'
+      toast({ title: "Success", description: "Product added with multiple images!" });
+      navigate('/pricelists');
     } catch (err) {
       toast({ title: "Error", description: "Failed to add product", variant: "destructive" });
       console.error(err);
@@ -103,7 +124,7 @@ const AddProductPage = () => {
       <Helmet><title>Add New Product - D.A.B.S. Co.</title></Helmet>
 
       <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto px-6 max-w-3xl">
+        <div className="container mx-auto px-6 max-w-4xl">
           <div className="flex items-center gap-4 mb-8">
             <Button variant="outline" onClick={() => navigate('/pricelists')}>
               <ArrowLeft size={20} className="mr-2" /> Back to Pricelists
@@ -160,16 +181,45 @@ const AddProductPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Image</label>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                <Button type="button" variant="outline" size="lg" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                  <Upload className="mr-2" /> {uploading ? "Uploading..." : "Upload Image"}
+                <label className="block text-sm font-medium text-gray-700 mb-2">Product Images (multiple allowed)</label>
+                <input 
+                  ref={fileInputRef} 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  onChange={handleImagesChange} 
+                  className="hidden" 
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="lg" 
+                  onClick={() => fileInputRef.current?.click()} 
+                  disabled={uploading}
+                >
+                  <Upload className="mr-2" /> {uploading ? "Uploading..." : "Upload Images"}
                 </Button>
+                <p className="text-sm text-gray-500 mt-2">You can select multiple images at once (different angles, details, etc.)</p>
               </div>
 
-              {imagePreview && (
-                <div className="mt-4">
-                  <img src={imagePreview} alt="preview" className="w-64 h-64 object-cover rounded-2xl shadow-xl mx-auto" />
+              {previews.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                  {previews.map((preview, index) => (
+                    <div key={index} className="relative group">
+                      <img 
+                        src={preview} 
+                        alt={`preview ${index}`} 
+                        className="w-full h-40 object-cover rounded-lg shadow" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePreview(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -197,10 +247,20 @@ const AddProductPage = () => {
               </div>
 
               <div className="flex justify-center gap-6 mt-12">
-                <Button type="submit" size="lg" className="bg-[#118C8C] hover:bg-[#0d7070] px-12 py-6 text-xl font-bold">
+                <Button 
+                  type="submit" 
+                  size="lg" 
+                  className="bg-[#118C8C] hover:bg-[#0d7070] px-12 py-6 text-xl font-bold"
+                  disabled={uploading || !form.imageUrls.length}
+                >
                   <Save className="mr-3" /> Add Product
                 </Button>
-                <Button type="button" variant="outline" size="lg" onClick={() => navigate('/pricelists')}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="lg" 
+                  onClick={() => navigate('/pricelists')}
+                >
                   <X className="mr-3" /> Cancel
                 </Button>
               </div>

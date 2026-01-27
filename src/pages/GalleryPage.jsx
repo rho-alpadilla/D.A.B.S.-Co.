@@ -1,13 +1,13 @@
-// src/pages/GalleryPage.jsx ← REVERTED: GUESTS CAN FULLY ACCESS GALLERY AGAIN
+// src/pages/GalleryPage.jsx ← FIXED: MISSING BUTTON IMPORT + WORKING ARROWS + CLICK IMAGE TO VIEW DETAILS
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Link } from 'react-router-dom';
-import { ShoppingBag, Eye, Star, Search, ArrowUpDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button'; // ← FIXED: MISSING IMPORT
 import { useCurrency } from '@/context/CurrencyContext';
 
 const GalleryPage = () => {
@@ -17,7 +17,9 @@ const GalleryPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState("default");
+  const [imageIndices, setImageIndices] = useState({}); // { productId: currentIndex }
   const { formatPrice } = useCurrency();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pricelists"), async (snapshot) => {
@@ -175,13 +177,37 @@ const GalleryPage = () => {
                     const isTopSeller = item.totalSold > 0 && sortOrder === "topSellers";
                     const showBadge = isTopSeller || item.totalSold >= 5;
 
+                    // All images for this product
+                    const allImages = item.imageUrls?.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
+
+                    // Current index for this product (default 0)
+                    const currentIndex = imageIndices[item.id] || 0;
+                    const currentImage = allImages[currentIndex] || null;
+
+                    const nextImage = (e) => {
+                      e.stopPropagation();
+                      setImageIndices(prev => ({
+                        ...prev,
+                        [item.id]: (currentIndex + 1) % allImages.length
+                      }));
+                    };
+
+                    const prevImage = (e) => {
+                      e.stopPropagation();
+                      setImageIndices(prev => ({
+                        ...prev,
+                        [item.id]: (currentIndex - 1 + allImages.length) % allImages.length
+                      }));
+                    };
+
                     return (
                       <motion.div
                         key={item.id}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.4, delay: index * 0.05 }}
-                        className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group relative"
+                        className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group relative cursor-pointer"
+                        onClick={() => navigate(`/product/${item.id}`, { state: { ids: getNavIdsForTab(cat.id), fromTab: cat.id } })}
                       >
                         {showBadge && (
                           <div className="absolute top-4 left-4 z-10 bg-red-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg animate-pulse">
@@ -189,29 +215,51 @@ const GalleryPage = () => {
                           </div>
                         )}
 
-                        <div className="aspect-square overflow-hidden relative bg-gray-100">
-                          {item.imageUrl ? (
+                        <div className="aspect-square overflow-hidden relative bg-gray-100 group-hover:bg-gray-200 transition-colors">
+                          {currentImage ? (
                             <img
-                              src={item.imageUrl}
+                              src={currentImage}
                               alt={item.name}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <div className="w-full h-full flex items-center justify-center">
                               <ShoppingBag size={48} className="text-gray-400" />
                             </div>
                           )}
 
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Link
-                              to={`/product/${item.id}`}
-                              state={{ ids: getNavIdsForTab(cat.id), fromTab: cat.id }}
-                            >
-                              <Button variant="secondary" size="lg" className="bg-white text-gray-900 hover:bg-gray-100">
-                                <Eye size={20} className="mr-2" /> View Details
-                              </Button>
-                            </Link>
-                          </div>
+                          {/* Navigation Arrows */}
+                          {allImages.length > 1 && (
+                            <>
+                              <button
+                                onClick={prevImage}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-sm"
+                              >
+                                <ChevronLeft size={20} />
+                              </button>
+
+                              <button
+                                onClick={nextImage}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-sm"
+                              >
+                                <ChevronRight size={20} />
+                              </button>
+                            </>
+                          )}
+
+                          {/* Dots Indicator */}
+                          {allImages.length > 1 && (
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              {allImages.map((_, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                    idx === currentIndex ? 'bg-white scale-125' : 'bg-white/60'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         <div className="p-6">
@@ -236,15 +284,9 @@ const GalleryPage = () => {
 
                           <p className="text-gray-600 text-sm line-clamp-2 mb-4">{item.description}</p>
 
-                          <Link
-                            to={`/product/${item.id}`}
-                            state={{ ids: getNavIdsForTab(cat.id), fromTab: cat.id }}
-                            className="block"
-                          >
-                            <Button className="w-full bg-[#118C8C] hover:bg-[#0d7070]">
-                              View Product
-                            </Button>
-                          </Link>
+                          <Button className="w-full bg-[#118C8C] hover:bg-[#0d7070]">
+                            View Product
+                          </Button>
                         </div>
                       </motion.div>
                     );
