@@ -1,4 +1,4 @@
-// src/pages/BuyerDashboard.jsx ← FINAL: REVIEW SYSTEM + EVERYTHING
+// src/pages/BuyerDashboard.jsx ← FIXED: ORDERS TABLE + NO formatPrice / getStatusBadge ERRORS
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,15 +7,53 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { 
   collection, query, where, orderBy, onSnapshot, 
-  addDoc, serverTimestamp, doc, updateDoc, getDocs 
+  doc, updateDoc, getDocs 
 } from 'firebase/firestore';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ShoppingBag, Package, Mail, LogOut, ArrowRight, 
   Clock, CheckCircle, Truck, Send, X, Circle, AlertCircle, Star
 } from 'lucide-react';
+
+// STATUS BADGE FUNCTION (moved outside component)
+const getStatusBadge = (status) => {
+  const styles = {
+    "Paid / Processing": "bg-blue-100 text-blue-700",
+    "Cancellation Requested": "bg-orange-100 text-orange-700",
+    "Cancelled – Pending Refund": "bg-red-100 text-red-700",
+    "Refunded": "bg-purple-100 text-purple-700",
+    "completed": "bg-green-100 text-green-700",
+    "processing": "bg-blue-100 text-blue-700",
+    "pending": "bg-yellow-100 text-yellow-700",
+    "cancelled": "bg-gray-100 text-gray-700"
+  };
+
+  const icons = {
+    "Paid / Processing": <Clock className="text-blue-600" size={18} />,
+    "Cancellation Requested": <AlertCircle className="text-orange-600" size={18} />,
+    "Cancelled – Pending Refund": <AlertCircle className="text-red-600" size={18} />,
+    "Refunded": <CheckCircle className="text-purple-600" size={18} />,
+    "completed": <CheckCircle className="text-green-600" size={18} />,
+    "processing": <Truck className="text-blue-600" size={18} />,
+    "pending": <Clock className="text-yellow-600" size={18} />,
+  };
+
+  const key = status || "pending";
+  return (
+    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${styles[key]}`}>
+      {icons[key] || <Clock size={18} />}
+      {key}
+    </span>
+  );
+};
+
+// CAN REVIEW / CANCEL FUNCTIONS (moved outside)
+const isOrderReviewed = (order) => order.reviewed === true;
+const canReview = (order) => order.status === "completed" && !isOrderReviewed(order);
+const canRequestCancellation = (order) => ["Paid / Processing", "processing"].includes(order.status) && !order.cancellationRequestedAt;
 
 const BuyerDashboard = () => {
   const navigate = useNavigate();
@@ -28,15 +66,17 @@ const BuyerDashboard = () => {
   const [replyText, setReplyText] = useState("");
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
-  const [photoURL, setPhotoURL] = useState("");
+  const [greeting] = useState("Welcome back");
+  const [topPicks, setTopPicks] = useState([]);
+  const [favoriteCategory, setFavoriteCategory] = useState(null);
 
-  // REVIEW MODAL STATE
+  // REVIEW MODAL
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedOrderForReview, setSelectedOrderForReview] = useState(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
 
-  // Fetch username + photoURL
+  // Fetch user data & favorite category
   useEffect(() => {
     if (!user) return;
 
@@ -45,13 +85,19 @@ const BuyerDashboard = () => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUsername(data.username || user.email.split('@')[0]);
-        setPhotoURL(data.photoURL || "");
+
+        const categoryCounts = data.viewedCategories || {};
+        const maxCategory = Object.entries(categoryCounts)
+          .reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0])[0];
+
+        setFavoriteCategory(maxCategory || null);
       }
     });
 
     return () => unsub();
   }, [user]);
 
+  // Load orders
   useEffect(() => {
     if (!user) return;
 
@@ -63,6 +109,13 @@ const BuyerDashboard = () => {
     const unsubOrders = onSnapshot(qOrders, snap => {
       setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
+
+    return () => unsubOrders();
+  }, [user]);
+
+  // Load messages
+  useEffect(() => {
+    if (!user) return;
 
     const qMessages = query(
       collection(db, "messages"),
@@ -92,26 +145,41 @@ const BuyerDashboard = () => {
       setLoading(false);
     });
 
-    return () => { unsubOrders(); unsubMessages(); };
+    return () => unsubMessages();
   }, [user]);
 
-  // REQUEST CANCELLATION
-  const requestCancellation = async (orderId) => {
-    if (!confirm("Are you sure you want to request cancellation for this order?")) return;
+  // Load Top Picks
+  useEffect(() => {
+    if (!favoriteCategory) return;
 
+    const loadTopPicks = async () => {
+      const q = query(
+        collection(db, "pricelists"),
+        where("category", "==", favoriteCategory),
+        limit(6)
+      );
+      const snap = await getDocs(q);
+      const picks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setTopPicks(picks);
+    };
+
+    loadTopPicks();
+  }, [favoriteCategory]);
+
+  const requestCancellation = async (orderId) => {
+    if (!confirm("Request cancellation?")) return;
     try {
       await updateDoc(doc(db, "orders", orderId), {
         status: "Cancellation Requested",
         cancellationRequestedAt: new Date(),
         cancellationRequestedBy: "buyer"
       });
-      alert("Cancellation request sent! Admin will review it.");
+      alert("Request sent!");
     } catch (err) {
-      alert("Failed to request cancellation");
+      alert("Failed");
     }
   };
 
-  // OPEN REVIEW MODAL
   const openReviewModal = (order) => {
     setSelectedOrderForReview(order);
     setReviewRating(5);
@@ -119,12 +187,9 @@ const BuyerDashboard = () => {
     setReviewModalOpen(true);
   };
 
-  // SUBMIT REVIEW
   const submitReview = async () => {
     if (!selectedOrderForReview || reviewRating < 1) return;
-
     try {
-      // Save one review per product in the order
       for (const item of selectedOrderForReview.items) {
         await addDoc(collection(db, "reviews"), {
           productId: item.id,
@@ -132,81 +197,24 @@ const BuyerDashboard = () => {
           orderId: selectedOrderForReview.id,
           buyerId: user.uid,
           buyerName: username,
-          buyerPhoto: photoURL || "",
           rating: reviewRating,
           comment: reviewComment.trim(),
           createdAt: serverTimestamp(),
           approved: true
         });
       }
-
-      // Mark order as reviewed
-      await updateDoc(doc(db, "orders", selectedOrderForReview.id), {
-        reviewed: true
-      });
-
-      alert("Thank you! Your review has been submitted.");
+      await updateDoc(doc(db, "orders", selectedOrderForReview.id), { reviewed: true });
+      alert("Review submitted!");
       setReviewModalOpen(false);
       setSelectedOrderForReview(null);
     } catch (err) {
-      alert("Failed to submit review");
-      console.error(err);
+      alert("Failed");
     }
   };
 
-  // Check if order is already reviewed
   const isOrderReviewed = (order) => order.reviewed === true;
-
-  const canReview = (order) => {
-    return order.status === "completed" && !isOrderReviewed(order);
-  };
-
-  // STATUS BADGE
-  const getStatusBadge = (status) => {
-    const styles = {
-      "Paid / Processing": "bg-blue-100 text-blue-700",
-      "Cancellation Requested": "bg-orange-100 text-orange-700",
-      "Cancelled – Pending Refund": "bg-red-100 text-red-700",
-      "Refunded": "bg-purple-100 text-purple-700",
-      "completed": "bg-green-100 text-green-700",
-      "processing": "bg-blue-100 text-blue-700",
-      "pending": "bg-yellow-100 text-yellow-700",
-      "cancelled": "bg-gray-100 text-gray-700"
-    };
-
-    const icons = {
-      "Paid / Processing": <Clock className="text-blue-600" size={18} />,
-      "Cancellation Requested": <AlertCircle className="text-orange-600" size={18} />,
-      "Cancelled – Pending Refund": <AlertCircle className="text-red-600" size={18} />,
-      "Refunded": <CheckCircle className="text-purple-600" size={18} />,
-      "completed": <CheckCircle className="text-green-600" size={18} />,
-      "processing": <Truck className="text-blue-600" size={18} />,
-      "pending": <Clock className="text-yellow-600" size={18} />,
-    };
-
-    const displayText = {
-      "Paid / Processing": "Paid / Processing",
-      "Cancellation Requested": "Cancellation Requested",
-      "Cancelled – Pending Refund": "Cancelled – Pending Refund",
-      "Refunded": "Refunded",
-      "completed": "Completed",
-      "processing": "Processing",
-      "pending": "Pending",
-      "cancelled": "Cancelled"
-    };
-
-    const key = status || "pending";
-    return (
-      <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${styles[key] || styles.pending}`}>
-        {icons[key] || <Clock size={18} />}
-        {displayText[key] || status}
-      </span>
-    );
-  };
-
-  const canRequestCancellation = (order) => {
-    return ["Paid / Processing", "processing"].includes(order.status) && !order.cancellationRequestedAt;
-  };
+  const canReview = (order) => order.status === "completed" && !isOrderReviewed(order);
+  const canRequestCancellation = (order) => ["Paid / Processing", "processing"].includes(order.status) && !order.cancellationRequestedAt;
 
   const handleLogout = () => signOut(auth).then(() => navigate('/login'));
 
@@ -217,7 +225,6 @@ const BuyerDashboard = () => {
 
   const sendReply = async () => {
     if (!replyText.trim() || !selectedConversation) return;
-
     try {
       await addDoc(collection(db, "messages"), {
         buyerEmail: user.email,
@@ -228,11 +235,10 @@ const BuyerDashboard = () => {
         createdAt: serverTimestamp(),
         isAdminReply: false
       });
-
       setReplyText("");
       alert("Reply sent!");
     } catch (err) {
-      alert("Failed to send reply");
+      alert("Failed");
     }
   };
 
@@ -249,6 +255,11 @@ const BuyerDashboard = () => {
     return null;
   }
 
+  const pendingOrders = orders.filter(o => ["pending", "Paid / Processing", "processing"].includes(o.status));
+  const completedOrders = orders.filter(o => o.status === "completed");
+  const cancelledOrders = orders.filter(o => ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status));
+  const allOrders = orders;
+
   return (
     <>
       <Helmet><title>My Account - D.A.B.S. Co.</title></Helmet>
@@ -256,33 +267,15 @@ const BuyerDashboard = () => {
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-6xl">
 
-          {/* Welcome */}
+          {/* SIMPLE TEXT GREETING */}
           <div className="bg-white rounded-2xl shadow-sm p-8 mb-10 text-center">
-            <div className="flex flex-col items-center gap-6">
-              <div className="relative">
-                {photoURL ? (
-                  <img 
-                    src={photoURL} 
-                    alt="Profile" 
-                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
-                  />
-                ) : (
-                  <div className="w-32 h-32 bg-[#118C8C] rounded-full flex items-center justify-center text-white text-5xl font-bold border-4 border-white shadow-lg">
-                    {username[0]?.toUpperCase() || user.email[0].toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900">
-                  Welcome back, <span className="text-[#118C8C]">@{username}</span>!
-                </h1>
-                <p className="text-gray-600 mt-2">Your orders and messages</p>
-              </div>
-            </div>
+            <h1 className="text-4xl font-bold text-gray-900">
+              {greeting}, <span className="text-[#118C8C]">@{username}</span>!
+            </h1>
+            <p className="text-gray-600 mt-2">Your orders and messages</p>
           </div>
 
           {/* My Cart */}
-          {/* ... (unchanged) */}
           <div className="mb-12">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold flex items-center gap-3">
@@ -326,7 +319,7 @@ const BuyerDashboard = () => {
             )}
           </div>
 
-          {/* Orders */}
+          {/* ORDERS TABBED TABLE */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
               <Package className="text-[#F2BB16]" size={32} />
@@ -342,62 +335,124 @@ const BuyerDashboard = () => {
                 </Button>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-sm">
-                {orders.map(order => (
-                  <div key={order.id} className="p-6 border-b last:border-0 hover:bg-gray-50">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                      <div className="flex-1">
-                        <p className="font-bold text-lg">Order #{order.id.slice(0, 8)}</p>
-                        <p className="text-sm text-gray-600 flex items-center gap-2 mt-1">
-                          {order.createdAt?.toDate?.().toLocaleDateString()}
-                        </p>
-                        <div className="mt-3">
-                          {order.items?.map((item, i) => (
-                            <p key={i} className="text-sm text-gray-700">
-                              • {item.name} x{item.quantity}
+              <Tabs defaultValue="all" className="bg-white rounded-xl shadow-sm">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="pending">Pending</TabsTrigger>
+                  <TabsTrigger value="completed">Completed</TabsTrigger>
+                  <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="all">
+                  <OrderTable orders={allOrders} formatPrice={formatPrice} />
+                </TabsContent>
+                <TabsContent value="pending">
+                  <OrderTable orders={pendingOrders} formatPrice={formatPrice} />
+                </TabsContent>
+                <TabsContent value="completed">
+                  <OrderTable orders={completedOrders} formatPrice={formatPrice} />
+                </TabsContent>
+                <TabsContent value="cancelled">
+                  <OrderTable orders={cancelledOrders} formatPrice={formatPrice} />
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+
+          {/* TOP PICKS FOR YOU */}
+          {favoriteCategory && topPicks.length > 0 && (
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                <Star className="text-[#F2BB16]" size={32} />
+                Top Picks for You ({favoriteCategory})
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {topPicks.map(item => (
+                  <Link 
+                    key={item.id} 
+                    to={`/product/${item.id}`}
+                    className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
+                  >
+                    <div className="aspect-square">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                          <ShoppingBag size={32} className="text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-semibold text-[#118C8C] line-clamp-2">{item.name}</h3>
+                      <p className="text-lg font-bold text-[#F2BB16] mt-2">
+                        {formatPrice(item.price)}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Messages */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+              <Mail className="text-[#118C8C]" size={32} />
+              Messages
+            </h2>
+
+            {conversations.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center shadow-sm">
+                <Mail size={64} className="mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-500 text-lg">No messages yet</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm divide-y">
+                {conversations.map(convo => {
+                  const unreadCount = convo.messages.filter(m => m.status === "unread").length;
+                  return (
+                    <div
+                      key={convo.subject}
+                      onClick={() => openConversation(convo)}
+                      className="p-6 cursor-pointer hover:bg-gray-50 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          {unreadCount > 0 ? (
+                            <Circle className="text-blue-500" size={12} fill="currentColor" />
+                          ) : (
+                            <Circle className="text-gray-400" size={12} />
+                          )}
+                          <div>
+                            <p className="font-bold text-lg">{convo.subject}</p>
+                            <p className="text-sm text-gray-600">
+                              {convo.latestDate?.toDate?.().toLocaleDateString()}
                             </p>
-                          ))}
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="text-right space-y-3">
-                        <div>
-                          {getStatusBadge(order.status)}
-                        </div>
-                        <p className="font-bold text-2xl text-[#F2BB16]">
-                          {formatPrice(order.total || 0)}
-                        </p>
-
-                        {/* CANCELLATION BUTTON */}
-                        {canRequestCancellation(order) && (
-                          <Button
-                            onClick={() => requestCancellation(order.id)}
-                            variant="outline"
-                            className="mt-4 border-red-300 text-red-600 hover:bg-red-50"
-                          >
-                            Request Cancellation
-                          </Button>
-                        )}
-
-                        {/* REVIEW BUTTON */}
-                        {canReview(order) && (
-                          <Button
-                            onClick={() => openReviewModal(order)}
-                            className="mt-4 bg-[#118C8C] hover:bg-[#0d7070] text-white"
-                          >
-                            <Star className="mr-2" size={18} /> Leave a Review
-                          </Button>
+                        {unreadCount > 0 && (
+                          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                            {unreadCount} new
+                          </span>
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Messages & Logout unchanged */}
-          {/* ... (same as before) */}
+          {/* Logout */}
+          <div className="text-center mt-12">
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              <LogOut className="mr-2" size={20} /> Log Out
+            </Button>
+          </div>
 
           {/* REVIEW MODAL */}
           {reviewModalOpen && selectedOrderForReview && (
@@ -427,7 +482,7 @@ const BuyerDashboard = () => {
                 <textarea
                   value={reviewComment}
                   onChange={e => setReviewComment(e.target.value)}
-                  placeholder="Share your thoughts about the product quality, packaging, and service..."
+                  placeholder="Share your thoughts..."
                   className="w-full px-4 py-3 border rounded-lg h-32 resize-none"
                 />
 
@@ -442,12 +497,73 @@ const BuyerDashboard = () => {
               </div>
             </div>
           )}
-
-          {/* Messages & Logout — unchanged */}
-          {/* ... */}
         </div>
       </div>
     </>
+  );
+};
+
+// Reusable Order Table (now receives formatPrice as prop)
+const OrderTable = ({ orders, formatPrice }) => {
+  if (orders.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        No orders in this category.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="p-4 font-semibold">Order ID</th>
+            <th className="p-4 font-semibold">Date</th>
+            <th className="p-4 font-semibold">Items</th>
+            <th className="p-4 font-semibold">Total</th>
+            <th className="p-4 font-semibold">Status</th>
+            <th className="p-4 font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map(order => (
+            <tr key={order.id} className="border-t hover:bg-gray-50">
+              <td className="p-4 font-medium">#{order.id.slice(0,8)}</td>
+              <td className="p-4">{order.createdAt?.toDate?.().toLocaleDateString()}</td>
+              <td className="p-4">
+                {order.items?.map((item, i) => (
+                  <p key={i} className="text-sm">• {item.name} x{item.quantity}</p>
+                ))}
+              </td>
+              <td className="p-4 font-bold text-[#F2BB16]">{formatPrice(order.total || 0)}</td>
+              <td className="p-4">{getStatusBadge(order.status)}</td>
+              <td className="p-4 space-x-2">
+                {canRequestCancellation(order) && (
+                  <Button
+                    onClick={() => requestCancellation(order.id)}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    Cancel Request
+                  </Button>
+                )}
+                {canReview(order) && (
+                  <Button
+                    onClick={() => openReviewModal(order)}
+                    size="sm"
+                    className="bg-[#118C8C] text-white hover:bg-[#0d7070]"
+                  >
+                    Review
+                  </Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 };
 
