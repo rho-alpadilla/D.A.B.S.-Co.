@@ -1,11 +1,12 @@
-// src/components/ChatWidget.jsx ← FIXED: Admin sees all user messages + profiles + real-time sync
+// src/components/ChatWidget.jsx ← FIXED: Full access + Admin sees all messages + No crashes
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, X, Send, User, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDocs, updateDoc, doc, where, getDoc 
+  collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDocs, 
+  updateDoc, doc, where, getDoc 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
@@ -17,7 +18,7 @@ const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dabzzy');
 
-  // Dabzzy AI (unchanged)
+  // Dabzzy AI
   const [aiMessages, setAiMessages] = useState([
     { role: 'assistant', content: 'Hey there! I’m Dabzzy, your crafty sidekick! 🛍️✨ Ask me anything about our artisan goodies!' }
   ]);
@@ -26,17 +27,17 @@ const ChatWidget = () => {
   const aiEndRef = useRef(null);
 
   // Admin Support
-  const [conversations, setConversations] = useState([]); // array of convo objects
+  const [conversations, setConversations] = useState([]);
   const [selectedConvo, setSelectedConvo] = useState(null);
   const [supportMessages, setSupportMessages] = useState([]);
   const [adminReply, setAdminReply] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
-  const [buyerProfiles, setBuyerProfiles] = useState({}); // cache: email → {name, photoURL}
+  const [buyerProfiles, setBuyerProfiles] = useState({});
   const adminEndRef = useRef(null);
 
   const isAdmin = user?.email?.includes('@admin.dabs.com') || user?.customClaims?.admin;
 
-  // Scroll helpers
+  // Scroll to bottom
   useEffect(() => {
     aiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [aiMessages]);
@@ -45,7 +46,7 @@ const ChatWidget = () => {
     adminEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [supportMessages]);
 
-  // Fetch buyer profiles (name + photo) for admin view
+  // Fetch buyer profile (only once per email)
   const fetchBuyerProfile = useCallback(async (email) => {
     if (!email || buyerProfiles[email]) return;
 
@@ -53,100 +54,75 @@ const ChatWidget = () => {
       const q = query(collection(db, "users"), where("email", "==", email));
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const userDoc = snap.docs[0].data();
+        const data = snap.docs[0].data();
         setBuyerProfiles(prev => ({
           ...prev,
           [email]: {
-            name: userDoc.username || userDoc.displayName || email.split('@')[0],
-            photoURL: userDoc.photoURL || null
+            name: data.username || data.displayName || email.split('@')[0],
+            photoURL: data.photoURL || null
           }
         }));
       }
     } catch (err) {
-      console.error("Failed to fetch buyer profile:", err);
+      console.error("Profile fetch error:", err);
     }
   }, [buyerProfiles]);
 
-  // Load conversations (different query for admin vs buyer)
+  // Load conversations
   useEffect(() => {
     if (!user?.email || activeTab !== 'admin' || !isOpen) return;
 
     let q;
     if (isAdmin) {
-      // Admin: all messages
       q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
     } else {
-      // Buyer: only own messages
       q = query(collection(db, "messages"), where("buyerEmail", "==", user.email), orderBy("createdAt", "desc"));
     }
 
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      const messages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       const grouped = {};
-      const profilePromises = [];
-
       messages.forEach(msg => {
         const buyerKey = msg.buyerEmail || 'unknown';
-        const key = isAdmin 
-          ? `${buyerKey} - ${msg.subject || "General Support"}`
-          : msg.subject || "General Support";
+        const key = isAdmin ? `${buyerKey}-${msg.subject || 'General'}` : (msg.subject || 'General');
 
         if (!grouped[key]) {
           grouped[key] = {
             key,
-            subject: msg.subject || "General Support",
+            subject: msg.subject || 'General Support',
             buyerEmail: msg.buyerEmail,
             buyerName: msg.buyerName || buyerKey.split('@')[0],
             latestDate: msg.createdAt,
             messages: [],
             hasUnread: false
           };
-
-          // Fetch profile if admin
-          if (isAdmin && msg.buyerEmail) {
-            profilePromises.push(fetchBuyerProfile(msg.buyerEmail));
-          }
+          if (isAdmin && msg.buyerEmail) fetchBuyerProfile(msg.buyerEmail);
         }
 
         grouped[key].messages.push(msg);
-
-        if (msg.createdAt > grouped[key].latestDate) {
-          grouped[key].latestDate = msg.createdAt;
-        }
-
-        // Unread check
-        if (msg.status === "unread") {
-          if (isAdmin && !msg.isAdminReply) grouped[key].hasUnread = true;
-          if (!isAdmin && msg.isAdminReply) grouped[key].hasUnread = true;
+        if (msg.createdAt > grouped[key].latestDate) grouped[key].latestDate = msg.createdAt;
+        if (msg.status === 'unread' && ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))) {
+          grouped[key].hasUnread = true;
         }
       });
 
-      // Wait for profile fetches
-      await Promise.all(profilePromises);
-
-      // Apply profiles to convos
-      const sorted = Object.values(grouped).map(convo => {
-        if (isAdmin && convo.buyerEmail && buyerProfiles[convo.buyerEmail]) {
-          const profile = buyerProfiles[convo.buyerEmail];
-          convo.buyerName = profile.name;
-          convo.photoURL = profile.photoURL;
-        }
-        return convo;
-      }).sort((a, b) => (b.latestDate?.toDate?.() || 0) - (a.latestDate?.toDate?.() || 0));
+      const sorted = Object.values(grouped).sort((a, b) => 
+        (b.latestDate?.toMillis?.() || 0) - (a.latestDate?.toMillis?.() || 0)
+      );
 
       setConversations(sorted);
 
-      // Auto-select first convo if none selected
+      // Auto-select first if none selected
       if (sorted.length > 0 && !selectedConvo) {
         setSelectedConvo(sorted[0]);
       }
     });
 
     return () => unsubscribe();
-  }, [user?.email, activeTab, isOpen, isAdmin, fetchBuyerProfile, buyerProfiles, selectedConvo]);
+  }, [user?.email, activeTab, isOpen, isAdmin, fetchBuyerProfile, selectedConvo]);
 
-  // Load messages for selected conversation
+  // Load selected conversation messages
   useEffect(() => {
     if (!selectedConvo || !isOpen || activeTab !== 'admin') return;
 
@@ -158,19 +134,16 @@ const ChatWidget = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      const messages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setSupportMessages(messages);
+      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSupportMessages(msgs);
 
-      // Mark unread messages as read
-      messages.forEach(async (msg) => {
-        if (msg.status === "unread") {
-          const shouldMark = isAdmin ? !msg.isAdminReply : msg.isAdminReply;
-          if (shouldMark) {
-            try {
-              await updateDoc(doc(db, "messages", msg.id), { status: "read" });
-            } catch (err) {
-              console.error("Mark read error:", err);
-            }
+      // Mark unread as read
+      msgs.forEach(async (msg) => {
+        if (msg.status === "unread" && ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))) {
+          try {
+            await updateDoc(doc(db, "messages", msg.id), { status: "read" });
+          } catch (err) {
+            console.error("Mark read failed:", err);
           }
         }
       });
@@ -179,7 +152,7 @@ const ChatWidget = () => {
     return () => unsubscribe();
   }, [selectedConvo, isOpen, activeTab, isAdmin]);
 
-  // Send reply (buyer or admin)
+  // Send reply
   const sendAdminReply = async () => {
     if (!adminReply.trim() || !selectedConvo || adminLoading) return;
 
@@ -193,21 +166,20 @@ const ChatWidget = () => {
         status: "unread",
         createdAt: serverTimestamp(),
         isAdminReply: isAdmin,
-        adminEmail: isAdmin ? user.email : null,
-        adminName: isAdmin ? (user.displayName || "Admin") : null
+        ...(isAdmin && { adminEmail: user.email, adminName: user.displayName || "Admin" })
       });
 
       setAdminReply('');
-      toast({ title: "Sent", description: isAdmin ? "Reply sent to user" : "Message sent to admin" });
+      toast({ title: "Sent!", description: isAdmin ? "Reply sent" : "Message sent" });
     } catch (err) {
-      toast({ title: "Failed", description: "Could not send", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to send", variant: "destructive" });
       console.error(err);
     } finally {
       setAdminLoading(false);
     }
   };
 
-  // Dabzzy AI send (unchanged)
+  // Dabzzy AI send
   const sendAiMessage = async () => {
     if (!aiInput.trim() || aiLoading) return;
 
@@ -218,7 +190,7 @@ const ChatWidget = () => {
 
     try {
       const snapshot = await getDocs(collection(db, 'pricelists'));
-      const products = snapshot.docs.map(doc => doc.data()).filter(p => p.inStock !== false);
+      const products = snapshot.docs.map(d => d.data()).filter(p => p.inStock !== false);
       const productsText = products.length > 0
         ? products.map(p => `${p.name}: ₱${p.price} — ${p.description}`).join(' | ')
         : 'No products available right now.';
@@ -241,11 +213,11 @@ const ChatWidget = () => {
         }),
       });
 
-      if (!response.ok) throw new Error(`Groq ${response.status}`);
+      if (!response.ok) throw new Error('Groq error');
       const data = await response.json();
       setAiMessages(prev => [...prev, { role: 'assistant', content: data.choices[0].message.content }]);
     } catch (err) {
-      setAiMessages(prev => [...prev, { role: 'assistant', content: 'Oopsie! Dabzzy is having a tiny hiccup. Try again! 🛠️' }]);
+      setAiMessages(prev => [...prev, { role: 'assistant', content: 'Oops! Dabzzy is having a hiccup. Try again! 🛠️' }]);
     } finally {
       setAiLoading(false);
     }
@@ -265,23 +237,50 @@ const ChatWidget = () => {
             <div className="bg-[#118C8C] p-4 flex justify-between items-center text-white sticky top-0 z-10">
               <div className="flex items-center gap-3">
                 <MessageCircle size={24} />
-                <h3 className="font-bold text-lg">D.A.B.S. Chat {isAdmin && '(Admin Mode)'}</h3>
+                <h3 className="font-bold text-lg">D.A.B.S. Chat {isAdmin && '(Admin)'}</h3>
               </div>
               <button onClick={() => setIsOpen(false)}>
                 <X size={20} />
               </button>
             </div>
 
-            {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="dabzzy">Dabzzy AI</TabsTrigger>
-                <TabsTrigger value="admin">Admin Support</TabsTrigger>
+                <TabsTrigger value="admin">Support</TabsTrigger>
               </TabsList>
 
               {/* Dabzzy Tab */}
               <TabsContent value="dabzzy" className="flex-1 flex flex-col m-0">
-                {/* ... your existing Dabzzy content ... */}
+                <div className="flex-1 bg-gray-50 p-4 overflow-y-auto">
+                  {aiMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`mb-3 p-3 rounded-lg max-w-[85%] ${
+                        msg.role === 'user' ? 'bg-[#118C8C] text-white ml-auto' : 'bg-white border'
+                      }`}
+                    >
+                      <p className="text-sm">{msg.content}</p>
+                    </div>
+                  ))}
+                  {aiLoading && <p className="text-sm text-gray-500">Thinking...</p>}
+                  <div ref={aiEndRef} />
+                </div>
+                <div className="p-3 border-t">
+                  <div className="flex gap-2">
+                    <input
+                      value={aiInput}
+                      onChange={e => setAiInput(e.target.value)}
+                      onKeyPress={e => e.key === 'Enter' && sendAiMessage()}
+                      placeholder="Ask Dabzzy..."
+                      className="flex-1 border rounded-full px-4 py-2 text-sm"
+                      disabled={aiLoading}
+                    />
+                    <Button size="icon" onClick={sendAiMessage} disabled={aiLoading || !aiInput.trim()}>
+                      <Send size={16} />
+                    </Button>
+                  </div>
+                </div>
               </TabsContent>
 
               {/* Admin Support Tab */}
@@ -291,63 +290,63 @@ const ChatWidget = () => {
                     {conversations.length === 0 ? (
                       <p className="text-center text-gray-500 mt-10">No conversations yet</p>
                     ) : (
-                      <div className="space-y-3">
-                        {conversations.map((convo) => (
-                          <div
-                            key={convo.key}
-                            onClick={() => setSelectedConvo(convo)}
-                            className="p-4 bg-white rounded-lg shadow cursor-pointer hover:bg-gray-50 flex items-center gap-4"
-                          >
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
-                              {convo.photoURL ? (
-                                <img src={convo.photoURL} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm font-bold">
-                                  {convo.buyerName?.charAt(0)?.toUpperCase() || '?'}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{convo.buyerName}</p>
-                              <p className="text-sm text-gray-600 truncate">{convo.subject}</p>
-                            </div>
-                            {convo.hasUnread && <div className="w-2 h-2 bg-red-500 rounded-full" />}
+                      conversations.map(convo => (
+                        <div
+                          key={convo.key}
+                          onClick={() => setSelectedConvo(convo)}
+                          className="p-4 bg-white rounded-lg mb-3 cursor-pointer hover:bg-gray-50 flex items-center gap-4 border"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+                            {convo.photoURL ? (
+                              <img src={convo.photoURL} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-600 font-bold">
+                                {convo.buyerName?.[0]?.toUpperCase() || '?'}
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                          <div className="flex-1">
+                            <p className="font-medium">{convo.buyerName}</p>
+                            <p className="text-sm text-gray-600 truncate">{convo.subject}</p>
+                          </div>
+                          {convo.hasUnread && <div className="w-3 h-3 bg-red-500 rounded-full" />}
+                        </div>
+                      ))
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col h-full">
+                  <>
                     <div className="p-3 bg-white border-b flex items-center justify-between">
                       <Button variant="ghost" size="sm" onClick={() => setSelectedConvo(null)}>
                         ← Back
                       </Button>
-                      <div className="text-center">
+                      <div className="text-center flex-1">
                         <p className="font-medium">{selectedConvo.buyerName}</p>
                         <p className="text-xs text-gray-500">{selectedConvo.subject}</p>
                       </div>
                     </div>
 
                     <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                      {supportMessages.map((msg) => (
-                        <div
-                          key={msg.id}
-                          className={`max-w-[80%] p-3 rounded-lg ${
-                            msg.isAdminReply
-                              ? 'ml-auto bg-[#118C8C] text-white'
-                              : 'bg-gray-100'
-                          }`}
-                        >
-                          <p className="text-xs opacity-70 mb-1">
-                            {msg.isAdminReply ? 'Admin' : selectedConvo.buyerName}
-                          </p>
-                          <p>{msg.message}</p>
-                          <p className="text-xs opacity-60 mt-1">
-                            {msg.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      ))}
+                      {supportMessages.length === 0 ? (
+                        <p className="text-center text-gray-500">No messages yet</p>
+                      ) : (
+                        supportMessages.map(msg => (
+                          <div
+                            key={msg.id}
+                            className={`p-3 rounded-lg max-w-[85%] ${
+                              msg.isAdminReply ? 'ml-auto bg-[#118C8C] text-white' : 'bg-gray-100'
+                            }`}
+                          >
+                            <p className="text-xs opacity-70 mb-1">
+                              {msg.isAdminReply ? 'Admin' : selectedConvo.buyerName}
+                            </p>
+                            <p className="text-sm">{msg.message}</p>
+                            <p className="text-xs opacity-60 mt-1">
+                              {msg.createdAt?.toDate?.().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        ))
+                      )}
                       <div ref={adminEndRef} />
                     </div>
 
@@ -355,18 +354,22 @@ const ChatWidget = () => {
                       <div className="flex gap-2">
                         <input
                           value={adminReply}
-                          onChange={(e) => setAdminReply(e.target.value)}
+                          onChange={e => setAdminReply(e.target.value)}
                           placeholder="Type your message..."
-                          onKeyPress={(e) => e.key === 'Enter' && sendAdminReply()}
-                          className="flex-1 border rounded-full px-4 py-2"
+                          onKeyPress={e => e.key === 'Enter' && !adminLoading && sendAdminReply()}
+                          className="flex-1 border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]"
                           disabled={adminLoading}
                         />
-                        <Button onClick={sendAdminReply} disabled={adminLoading || !adminReply.trim()}>
+                        <Button 
+                          size="icon" 
+                          onClick={sendAdminReply} 
+                          disabled={adminLoading || !adminReply.trim()}
+                        >
                           <Send size={16} />
                         </Button>
                       </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </TabsContent>
             </Tabs>
@@ -378,7 +381,7 @@ const ChatWidget = () => {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-[#F2BB16] text-gray-900 p-5 rounded-full shadow-2xl"
+        className="bg-[#F2BB16] text-gray-900 p-5 rounded-full shadow-2xl hover:shadow-xl"
       >
         {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
       </motion.button>
