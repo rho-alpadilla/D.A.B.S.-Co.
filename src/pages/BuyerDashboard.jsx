@@ -1,4 +1,4 @@
-// src/pages/BuyerDashboard.jsx ← CLEANED: REMOVED TOP PICKS + KEPT VIEW MORE/LESS
+// src/pages/BuyerDashboard.jsx ← FINAL: CANCEL ORDER WITH REASON SELECTION + REFLECTS IN ADMIN
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { 
   collection, query, where, orderBy, onSnapshot, 
-  doc, updateDoc 
+  doc, updateDoc, serverTimestamp 
 } from 'firebase/firestore';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -17,8 +17,9 @@ import {
   ShoppingBag, Package, Mail, LogOut, ArrowRight, 
   Clock, CheckCircle, Truck, Send, X, Circle, AlertCircle, Star, ChevronDown, ChevronUp 
 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
-// STATUS BADGE FUNCTION
+// STATUS BADGE
 const getStatusBadge = (status) => {
   const styles = {
     "Paid / Processing": "bg-blue-100 text-blue-700",
@@ -43,19 +44,25 @@ const getStatusBadge = (status) => {
 
   const key = status || "pending";
   return (
-    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${styles[key]}`}>
+    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${styles[key] || "bg-gray-100 text-gray-700"}`}>
       {icons[key] || <Clock size={18} />}
       {key}
     </span>
   );
 };
 
-// REVIEW / CANCEL HELPERS
-const isOrderReviewed = (order) => order.reviewed === true;
-const canReview = (order) => order.status === "completed" && !isOrderReviewed(order);
-const canRequestCancellation = (order) => ["Paid / Processing", "processing"].includes(order.status) && !order.cancellationRequestedAt;
+// CANCEL REASONS
+const CANCEL_REASONS = [
+  "Changed my mind",
+  "Found a better price elsewhere",
+  "Wrong size/color selected",
+  "Accidental order",
+  "Shipping takes too long",
+  "Other"
+];
 
 const BuyerDashboard = () => {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { cartItems, cartCount } = useCart();
@@ -66,9 +73,7 @@ const BuyerDashboard = () => {
   const [replyText, setReplyText] = useState("");
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
-  const [greeting] = useState("Welcome back");
 
-  // Pagination per tab (visible count)
   const [visibleCounts, setVisibleCounts] = useState({
     all: 5,
     pending: 5,
@@ -76,24 +81,21 @@ const BuyerDashboard = () => {
     cancelled: 5
   });
 
-  // REVIEW MODAL
-  const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [selectedOrderForReview, setSelectedOrderForReview] = useState(null);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
+  // Cancel Modal State
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState(null);
+  const [selectedReason, setSelectedReason] = useState("");
+  const [otherReason, setOtherReason] = useState("");
 
-  // Fetch user data (only username now)
+  // Fetch username
   useEffect(() => {
     if (!user) return;
-
     const userRef = doc(db, 'users', user.uid);
     const unsub = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUsername(data.username || user.email.split('@')[0]);
+        setUsername(docSnap.data().username || user.email.split('@')[0]);
       }
     });
-
     return () => unsub();
   }, [user]);
 
@@ -101,19 +103,19 @@ const BuyerDashboard = () => {
   useEffect(() => {
     if (!user) return;
 
-    const qOrders = query(
+    const q = query(
       collection(db, "orders"),
       where("buyerEmail", "==", user.email),
       orderBy("createdAt", "desc")
     );
-    const unsubOrders = onSnapshot(qOrders, snap => {
+    const unsub = onSnapshot(q, snap => {
       setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    return () => unsubOrders();
+    return () => unsub();
   }, [user]);
 
-  // Load messages
+  // Load messages (unchanged)
   useEffect(() => {
     if (!user) return;
 
@@ -148,52 +150,6 @@ const BuyerDashboard = () => {
     return () => unsubMessages();
   }, [user]);
 
-  const requestCancellation = async (orderId) => {
-    if (!confirm("Request cancellation?")) return;
-    try {
-      await updateDoc(doc(db, "orders", orderId), {
-        status: "Cancellation Requested",
-        cancellationRequestedAt: new Date(),
-        cancellationRequestedBy: "buyer"
-      });
-      alert("Request sent!");
-    } catch (err) {
-      alert("Failed");
-    }
-  };
-
-  const openReviewModal = (order) => {
-    setSelectedOrderForReview(order);
-    setReviewRating(5);
-    setReviewComment("");
-    setReviewModalOpen(true);
-  };
-
-  const submitReview = async () => {
-    if (!selectedOrderForReview || reviewRating < 1) return;
-    try {
-      for (const item of selectedOrderForReview.items) {
-        await addDoc(collection(db, "reviews"), {
-          productId: item.id,
-          productName: item.name,
-          orderId: selectedOrderForReview.id,
-          buyerId: user.uid,
-          buyerName: username,
-          rating: reviewRating,
-          comment: reviewComment.trim(),
-          createdAt: serverTimestamp(),
-          approved: true
-        });
-      }
-      await updateDoc(doc(db, "orders", selectedOrderForReview.id), { reviewed: true });
-      alert("Review submitted!");
-      setReviewModalOpen(false);
-      setSelectedOrderForReview(null);
-    } catch (err) {
-      alert("Failed");
-    }
-  };
-
   const handleLogout = () => signOut(auth).then(() => navigate('/login'));
 
   const openConversation = (convo) => {
@@ -214,10 +170,72 @@ const BuyerDashboard = () => {
         isAdminReply: false
       });
       setReplyText("");
-      alert("Reply sent!");
+      toast({ title: "Reply Sent", description: "Your message has been sent." });
     } catch (err) {
-      alert("Failed");
+      toast({ title: "Failed", description: "Could not send reply.", variant: "destructive" });
     }
+  };
+
+  // Cancel order
+  const openCancelModal = (order) => {
+    setOrderToCancel(order);
+    setSelectedReason("");
+    setOtherReason("");
+    setCancelModalOpen(true);
+  };
+
+  const confirmCancellation = async () => {
+    if (!orderToCancel || !selectedReason) return;
+
+    const reason = selectedReason === "Other" ? otherReason.trim() : selectedReason;
+
+    if (selectedReason === "Other" && !reason) {
+      toast({ title: "Reason Required", description: "Please specify your reason.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "orders", orderToCancel.id), {
+        status: "Cancellation Requested",
+        cancelReason: reason,
+        cancellationRequestedAt: serverTimestamp(),
+        cancellationRequestedBy: "buyer"
+      });
+
+      toast({
+        title: "Cancellation Requested",
+        description: "Your request has been sent to the admin team.",
+      });
+
+      setCancelModalOpen(false);
+      setOrderToCancel(null);
+    } catch (err) {
+      console.error("Cancel error:", err);
+      toast({
+        title: "Failed",
+        description: "Could not request cancellation. Try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Helpers
+  const canCancel = (order) => {
+    return ["pending", "Paid / Processing", "processing"].includes(order.status) && !order.cancellationRequestedAt;
+  };
+
+  // Group orders
+  const pendingOrders = orders.filter(o => ["pending", "Paid / Processing", "processing", "Cancellation Requested"].includes(o.status));
+  const completedOrders = orders.filter(o => o.status === "completed");
+  const cancelledOrders = orders.filter(o => ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status));
+  const allOrders = orders;
+
+  const loadMore = (tab) => {
+    setVisibleCounts(prev => ({ ...prev, [tab]: prev[tab] + 5 }));
+  };
+
+  const loadLess = (tab) => {
+    setVisibleCounts(prev => ({ ...prev, [tab]: Math.max(5, prev[tab] - 5) }));
   };
 
   if (authLoading || loading) {
@@ -233,27 +251,6 @@ const BuyerDashboard = () => {
     return null;
   }
 
-  // Group orders
-  const pendingOrders = orders.filter(o => ["pending", "Paid / Processing", "processing"].includes(o.status));
-  const completedOrders = orders.filter(o => o.status === "completed");
-  const cancelledOrders = orders.filter(o => ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status));
-  const allOrders = orders;
-
-  // Load more / less per tab
-  const loadMore = (tab) => {
-    setVisibleCounts(prev => ({
-      ...prev,
-      [tab]: prev[tab] + 5
-    }));
-  };
-
-  const loadLess = (tab) => {
-    setVisibleCounts(prev => ({
-      ...prev,
-      [tab]: Math.max(5, prev[tab] - 5)
-    }));
-  };
-
   return (
     <>
       <Helmet><title>My Account - D.A.B.S. Co.</title></Helmet>
@@ -261,10 +258,10 @@ const BuyerDashboard = () => {
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-6xl">
 
-          {/* SIMPLE TEXT GREETING */}
+          {/* Greeting */}
           <div className="bg-white rounded-2xl shadow-sm p-8 mb-10 text-center">
             <h1 className="text-4xl font-bold text-gray-900">
-              {greeting}, <span className="text-[#118C8C]">@{username}</span>!
+              Welcome back, <span className="text-[#118C8C]">@{username}</span>!
             </h1>
             <p className="text-gray-600 mt-2">Your orders and messages</p>
           </div>
@@ -313,7 +310,7 @@ const BuyerDashboard = () => {
             )}
           </div>
 
-          {/* ORDERS TABBED TABLE WITH VIEW MORE / VIEW LESS */}
+          {/* ORDERS */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
               <Package className="text-[#F2BB16]" size={32} />
@@ -331,10 +328,10 @@ const BuyerDashboard = () => {
             ) : (
               <Tabs defaultValue="all" className="bg-white rounded-xl shadow-sm">
                 <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="pending">Pending</TabsTrigger>
-                  <TabsTrigger value="completed">Completed</TabsTrigger>
-                  <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+                  <TabsTrigger value="all">All ({allOrders.length})</TabsTrigger>
+                  <TabsTrigger value="pending">Pending ({pendingOrders.length})</TabsTrigger>
+                  <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
+                  <TabsTrigger value="cancelled">Cancelled ({cancelledOrders.length})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all">
@@ -344,6 +341,8 @@ const BuyerDashboard = () => {
                     onLoadMore={() => loadMore('all')}
                     onLoadLess={() => loadLess('all')}
                     formatPrice={formatPrice}
+                    onCancel={openCancelModal}
+                    canCancel={canCancel}
                   />
                 </TabsContent>
                 <TabsContent value="pending">
@@ -353,6 +352,8 @@ const BuyerDashboard = () => {
                     onLoadMore={() => loadMore('pending')}
                     onLoadLess={() => loadLess('pending')}
                     formatPrice={formatPrice}
+                    onCancel={openCancelModal}
+                    canCancel={canCancel}
                   />
                 </TabsContent>
                 <TabsContent value="completed">
@@ -362,6 +363,8 @@ const BuyerDashboard = () => {
                     onLoadMore={() => loadMore('completed')}
                     onLoadLess={() => loadLess('completed')}
                     formatPrice={formatPrice}
+                    onCancel={openCancelModal}
+                    canCancel={canCancel}
                   />
                 </TabsContent>
                 <TabsContent value="cancelled">
@@ -371,6 +374,8 @@ const BuyerDashboard = () => {
                     onLoadMore={() => loadMore('cancelled')}
                     onLoadLess={() => loadLess('cancelled')}
                     formatPrice={formatPrice}
+                    onCancel={openCancelModal}
+                    canCancel={canCancel}
                   />
                 </TabsContent>
               </Tabs>
@@ -437,44 +442,68 @@ const BuyerDashboard = () => {
             </Button>
           </div>
 
-          {/* REVIEW MODAL */}
-          {reviewModalOpen && selectedOrderForReview && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
-                <h2 className="text-2xl font-bold text-[#118C8C] mb-6">Leave a Review</h2>
-                <p className="text-gray-600 mb-6">
-                  Order #{selectedOrderForReview.id.slice(0, 8)} — {selectedOrderForReview.items.length} item(s)
+          {/* CANCEL MODAL */}
+          {cancelModalOpen && orderToCancel && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
+                <button 
+                  onClick={() => setCancelModalOpen(false)}
+                  className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                >
+                  <X size={24} />
+                </button>
+
+                <h2 className="text-2xl font-bold text-red-600 mb-6 flex items-center gap-3">
+                  <AlertCircle size={28} /> Cancel Order?
+                </h2>
+
+                <p className="text-gray-700 mb-6">
+                  Order <strong>#{orderToCancel.id.slice(0,8)}</strong> will be cancelled.
+                  This action cannot be undone.
                 </p>
 
                 <div className="mb-6">
-                  <p className="font-medium mb-3">Rate your experience</p>
-                  <div className="flex gap-2 justify-center">
-                    {[1,2,3,4,5].map(num => (
-                      <button
-                        key={num}
-                        onClick={() => setReviewRating(num)}
-                        className="text-4xl transition-transform hover:scale-110"
-                      >
-                        {num <= reviewRating ? "★" : "☆"}
-                      </button>
+                  <p className="font-medium mb-3">Please select a reason:</p>
+                  <div className="space-y-3">
+                    {CANCEL_REASONS.map(reason => (
+                      <label key={reason} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="cancelReason"
+                          value={reason}
+                          checked={selectedReason === reason}
+                          onChange={(e) => setSelectedReason(e.target.value)}
+                          className="w-5 h-5 text-red-600 focus:ring-red-500"
+                        />
+                        <span className="text-gray-800">{reason}</span>
+                      </label>
                     ))}
                   </div>
-                  <p className="text-center mt-2 text-gray-600">{reviewRating} out of 5 stars</p>
+
+                  {selectedReason === "Other" && (
+                    <textarea
+                      value={otherReason}
+                      onChange={(e) => setOtherReason(e.target.value)}
+                      placeholder="Please explain your reason..."
+                      className="w-full mt-4 px-4 py-3 border border-gray-300 rounded-lg resize-none h-28 focus:border-red-500 focus:ring-red-500"
+                      required
+                    />
+                  )}
                 </div>
 
-                <textarea
-                  value={reviewComment}
-                  onChange={e => setReviewComment(e.target.value)}
-                  placeholder="Share your thoughts..."
-                  className="w-full px-4 py-3 border rounded-lg h-32 resize-none"
-                />
-
-                <div className="flex justify-end gap-4 mt-8">
-                  <Button variant="outline" onClick={() => setReviewModalOpen(false)}>
-                    Cancel
+                <div className="flex justify-end gap-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setCancelModalOpen(false)}
+                  >
+                    Nevermind
                   </Button>
-                  <Button onClick={submitReview} className="bg-[#118C8C]">
-                    Submit Review
+                  <Button 
+                    onClick={confirmCancellation}
+                    disabled={!selectedReason || (selectedReason === "Other" && !otherReason.trim())}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Confirm Cancellation
                   </Button>
                 </div>
               </div>
@@ -486,17 +515,13 @@ const BuyerDashboard = () => {
   );
 };
 
-// Reusable Order Table with View More / View Less
-const OrderTable = ({ orders, visibleCount, onLoadMore, onLoadLess, formatPrice }) => {
+// Updated OrderTable with Cancel button
+const OrderTable = ({ orders, visibleCount, onLoadMore, onLoadLess, formatPrice, onCancel, canCancel }) => {
   if (orders.length === 0) {
-    return (
-      <div className="text-center py-12 text-gray-500">
-        No orders in this category.
-      </div>
-    );
+    return <div className="text-center py-12 text-gray-500">No orders in this category.</div>;
   }
 
-  const displayedOrders = orders.slice(0, visibleCount);
+  const displayed = orders.slice(0, visibleCount);
   const hasMore = visibleCount < orders.length;
   const hasLess = visibleCount > 5;
 
@@ -514,36 +539,34 @@ const OrderTable = ({ orders, visibleCount, onLoadMore, onLoadLess, formatPrice 
           </tr>
         </thead>
         <tbody>
-          {displayedOrders.map(order => (
+          {displayed.map(order => (
             <tr key={order.id} className="border-t hover:bg-gray-50">
               <td className="p-4 font-medium">#{order.id.slice(0,8)}</td>
-              <td className="p-4">{order.createdAt?.toDate?.().toLocaleDateString()}</td>
+              <td className="p-4">{order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</td>
               <td className="p-4">
                 {order.items?.map((item, i) => (
                   <p key={i} className="text-sm">• {item.name} x{item.quantity}</p>
-                ))}
+                )) || <p className="text-sm text-gray-500">No items</p>}
               </td>
-              <td className="p-4 font-bold text-[#F2BB16]">{formatPrice(order.total || 0)}</td>
+              <td className="p-4 font-bold text-[#F2BB16]">
+                {formatPrice(order.total || order.grandTotal || 0)}
+              </td>
               <td className="p-4">{getStatusBadge(order.status)}</td>
               <td className="p-4 space-x-2">
-                {canRequestCancellation(order) && (
+                {canCancel(order) && (
                   <Button
-                    onClick={() => requestCancellation(order.id)}
+                    onClick={() => onCancel(order)}
                     variant="outline"
                     size="sm"
                     className="border-red-300 text-red-600 hover:bg-red-50"
                   >
-                    Cancel Request
+                    Cancel Order
                   </Button>
                 )}
-                {canReview(order) && (
-                  <Button
-                    onClick={() => openReviewModal(order)}
-                    size="sm"
-                    className="bg-[#118C8C] text-white hover:bg-[#0d7070]"
-                  >
-                    Review
-                  </Button>
+                {order.cancelReason && (
+                  <p className="text-xs text-gray-600 mt-2 italic">
+                    Reason: {order.cancelReason}
+                  </p>
                 )}
               </td>
             </tr>
@@ -551,7 +574,6 @@ const OrderTable = ({ orders, visibleCount, onLoadMore, onLoadLess, formatPrice 
         </tbody>
       </table>
 
-      {/* VIEW MORE / VIEW LESS BUTTONS */}
       <div className="flex justify-center gap-4 py-6">
         {hasMore && (
           <Button 
