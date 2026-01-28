@@ -1,4 +1,4 @@
-// src/pages/BuyerDashboard.jsx ← FINAL: CANCEL ORDER WITH REASON SELECTION + REFLECTS IN ADMIN
+// src/pages/BuyerDashboard.jsx ← CLEANED: MESSAGES REMOVED (now in ChatWidget)
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,8 +14,8 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  ShoppingBag, Package, Mail, LogOut, ArrowRight, 
-  Clock, CheckCircle, Truck, Send, X, Circle, AlertCircle, Star, ChevronDown, ChevronUp 
+  ShoppingBag, Package, LogOut, ArrowRight, 
+  Clock, CheckCircle, Truck, X, Circle, AlertCircle, ChevronDown, ChevronUp 
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -68,9 +68,6 @@ const BuyerDashboard = () => {
   const { cartItems, cartCount } = useCart();
   const { formatPrice } = useCurrency();
   const [orders, setOrders] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [replyText, setReplyText] = useState("");
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
 
@@ -110,71 +107,13 @@ const BuyerDashboard = () => {
     );
     const unsub = onSnapshot(q, snap => {
       setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
     });
 
     return () => unsub();
   }, [user]);
 
-  // Load messages (unchanged)
-  useEffect(() => {
-    if (!user) return;
-
-    const qMessages = query(
-      collection(db, "messages"),
-      where("buyerEmail", "==", user.email),
-      orderBy("createdAt", "desc")
-    );
-    const unsubMessages = onSnapshot(qMessages, snap => {
-      const allMessages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      const grouped = {};
-      allMessages.forEach(msg => {
-        const key = msg.subject || "No Subject";
-        if (!grouped[key]) {
-          grouped[key] = { subject: key, messages: [], latestDate: msg.createdAt };
-        }
-        grouped[key].messages.push(msg);
-        if (msg.createdAt > grouped[key].latestDate) {
-          grouped[key].latestDate = msg.createdAt;
-        }
-      });
-
-      const convos = Object.values(grouped).sort((a, b) =>
-        (b.latestDate?.toDate?.() || 0) - (a.latestDate?.toDate?.() || 0)
-      );
-
-      setConversations(convos);
-      setLoading(false);
-    });
-
-    return () => unsubMessages();
-  }, [user]);
-
   const handleLogout = () => signOut(auth).then(() => navigate('/login'));
-
-  const openConversation = (convo) => {
-    setSelectedConversation(convo);
-    setReplyText("");
-  };
-
-  const sendReply = async () => {
-    if (!replyText.trim() || !selectedConversation) return;
-    try {
-      await addDoc(collection(db, "messages"), {
-        buyerEmail: user.email,
-        buyerName: user.displayName || "Guest",
-        subject: selectedConversation.subject,
-        message: replyText,
-        status: "unread",
-        createdAt: serverTimestamp(),
-        isAdminReply: false
-      });
-      setReplyText("");
-      toast({ title: "Reply Sent", description: "Your message has been sent." });
-    } catch (err) {
-      toast({ title: "Failed", description: "Could not send reply.", variant: "destructive" });
-    }
-  };
 
   // Cancel order
   const openCancelModal = (order) => {
@@ -263,7 +202,7 @@ const BuyerDashboard = () => {
             <h1 className="text-4xl font-bold text-gray-900">
               Welcome back, <span className="text-[#118C8C]">@{username}</span>!
             </h1>
-            <p className="text-gray-600 mt-2">Your orders and messages</p>
+            <p className="text-gray-600 mt-2">Your orders and cart</p>
           </div>
 
           {/* My Cart */}
@@ -379,55 +318,6 @@ const BuyerDashboard = () => {
                   />
                 </TabsContent>
               </Tabs>
-            )}
-          </div>
-
-          {/* Messages */}
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-              <Mail className="text-[#118C8C]" size={32} />
-              Messages
-            </h2>
-
-            {conversations.length === 0 ? (
-              <div className="bg-white rounded-xl p-12 text-center shadow-sm">
-                <Mail size={64} className="mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500 text-lg">No messages yet</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm divide-y">
-                {conversations.map(convo => {
-                  const unreadCount = convo.messages.filter(m => m.status === "unread").length;
-                  return (
-                    <div
-                      key={convo.subject}
-                      onClick={() => openConversation(convo)}
-                      className="p-6 cursor-pointer hover:bg-gray-50 transition-all"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          {unreadCount > 0 ? (
-                            <Circle className="text-blue-500" size={12} fill="currentColor" />
-                          ) : (
-                            <Circle className="text-gray-400" size={12} />
-                          )}
-                          <div>
-                            <p className="font-bold text-lg">{convo.subject}</p>
-                            <p className="text-sm text-gray-600">
-                              {convo.latestDate?.toDate?.().toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        {unreadCount > 0 && (
-                          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                            {unreadCount} new
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             )}
           </div>
 

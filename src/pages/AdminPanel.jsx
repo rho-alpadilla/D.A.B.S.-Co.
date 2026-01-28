@@ -1,4 +1,4 @@
-// src/pages/AdminPanel.jsx ← FINAL: PRO ANALYTICS + TOP/LEAST SOLD + REVENUE
+// src/pages/AdminPanel.jsx ← CLEANED: MESSAGES TAB REMOVED (now in ChatWidget only)
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -8,23 +8,21 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { auth, db } from '@/lib/firebase';
 import { 
   collection, onSnapshot, query, orderBy, doc, updateDoc, 
-  addDoc, serverTimestamp, getDoc, increment 
+  getDoc, increment 
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Line, Bar } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
-  LineElement,
   BarElement,
   Title,
   Tooltip,
-  Legend,
-  ArcElement
+  Legend
 } from 'chart.js';
 import {
   Package, ShoppingCart, TrendingUp, DollarSign,
@@ -32,7 +30,7 @@ import {
   AlertCircle, Truck, Clock, Award, Zap
 } from "lucide-react";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
+ChartJS.register(CategoryScale, LinearScale, PointElement, BarElement, Title, Tooltip, Legend);
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -41,11 +39,6 @@ const AdminPanel = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [replyText, setReplyText] = useState("");
-
-  // ANALYTICS DATA
   const [productStats, setProductStats] = useState([]);
 
   useEffect(() => {
@@ -64,30 +57,10 @@ const AdminPanel = () => {
       snap => setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
-    const unsubMessages = onSnapshot(
-      query(collection(db, "messages"), orderBy("createdAt", "desc")),
-      snap => {
-        const allMessages = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const grouped = {};
-        allMessages.forEach(msg => {
-          const key = msg.subject || "No Subject";
-          if (!grouped[key]) {
-            grouped[key] = { subject: key, messages: [], latestDate: msg.createdAt, buyerEmail: msg.buyerEmail, buyerName: msg.buyerName };
-          }
-          grouped[key].messages.push(msg);
-          if (msg.createdAt > grouped[key].latestDate) grouped[key].latestDate = msg.createdAt;
-        });
-        const convos = Object.values(grouped).sort((a, b) =>
-          (b.latestDate?.toDate?.() || 0) - (a.latestDate?.toDate?.() || 0)
-        );
-        setConversations(convos);
-      }
-    );
-
-    return () => { unsubRole(); unsubProducts(); unsubOrders(); unsubMessages(); };
+    return () => { unsubRole(); unsubProducts(); unsubOrders(); };
   }, [user]);
 
-  // === ANALYTICS: CALCULATE PRODUCT STATS ===
+  // ANALYTICS: PRODUCT STATS
   useEffect(() => {
     if (orders.length === 0 || products.length === 0) return;
 
@@ -104,14 +77,14 @@ const AdminPanel = () => {
       };
     });
 
-    // Process completed orders only
     orders
       .filter(o => o.status === "completed")
       .forEach(order => {
         order.items?.forEach(item => {
           if (statsMap[item.id]) {
             statsMap[item.id].revenue += item.price * item.quantity;
-       }});
+          }
+        });
       });
 
     const statsArray = Object.values(statsMap)
@@ -120,7 +93,7 @@ const AdminPanel = () => {
     setProductStats(statsArray);
   }, [orders, products]);
 
-  // === ORDER STATUS LOGIC (unchanged) ===
+  // ORDER STATUS LOGIC
   const handleCancellation = async (orderId, action) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
@@ -200,13 +173,12 @@ const AdminPanel = () => {
     return <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${item.color}`}>{item.icon} {item.text}</span>;
   };
 
-  // === BASIC STATS ===
+  // BASIC STATS
   const totalIncome = orders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0);
   const totalOrders = orders.filter(o => o.status === "completed").length;
-  orders.length;
   const avgOrderValue = totalOrders > 0 ? totalIncome / totalOrders : 0;
 
-  // === CHARTS ===
+  // CHARTS
   const revenueChartData = {
     labels: productStats.slice(0, 10).map(p => p.name.length > 15 ? p.name.substring(0,15)+"..." : p.name),
     datasets: [{
@@ -246,10 +218,9 @@ const AdminPanel = () => {
           </motion.div>
 
           <Tabs defaultValue="dashboard">
-            <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
-              <TabsTrigger value="messages">Messages</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
@@ -365,208 +336,130 @@ const AdminPanel = () => {
                 </div>
               </div>
             </TabsContent>
-          {/* MESSAGES TAB */}
-            <TabsContent value="messages">
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="p-6 border-b bg-gray-50">
-                  <h2 className="text-2xl font-bold text-[#118C8C]">Customer Messages</h2>
-                  <p className="text-gray-600">Click a conversation to view and reply</p>
-                </div>
 
-                {conversations.length === 0 ? (
-                  <div className="p-20 text-center text-gray-500">
-                    <Mail size={64} className="mx-auto mb-4 text-gray-300" />
-                    <p>No messages yet</p>
-                  </div>
+            {/* ANALYTICS TAB */}
+<TabsContent value="analytics">
+  <div className="space-y-8">
+    {/* SUMMARY CARDS - compact & responsive */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="bg-gradient-to-br from-[#118C8C] to-[#0d7070] text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+        <DollarSign size={36} className="mb-3 opacity-90" />
+        <p className="text-3xl font-bold">{formatPrice(totalIncome)}</p>
+        <p className="text-sm opacity-90 mt-1">Total Revenue</p>
+      </div>
+      <div className="bg-gradient-to-br from-purple-600 to-purple-800 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+        <ShoppingCart size={36} className="mb-3 opacity-90" />
+        <p className="text-3xl font-bold">{totalOrders}</p>
+        <p className="text-sm opacity-90 mt-1">Total Orders</p>
+      </div>
+      <div className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+        <TrendingUp size={36} className="mb-3 opacity-90" />
+        <p className="text-3xl font-bold">{formatPrice(avgOrderValue.toFixed(0))}</p>
+        <p className="text-sm opacity-90 mt-1">Avg Order Value</p>
+      </div>
+      <div className="bg-gradient-to-br from-pink-500 to-rose-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+        <Award size={36} className="mb-3 opacity-90" />
+        <p className="text-3xl font-bold">{productStats[0]?.totalSold || 0}</p>
+        <p className="text-sm opacity-90 mt-1">Best Seller Units</p>
+      </div>
+    </div>
+
+    {/* BEST + LEAST SELLERS - side-by-side, compact */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Top 10 Best Sellers */}
+      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+        <h3 className="text-xl font-bold text-[#118C8C] mb-4 flex items-center gap-2">
+          <Award className="text-yellow-500" size={24} /> Top 10 Best Sellers
+        </h3>
+        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          {productStats.slice(0, 10).map((p, i) => (
+            <div 
+              key={p.id} 
+              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition text-sm"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-lg font-bold text-gray-400 w-6 shrink-0">#{i+1}</span>
+                <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
+                  {p.imageUrl ? (
+                    <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Img</div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{p.name}</p>
+                  <p className="text-xs text-gray-600">{p.totalSold} units • {formatPrice(p.revenue)}</p>
+                </div>
+              </div>
+              <p className="text-base font-bold text-[#F2BB16] whitespace-nowrap ml-3">
+                {formatPrice(p.price)}
+              </p>
+            </div>
+          ))}
+          {productStats.length === 0 && (
+            <p className="text-center text-gray-500 py-8">No sales data yet</p>
+          )}
+        </div>
+      </div>
+
+      {/* Least Sold */}
+      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+        <h3 className="text-xl font-bold text-[#118C8C] mb-4">Least Sold Products</h3>
+        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+          {productStats.slice(-10).reverse().map(p => (
+            <div 
+              key={p.id} 
+              className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg text-sm"
+            >
+              <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
+                {p.imageUrl ? (
+                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="divide-y">
-                    {conversations.map(convo => {
-                      const unreadCount = convo.messages.filter(m => m.status === "unread").length;
-                      return (
-                        <div
-                          key={convo.subject}
-                          onClick={() => openConversation(convo)}
-                          className="p-6 cursor-pointer hover:bg-gray-50 transition-all"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              {unreadCount > 0 ? (
-                                <Circle className="text-blue-500" size={12} fill="currentColor" />
-                              ) : (
-                                <Circle className="text-gray-400" size={12} />
-                              )}
-                              <div>
-                                <p className="font-bold text-lg">{convo.buyerName}</p>
-                                <p className="text-sm text-gray-600">{convo.buyerEmail}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm text-gray-600">
-                                {convo.latestDate?.toDate?.().toLocaleDateString()}
-                              </p>
-                              <p className="font-medium text-[#118C8C]">{convo.subject}</p>
-                              {unreadCount > 0 && (
-                                <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                                  {unreadCount} new
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Img</div>
                 )}
               </div>
-            </TabsContent>
-
-            {/* FULL CONVERSATION MODAL */}
-            {selectedConversation && (
-              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
-                >
-                  <div className="p-8">
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <h2 className="text-2xl font-bold text-[#118C8C]">{selectedConversation.subject}</h2>
-                        <p className="text-gray-600 mt-2">
-                          Customer: {selectedConversation.buyerName} ({selectedConversation.buyerEmail})
-                        </p>
-                      </div>
-                      <Button variant="ghost" onClick={() => setSelectedConversation(null)}>
-                        <X size={24} />
-                      </Button>
-                    </div>
-
-                    <div className="space-y-6 max-h-96 overflow-y-auto">
-                      {selectedConversation.messages
-                        .sort((a, b) => a.createdAt?.toDate() - b.createdAt?.toDate())
-                        .map(msg => (
-                          <div
-                            key={msg.id}
-                            className={`p-6 rounded-lg ${
-                              msg.isAdminReply ? "bg-blue-50 ml-auto max-w-md" : "bg-gray-50 mr-auto max-w-md"
-                            }`}
-                          >
-                            <p className="text-sm font-medium mb-2">
-                              {msg.isAdminReply ? "You (Admin)" : msg.buyerName} • {msg.createdAt?.toDate?.().toLocaleString()}
-                            </p>
-                            <p className="text-gray-800">{msg.message}</p>
-                          </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-10">
-                      <textarea
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        placeholder="Type your reply..."
-                        className="w-full px-4 py-3 border rounded-lg h-32"
-                      />
-                      <div className="flex justify-end gap-4 mt-6">
-                        <Button variant="outline" onClick={() => setSelectedConversation(null)}>
-                          Close
-                        </Button>
-                        <Button onClick={sendReply} className="bg-[#118C8C]">
-                          <Send className="mr-2" /> Send Reply
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{p.name}</p>
+                <p className="text-xs text-gray-600">
+                  {p.totalSold} sold • Stock: {p.stockQuantity || 0}
+                </p>
               </div>
-            )}
+            </div>
+          ))}
+          {productStats.length === 0 && (
+            <p className="text-center text-gray-500 py-8">No data available</p>
+          )}
+        </div>
+      </div>
+    </div>
 
-            {/* ANALYTICS TAB — NOW INSANE */}
-            <TabsContent value="analytics">
-              <div className="space-y-12">
+    {/* REVENUE CHART */}
+    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+      <h3 className="text-xl font-bold text-[#118C8C] mb-4">Revenue by Product (Top 10)</h3>
+      <div className="h-72">
+        <Bar 
+          data={revenueChartData} 
+          options={{ 
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }} 
+        />
+      </div>
+    </div>
 
-                {/* SUMMARY CARDS */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="bg-gradient-to-br from-[#118C8C] to-[#0d7070] text-white p-8 rounded-2xl shadow-xl">
-                    <DollarSign size={48} className="mb-4" />
-                    <p className="text-4xl font-bold">{formatPrice(totalIncome)}</p>
-                    <p className="text-lg opacity-90">Total Revenue</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-600 to-purple-800 text-white p-8 rounded-2xl shadow-xl">
-                    <ShoppingCart size={48} className="mb-4" />
-                    <p className="text-4xl font-bold">{totalOrders}</p>
-                    <p className="text-lg opacity-90">Total Orders</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-8 rounded-2xl shadow-xl">
-                    <TrendingUp size={48} className="mb-4" />
-                    <p className="text-4xl font-bold">{formatPrice(avgOrderValue.toFixed(0))}</p>
-                    <p className="text-lg opacity-90">Avg Order Value</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-pink-500 to-rose-600 text-white p-8 rounded-2xl shadow-xl">
-                    <Award size={48} className="mb-4" />
-                    <p className="text-4xl font-bold">{productStats[0]?.totalSold || 0}</p>
-                    <p className="text-lg opacity-90">Best Seller Units</p>
-                  </div>
-                </div>
-
-                {/* TOP 10 BEST SELLERS */}
-                <div className="bg-white rounded-3xl shadow-xl p-8">
-                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8 flex items-center gap-3">
-                    <Award className="text-yellow-500" /> Top 10 Best Sellers
-                  </h3>
-                  <div className="space-y-4">
-                    {productStats.slice(0, 10).map((p, i) => (
-                      <div key={p.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
-                        <div className="flex items-center gap-4">
-                          <span className="text-2xl font-bold text-gray-400 w-8">#{i+1}</span>
-                          <div className="w-16 h-16 rounded-lg overflow-hidden">
-                            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <div className="bg-gray-200 w-full h-full" />}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-lg">{p.name}</p>
-                            <p className="text-sm text-gray-600">{p.totalSold} units • {formatPrice(p.revenue)} revenue</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-[#F2BB16]">{formatPrice(p.price)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* LEAST 10 SOLD */}
-                <div className="bg-white rounded-3xl shadow-xl p-8">
-                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8">Least Sold Products</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {productStats.slice(-10).reverse().map((p, i) => (
-                      <div key={p.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                        <div className="w-12 h-12 rounded overflow-hidden">
-                          {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <div className="bg-gray-200 w-full h-full" />}
-                        </div>
-                        <div>
-                          <p className="font-medium">{p.name}</p>
-                          <p className="text-sm text-gray-600">{p.totalSold} sold • Stock: {p.stockQuantity || 0}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* REVENUE BY PRODUCT CHART */}
-                <div className="bg-white rounded-3xl shadow-xl p-8">
-                  <h3 className="text-3xl font-bold text-[#118C8C] mb-8">Revenue by Product (Top 10)</h3>
-                  <Bar data={revenueChartData} options={{ responsive: true, plugins: { legend: { display: false }}}} />
-                </div>
-
-                {/* INCOME PREDICTION */}
-                <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-12 rounded-3xl shadow-2xl text-center">
-                  <TrendingUp size={80} className="mx-auto mb-6" />
-                  <h3 className="text-4xl font-bold mb-4">Next Month Prediction</h3>
-                  <p className="text-7xl font-bold">{formatPrice(Math.round(totalIncome * 1.15))}</p>
-                  <p className="text-2xl mt-6 opacity-90">+15% growth estimate</p>
-                </div>
-              </div>
-            </TabsContent>
+    {/* INCOME PREDICTION - standout card */}
+    <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-10 rounded-3xl shadow-2xl text-center border border-white/20">
+      <TrendingUp size={64} className="mx-auto mb-4 opacity-90" />
+      <h3 className="text-3xl font-bold mb-3">Next Month Forecast</h3>
+      <p className="text-6xl font-extrabold">{formatPrice(Math.round(totalIncome * 1.15))}</p>
+      <p className="text-xl mt-4 opacity-90">+15% estimated growth based on current trends</p>
+    </div>
+  </div>
+</TabsContent>
           </Tabs>
         </div>
       </div>
