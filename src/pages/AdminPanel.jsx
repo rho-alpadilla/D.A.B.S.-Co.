@@ -6,9 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
 import { auth, db } from '@/lib/firebase';
-import { 
-  collection, onSnapshot, query, orderBy, doc, updateDoc, 
-  getDoc, increment 
+import {
+  collection, onSnapshot, query, orderBy, doc, updateDoc,
+  getDoc, increment
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,8 @@ import {
 } from 'chart.js';
 import {
   Package, ShoppingCart, TrendingUp, DollarSign,
-  LogOut, Lock, CheckCircle, Mail, Circle, Send, X, 
-  AlertCircle, Truck, Clock, Award, Zap
+  LogOut, CheckCircle, X,
+  AlertCircle, Truck, Clock, Award
 } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, BarElement, Title, Tooltip, Legend);
@@ -73,7 +73,8 @@ const AdminPanel = () => {
         price: p.price,
         totalSold: p.totalSold || 0,
         revenue: 0,
-        imageUrl: p.imageUrl
+        imageUrl: p.imageUrl,
+        stockQuantity: p.stockQuantity
       };
     });
 
@@ -170,17 +171,24 @@ const AdminPanel = () => {
       "cancelled": { text: "Cancelled", color: "bg-gray-100 text-gray-700", icon: <X size={16} /> }
     };
     const item = map[status] || map.pending;
-    return <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${item.color}`}>{item.icon} {item.text}</span>;
+    return (
+      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${item.color}`}>
+        {item.icon} {item.text}
+      </span>
+    );
   };
 
   // BASIC STATS
-  const totalIncome = orders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalIncome = orders
+    .filter(o => o.status === "completed")
+    .reduce((sum, o) => sum + (o.total || 0), 0);
+
   const totalOrders = orders.filter(o => o.status === "completed").length;
   const avgOrderValue = totalOrders > 0 ? totalIncome / totalOrders : 0;
 
   // CHARTS
   const revenueChartData = {
-    labels: productStats.slice(0, 10).map(p => p.name.length > 15 ? p.name.substring(0,15)+"..." : p.name),
+    labels: productStats.slice(0, 10).map(p => p.name.length > 15 ? p.name.substring(0, 15) + "..." : p.name),
     datasets: [{
       label: 'Revenue',
       data: productStats.slice(0, 10).map(p => p.revenue),
@@ -262,6 +270,9 @@ const AdminPanel = () => {
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b">
                       <tr>
+                        {/* ✅ NEW COLUMN */}
+                        <th className="p-4 text-left">Date Ordered</th>
+
                         <th className="p-4 text-left">Order ID</th>
                         <th className="p-4 text-left">Customer</th>
                         <th className="p-4 text-left">Items</th>
@@ -270,9 +281,15 @@ const AdminPanel = () => {
                         <th className="p-4 text-left">Actions</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {orders.map(order => (
                         <tr key={order.id} className="border-t hover:bg-gray-50">
+                          {/* ✅ NEW CELL */}
+                          <td className="p-4 text-sm text-gray-700">
+                            {order.createdAt?.toDate?.().toLocaleDateString() || "N/A"}
+                          </td>
+
                           <td className="p-4 font-medium">#{order.id.slice(0, 8)}</td>
                           <td className="p-4">{order.buyerEmail || "Guest"}</td>
                           <td className="p-4">
@@ -283,9 +300,7 @@ const AdminPanel = () => {
                             </ul>
                           </td>
                           <td className="p-4 font-bold">{formatPrice(order.total || 0)}</td>
-                          <td className="p-4">
-                            {getStatusBadge(order.status)}
-                          </td>
+                          <td className="p-4">{getStatusBadge(order.status)}</td>
                           <td className="p-4">
                             <div className="flex flex-wrap gap-2">
                               {["pending", "processing", "completed", "cancelled"].includes(order.status || "") && (
@@ -338,128 +353,126 @@ const AdminPanel = () => {
             </TabsContent>
 
             {/* ANALYTICS TAB */}
-<TabsContent value="analytics">
-  <div className="space-y-8">
-    {/* SUMMARY CARDS - compact & responsive */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div className="bg-gradient-to-br from-[#118C8C] to-[#0d7070] text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
-        <DollarSign size={36} className="mb-3 opacity-90" />
-        <p className="text-3xl font-bold">{formatPrice(totalIncome)}</p>
-        <p className="text-sm opacity-90 mt-1">Total Revenue</p>
-      </div>
-      <div className="bg-gradient-to-br from-purple-600 to-purple-800 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
-        <ShoppingCart size={36} className="mb-3 opacity-90" />
-        <p className="text-3xl font-bold">{totalOrders}</p>
-        <p className="text-sm opacity-90 mt-1">Total Orders</p>
-      </div>
-      <div className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
-        <TrendingUp size={36} className="mb-3 opacity-90" />
-        <p className="text-3xl font-bold">{formatPrice(avgOrderValue.toFixed(0))}</p>
-        <p className="text-sm opacity-90 mt-1">Avg Order Value</p>
-      </div>
-      <div className="bg-gradient-to-br from-pink-500 to-rose-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
-        <Award size={36} className="mb-3 opacity-90" />
-        <p className="text-3xl font-bold">{productStats[0]?.totalSold || 0}</p>
-        <p className="text-sm opacity-90 mt-1">Best Seller Units</p>
-      </div>
-    </div>
-
-    {/* BEST + LEAST SELLERS - side-by-side, compact */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Top 10 Best Sellers */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-        <h3 className="text-xl font-bold text-[#118C8C] mb-4 flex items-center gap-2">
-          <Award className="text-yellow-500" size={24} /> Top 10 Best Sellers
-        </h3>
-        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-          {productStats.slice(0, 10).map((p, i) => (
-            <div 
-              key={p.id} 
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition text-sm"
-            >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <span className="text-lg font-bold text-gray-400 w-6 shrink-0">#{i+1}</span>
-                <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
-                  {p.imageUrl ? (
-                    <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Img</div>
-                  )}
+            <TabsContent value="analytics">
+              <div className="space-y-8">
+                {/* SUMMARY CARDS - compact & responsive */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="bg-gradient-to-br from-[#118C8C] to-[#0d7070] text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+                    <DollarSign size={36} className="mb-3 opacity-90" />
+                    <p className="text-3xl font-bold">{formatPrice(totalIncome)}</p>
+                    <p className="text-sm opacity-90 mt-1">Total Revenue</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-600 to-purple-800 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+                    <ShoppingCart size={36} className="mb-3 opacity-90" />
+                    <p className="text-3xl font-bold">{totalOrders}</p>
+                    <p className="text-sm opacity-90 mt-1">Total Orders</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+                    <TrendingUp size={36} className="mb-3 opacity-90" />
+                    <p className="text-3xl font-bold">{formatPrice(avgOrderValue.toFixed(0))}</p>
+                    <p className="text-sm opacity-90 mt-1">Avg Order Value</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-pink-500 to-rose-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
+                    <Award size={36} className="mb-3 opacity-90" />
+                    <p className="text-3xl font-bold">{productStats[0]?.totalSold || 0}</p>
+                    <p className="text-sm opacity-90 mt-1">Best Seller Units</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{p.name}</p>
-                  <p className="text-xs text-gray-600">{p.totalSold} units • {formatPrice(p.revenue)}</p>
+
+                {/* BEST + LEAST SELLERS - side-by-side, compact */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Top 10 Best Sellers */}
+                  <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                    <h3 className="text-xl font-bold text-[#118C8C] mb-4 flex items-center gap-2">
+                      <Award className="text-yellow-500" size={24} /> Top 10 Best Sellers
+                    </h3>
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                      {productStats.slice(0, 10).map((p, i) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition text-sm"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="text-lg font-bold text-gray-400 w-6 shrink-0">#{i + 1}</span>
+                            <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
+                              {p.imageUrl ? (
+                                <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Img</div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{p.name}</p>
+                              <p className="text-xs text-gray-600">{p.totalSold} units • {formatPrice(p.revenue)}</p>
+                            </div>
+                          </div>
+                          <p className="text-base font-bold text-[#F2BB16] whitespace-nowrap ml-3">
+                            {formatPrice(p.price)}
+                          </p>
+                        </div>
+                      ))}
+                      {productStats.length === 0 && (
+                        <p className="text-center text-gray-500 py-8">No sales data yet</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Least Sold */}
+                  <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                    <h3 className="text-xl font-bold text-[#118C8C] mb-4">Least Sold Products</h3>
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                      {productStats.slice(-10).reverse().map(p => (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg text-sm"
+                        >
+                          <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Img</div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{p.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {p.totalSold} sold • Stock: {p.stockQuantity || 0}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {productStats.length === 0 && (
+                        <p className="text-center text-gray-500 py-8">No data available</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* REVENUE CHART */}
+                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                  <h3 className="text-xl font-bold text-[#118C8C] mb-4">Revenue by Product (Top 10)</h3>
+                  <div className="h-72">
+                    <Bar
+                      data={revenueChartData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* INCOME PREDICTION */}
+                <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-10 rounded-3xl shadow-2xl text-center border border-white/20">
+                  <TrendingUp size={64} className="mx-auto mb-4 opacity-90" />
+                  <h3 className="text-3xl font-bold mb-3">Next Month Forecast</h3>
+                  <p className="text-6xl font-extrabold">{formatPrice(Math.round(totalIncome * 1.15))}</p>
+                  <p className="text-xl mt-4 opacity-90">+15% estimated growth based on current trends</p>
                 </div>
               </div>
-              <p className="text-base font-bold text-[#F2BB16] whitespace-nowrap ml-3">
-                {formatPrice(p.price)}
-              </p>
-            </div>
-          ))}
-          {productStats.length === 0 && (
-            <p className="text-center text-gray-500 py-8">No sales data yet</p>
-          )}
-        </div>
-      </div>
-
-      {/* Least Sold */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-        <h3 className="text-xl font-bold text-[#118C8C] mb-4">Least Sold Products</h3>
-        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-          {productStats.slice(-10).reverse().map(p => (
-            <div 
-              key={p.id} 
-              className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg text-sm"
-            >
-              <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-gray-200">
-                {p.imageUrl ? (
-                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Img</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{p.name}</p>
-                <p className="text-xs text-gray-600">
-                  {p.totalSold} sold • Stock: {p.stockQuantity || 0}
-                </p>
-              </div>
-            </div>
-          ))}
-          {productStats.length === 0 && (
-            <p className="text-center text-gray-500 py-8">No data available</p>
-          )}
-        </div>
-      </div>
-    </div>
-
-    {/* REVENUE CHART */}
-    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-      <h3 className="text-xl font-bold text-[#118C8C] mb-4">Revenue by Product (Top 10)</h3>
-      <div className="h-72">
-        <Bar 
-          data={revenueChartData} 
-          options={{ 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              y: { beginAtZero: true }
-            }
-          }} 
-        />
-      </div>
-    </div>
-
-    {/* INCOME PREDICTION - standout card */}
-    <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-10 rounded-3xl shadow-2xl text-center border border-white/20">
-      <TrendingUp size={64} className="mx-auto mb-4 opacity-90" />
-      <h3 className="text-3xl font-bold mb-3">Next Month Forecast</h3>
-      <p className="text-6xl font-extrabold">{formatPrice(Math.round(totalIncome * 1.15))}</p>
-      <p className="text-xl mt-4 opacity-90">+15% estimated growth based on current trends</p>
-    </div>
-  </div>
-</TabsContent>
+            </TabsContent>
           </Tabs>
         </div>
       </div>

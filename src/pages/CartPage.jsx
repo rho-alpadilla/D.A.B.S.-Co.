@@ -71,7 +71,16 @@ const CartPage = () => {
       </Helmet>
 
       <div className="container mx-auto px-4 py-12 min-h-[60vh]">
-        <h1 className="text-3xl font-bold text-[#118C8C] mb-8">Your Shopping Cart</h1>
+        {/* ✅ Header row with Pending Orders button */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <h1 className="text-3xl font-bold text-[#118C8C]">Your Shopping Cart</h1>
+
+          <Link to="/pending-orders">
+            <Button className="bg-[#118C8C] hover:bg-[#0d7070]">
+              View My Orders
+            </Button>
+          </Link>
+        </div>
 
         {cartItems.length === 0 ? (
           <motion.div

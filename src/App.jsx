@@ -1,4 +1,4 @@
-// src/App.jsx ← UPDATED: ADDED PROTECTED /ADD-PRODUCT ROUTE
+// src/App.jsx ← UPDATED: ADDED PENDING ORDERS ROUTE
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -17,7 +17,7 @@ import HomePage from '@/pages/HomePage';
 import GalleryPage from '@/pages/GalleryPage';
 import ProductDetailPage from '@/pages/ProductDetailPage';
 import PricelistsPage from '@/pages/PricelistsPage';
-import AddProductPage from '@/pages/AddProductPage'; // ← NEW IMPORT
+import AddProductPage from '@/pages/AddProductPage';
 import AboutPage from '@/pages/AboutPage';
 import ContactPage from '@/pages/ContactPage';
 import CartPage from '@/pages/CartPage';
@@ -31,8 +31,9 @@ import RegisterPage from '@/pages/RegisterPage';
 import BuyerDashboard from '@/pages/BuyerDashboard';
 import ProfilePage from '@/pages/ProfilePage';
 import AdminPanel from '@/pages/AdminPanel';
+import PendingOrdersPage from '@/pages/PendingOrdersPage'; // ✅ NEW
 
-// Protected Route for logged-in users (reusable for buyer pages like checkout)
+// Protected Route for logged-in users (buyers)
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -51,7 +52,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Protected Admin Route (unchanged)
+// Protected Admin Route
 const ProtectedAdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -118,14 +119,24 @@ function App() {
                 <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
                 <Route path="/profile" element={<ProfilePage />} />
 
-                {/* CHECKOUT - PROTECTED */}
-                <Route 
-                  path="/checkout" 
+                {/* CHECKOUT - BUYER PROTECTED */}
+                <Route
+                  path="/checkout"
                   element={
                     <ProtectedRoute>
                       <CheckoutPage />
                     </ProtectedRoute>
-                  } 
+                  }
+                />
+
+                {/* ✅ BUYER: PENDING ORDERS */}
+                <Route
+                  path="/pending-orders"
+                  element={
+                    <ProtectedRoute>
+                      <PendingOrdersPage />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* ADMIN */}
@@ -138,8 +149,8 @@ function App() {
                   }
                 />
 
-                {/* ADMIN ADD PRODUCT - PROTECTED */}
-                <Route 
+                {/* ADMIN ADD PRODUCT */}
+                <Route
                   path="/add-product"
                   element={
                     <ProtectedAdminRoute>

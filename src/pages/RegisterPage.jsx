@@ -8,7 +8,17 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Mail, Lock, User, Calendar, ChevronDown, AtSign, Home, MapPin } from 'lucide-react';
+import {
+  Mail,
+  Lock,
+  User,
+  Calendar,
+  ChevronDown,
+  AtSign,
+  Home,
+  Eye,
+  EyeOff
+} from 'lucide-react';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -39,6 +49,10 @@ const RegisterPage = () => {
   const [isAddressCountryOpen, setIsAddressCountryOpen] = useState(false);
   const [phoneCountrySearch, setPhoneCountrySearch] = useState("");
   const [addressCountrySearch, setAddressCountrySearch] = useState("");
+
+  // 👁️ Password visibility toggles
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -85,13 +99,9 @@ const RegisterPage = () => {
       setLoading(false);
       return;
     }
+    // ✅ Username is required, but no restrictions on format
     if (!formData.username.trim()) {
       setError("Username is required");
-      setLoading(false);
-      return;
-    }
-    if (formData.username.includes(' ')) {
-      setError("Username cannot contain spaces");
       setLoading(false);
       return;
     }
@@ -102,7 +112,7 @@ const RegisterPage = () => {
 
       await setDoc(doc(db, "users", newUser.uid), {
         fullName: formData.fullName.trim(),
-        username: formData.username.toLowerCase().trim(),
+        username: formData.username.trim(), // ✅ do NOT force lowercase
         email: newUser.email,
         phone: selectedPhoneCountry.callingCode + " " + formData.phone,
         birthdate: formData.birthdate,
@@ -116,7 +126,7 @@ const RegisterPage = () => {
             city: formData.city,
             stateProvince: formData.stateProvince,
             postalCode: formData.postalCode,
-            country: selectedAddressCountry.name,  // ← NOW SAVED FROM ADDRESS COUNTRY SELECTOR
+            country: selectedAddressCountry.name,
             isDefault: true
           }
         ]
@@ -124,8 +134,8 @@ const RegisterPage = () => {
 
       navigate('/buyer-dashboard');
     } catch (err) {
-      setError(err.message.includes("email-already-in-use") 
-        ? "Email already registered" 
+      setError(err.message.includes("email-already-in-use")
+        ? "Email already registered"
         : "Registration failed. Try again."
       );
     } finally {
@@ -187,11 +197,11 @@ const RegisterPage = () => {
                     type="text"
                     required
                     className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    placeholder="juandelacruz"
+                    placeholder="JuanDelaCruz_123 (anything is allowed)"
                     value={formData.username}
                     onChange={handleChange}
                   />
-                  <p className="text-sm text-gray-500">No spaces • lowercase only</p>
+                  {/* ✅ removed "No spaces • lowercase only" */}
                 </div>
               </div>
 
@@ -385,34 +395,61 @@ const RegisterPage = () => {
                   <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
                     <Lock size={20} /> Password
                   </label>
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    minLength="6"
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={handleChange}
-                  />
+
+                  <div className="relative">
+                    <input
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength="6"
+                      className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={handleChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(prev => !prev)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                    </button>
+                  </div>
                 </div>
+
                 <div className="space-y-2">
                   <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
                     <Lock size={20} /> Confirm Password
                   </label>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    required
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    placeholder="••••••••"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                  />
+
+                  <div className="relative">
+                    <input
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      required
+                      className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    >
+                      {showConfirmPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-5 text-2xl" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-5 text-2xl"
+                disabled={loading}
+              >
                 {loading ? 'Creating Account...' : 'Create Account'}
               </Button>
             </form>

@@ -1,4 +1,4 @@
-// src/pages/GalleryPage.jsx ← FIXED: MISSING BUTTON IMPORT + WORKING ARROWS + CLICK IMAGE TO VIEW DETAILS
+// src/pages/GalleryPage.jsx ← FIXED: ADMIN-ONLY ADD PRODUCT BUTTON ADDED
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -6,9 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button'; // ← FIXED: MISSING IMPORT
+import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useAuth } from '@/lib/firebase';
 
 const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
@@ -17,9 +18,13 @@ const GalleryPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState("default");
-  const [imageIndices, setImageIndices] = useState({}); // { productId: currentIndex }
+  const [imageIndices, setImageIndices] = useState({});
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
+
+  // ✅ Admin check
+  const { user } = useAuth();
+  const isAdmin = user?.email?.includes('admin');
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "pricelists"), async (snapshot) => {
@@ -124,7 +129,7 @@ const GalleryPage = () => {
           </p>
         </motion.div>
 
-        {/* SEARCH + SORT */}
+        {/* SEARCH + SORT + ADMIN ADD BUTTON */}
         <div className="mb-10 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -137,18 +142,31 @@ const GalleryPage = () => {
             />
           </div>
 
-          <div className="flex items-center gap-3">
-            <ArrowUpDown size={20} className="text-gray-600" />
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              className="px-5 py-3 border-2 border-gray-200 rounded-xl focus:border-[#118C8C] focus:outline-none text-lg"
-            >
-              <option value="default">Featured</option>
-              <option value="lowToHigh">Price: Low to High</option>
-              <option value="highToLow">Price: High to Low</option>
-              <option value="topSellers">Top Sellers</option>
-            </select>
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <div className="flex items-center gap-3">
+              <ArrowUpDown size={20} className="text-gray-600" />
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="px-5 py-3 border-2 border-gray-200 rounded-xl focus:border-[#118C8C] focus:outline-none text-lg"
+              >
+                <option value="default">Featured</option>
+                <option value="lowToHigh">Price: Low to High</option>
+                <option value="highToLow">Price: High to Low</option>
+                <option value="topSellers">Top Sellers</option>
+              </select>
+            </div>
+
+            {/* ✅ Admin-only Add Product button */}
+            {isAdmin && (
+              <Button
+                onClick={() => navigate('/add-product')}
+                className="bg-[#118C8C] hover:bg-[#0d7070] text-white font-bold px-5 py-3 h-auto"
+              >
+                <Plus size={18} className="mr-2" />
+                Add Product
+              </Button>
+            )}
           </div>
         </div>
 
@@ -177,10 +195,7 @@ const GalleryPage = () => {
                     const isTopSeller = item.totalSold > 0 && sortOrder === "topSellers";
                     const showBadge = isTopSeller || item.totalSold >= 5;
 
-                    // All images for this product
                     const allImages = item.imageUrls?.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
-
-                    // Current index for this product (default 0)
                     const currentIndex = imageIndices[item.id] || 0;
                     const currentImage = allImages[currentIndex] || null;
 
@@ -228,7 +243,6 @@ const GalleryPage = () => {
                             </div>
                           )}
 
-                          {/* Navigation Arrows */}
                           {allImages.length > 1 && (
                             <>
                               <button
@@ -247,7 +261,6 @@ const GalleryPage = () => {
                             </>
                           )}
 
-                          {/* Dots Indicator */}
                           {allImages.length > 1 && (
                             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                               {allImages.map((_, idx) => (
