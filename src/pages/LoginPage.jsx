@@ -1,5 +1,7 @@
-// src/pages/LoginPage.jsx ← FINAL VERSION: ADMIN GOES TO ADMIN PANEL
-import React, { useState } from 'react';
+// src/pages/LoginPage.jsx ← UPDATED: non-admin redirects to /gallery (admin still to /admin-panel)
+// ✅ Also fixed: no navigate() during render (moved to useEffect)
+
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
@@ -12,9 +14,17 @@ import { Mail, Lock } from 'lucide-react';
 const LoginPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // ✅ If already logged in → redirect
+  useEffect(() => {
+    if (!user) return;
+    const isAdmin = (user.email || "").toLowerCase().includes('admin');
+    navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
+  }, [user, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -29,11 +39,11 @@ const LoginPage = () => {
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
 
-      // Check if admin by email (same as your AdminPanel logic)
+      // ✅ Same admin check (kept consistent with your setup)
       const isAdmin = formData.email.toLowerCase().includes('admin');
 
-      // Redirect correctly
-      navigate(isAdmin ? '/admin-panel' : '/buyer-dashboard');
+      // ✅ Redirect correctly: admin → admin panel, everyone else → gallery
+      navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -41,12 +51,8 @@ const LoginPage = () => {
     }
   };
 
-  // If already logged in → redirect immediately
-  if (user) {
-    const isAdmin = user.email.toLowerCase().includes('admin');
-    navigate(isAdmin ? '/admin-panel' : '/buyer-dashboard');
-    return null;
-  }
+  // Optional: while redirecting logged-in users, render nothing
+  if (user) return null;
 
   return (
     <>
@@ -106,7 +112,11 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3"
+                disabled={loading}
+              >
                 {loading ? 'Logging in...' : 'Log In'}
               </Button>
             </form>

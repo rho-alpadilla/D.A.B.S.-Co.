@@ -1,5 +1,8 @@
-// src/pages/AdminPanel.jsx ← CLEANED: MESSAGES TAB REMOVED (now in ChatWidget only)
-import React, { useState, useEffect } from 'react';
+// ✅ Paste this whole file: src/pages/AdminPanel.jsx
+// UPDATED: Dashboard upgraded + Analytics upgraded (Date range filter + Revenue over time line chart + defendable forecast)
+// Notes: Keeps your existing Orders tab + cancellation logic. Uses Chart.js Line + Bar.
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -13,12 +16,13 @@ import {
 import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bar } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
+  LineElement,
   BarElement,
   Title,
   Tooltip,
@@ -30,15 +34,24 @@ import {
   AlertCircle, Truck, Clock, Award
 } from "lucide-react";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 const AdminPanel = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+
+  // ✅ Analytics state
+  const [rangeDays, setRangeDays] = useState(30);
+
+  // ✅ Dashboard tab control (so buttons can jump tabs)
+  const [tab, setTab] = useState("dashboard");
+
+  // Product stats computed from filtered completed orders (set below)
   const [productStats, setProductStats] = useState([]);
 
   useEffect(() => {
@@ -59,40 +72,6 @@ const AdminPanel = () => {
 
     return () => { unsubRole(); unsubProducts(); unsubOrders(); };
   }, [user]);
-
-  // ANALYTICS: PRODUCT STATS
-  useEffect(() => {
-    if (orders.length === 0 || products.length === 0) return;
-
-    const statsMap = {};
-
-    products.forEach(p => {
-      statsMap[p.id] = {
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        totalSold: p.totalSold || 0,
-        revenue: 0,
-        imageUrl: p.imageUrl,
-        stockQuantity: p.stockQuantity
-      };
-    });
-
-    orders
-      .filter(o => o.status === "completed")
-      .forEach(order => {
-        order.items?.forEach(item => {
-          if (statsMap[item.id]) {
-            statsMap[item.id].revenue += item.price * item.quantity;
-          }
-        });
-      });
-
-    const statsArray = Object.values(statsMap)
-      .sort((a, b) => b.totalSold - a.totalSold);
-
-    setProductStats(statsArray);
-  }, [orders, products]);
 
   // ORDER STATUS LOGIC
   const handleCancellation = async (orderId, action) => {
@@ -145,7 +124,7 @@ const AdminPanel = () => {
             await updateDoc(productRef, {
               stockQuantity: newStock,
               inStock: newStock > 0,
-              totalSold: increment(item.quantity)
+              totalSold: increment(item.quantity) // keeps your product doc updated
             });
           }
         });
@@ -178,25 +157,153 @@ const AdminPanel = () => {
     );
   };
 
-  // BASIC STATS
-  const totalIncome = orders
-    .filter(o => o.status === "completed")
-    .reduce((sum, o) => sum + (o.total || 0), 0);
+  // ✅ Completed orders (all-time) and filtered completed orders (based on range)
+  const completedOrders = useMemo(
+    () => orders.filter(o => o.status === "completed"),
+    [orders]
+  );
 
-  const totalOrders = orders.filter(o => o.status === "completed").length;
-  const avgOrderValue = totalOrders > 0 ? totalIncome / totalOrders : 0;
+  const filteredCompletedOrders = useMemo(() => {
+    if (rangeDays === "all") return completedOrders;
+    const cutoff = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+    return completedOrders.filter(o => {
+      const d = o.createdAt?.toDate?.();
+      return d && d.getTime() >= cutoff;
+    });
+  }, [completedOrders, rangeDays]);
 
-  // CHARTS
-  const revenueChartData = {
-    labels: productStats.slice(0, 10).map(p => p.name.length > 15 ? p.name.substring(0, 15) + "..." : p.name),
-    datasets: [{
-      label: 'Revenue',
-      data: productStats.slice(0, 10).map(p => p.revenue),
-      backgroundColor: 'rgba(17, 140, 140, 0.8)',
-      borderColor: '#118C8C',
-      borderWidth: 2
-    }]
+  // ✅ Analytics stats based on filteredCompletedOrders
+  const totalIncome = useMemo(() => {
+    return filteredCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  }, [filteredCompletedOrders]);
+
+  const totalOrdersCompleted = useMemo(() => filteredCompletedOrders.length, [filteredCompletedOrders]);
+  const avgOrderValue = totalOrdersCompleted > 0 ? totalIncome / totalOrdersCompleted : 0;
+
+  // ✅ Product stats for Top/Least sellers based on filtered timeframe
+  useEffect(() => {
+    if (products.length === 0) {
+      setProductStats([]);
+      return;
+    }
+
+    const statsMap = {};
+    products.forEach(p => {
+      statsMap[p.id] = {
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        totalSold: 0,
+        revenue: 0,
+        imageUrl: p.imageUrl,
+        stockQuantity: p.stockQuantity
+      };
+    });
+
+    filteredCompletedOrders.forEach(order => {
+      order.items?.forEach(item => {
+        if (statsMap[item.id]) {
+          statsMap[item.id].totalSold += item.quantity;
+          statsMap[item.id].revenue += item.price * item.quantity;
+        }
+      });
+    });
+
+    const statsArray = Object.values(statsMap).sort((a, b) => b.totalSold - a.totalSold);
+    setProductStats(statsArray);
+  }, [filteredCompletedOrders, products]);
+
+  // ✅ Revenue by Product chart (Top 10) based on productStats (filtered)
+  const revenueChartData = useMemo(() => {
+    const top = productStats.slice(0, 10);
+    return {
+      labels: top.map(p => p.name.length > 15 ? p.name.substring(0, 15) + "..." : p.name),
+      datasets: [{
+        label: 'Revenue',
+        data: top.map(p => p.revenue),
+        backgroundColor: 'rgba(17, 140, 140, 0.8)',
+        borderColor: '#118C8C',
+        borderWidth: 2
+      }]
+    };
+  }, [productStats]);
+
+  // ✅ Revenue Over Time (Line) based on filteredCompletedOrders
+  const revenueOverTimeData = useMemo(() => {
+    const map = new Map(); // YYYY-MM-DD => revenue
+
+    filteredCompletedOrders.forEach(o => {
+      const d = o.createdAt?.toDate?.();
+      if (!d) return;
+      const key = d.toISOString().slice(0, 10);
+      map.set(key, (map.get(key) || 0) + (o.total || 0));
+    });
+
+    const labels = Array.from(map.keys()).sort();
+    const values = labels.map(k => map.get(k));
+
+    return {
+      labels,
+      datasets: [{
+        label: "Daily Revenue",
+        data: values,
+        borderColor: "#118C8C",
+        backgroundColor: "rgba(17, 140, 140, 0.15)",
+        tension: 0.3,
+        fill: true
+      }]
+    };
+  }, [filteredCompletedOrders]);
+
+  // ✅ Defendable forecast: avg daily revenue baseline * 30 days * (1 + growth)
+  const forecast = useMemo(() => {
+    const days = rangeDays === "all" ? 30 : rangeDays;
+
+    const baselineOrders = rangeDays === "all"
+      ? completedOrders.filter(o => {
+          const d = o.createdAt?.toDate?.();
+          return d && d.getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000;
+        })
+      : filteredCompletedOrders;
+
+    const baseRevenue = baselineOrders.reduce((s, o) => s + (o.total || 0), 0);
+    const avgDaily = days > 0 ? baseRevenue / days : 0;
+
+    const growth = 0.15;
+    const nextMonth = avgDaily * 30 * (1 + growth);
+
+    return {
+      avgDaily,
+      nextMonth,
+      growthPct: growth * 100,
+      baseDays: days
+    };
+  }, [rangeDays, filteredCompletedOrders, completedOrders]);
+
+  // DASHBOARD HELPERS
+  const formatDateTime = (ts) => {
+    const d = ts?.toDate?.();
+    if (!d) return "N/A";
+    return d.toLocaleString();
   };
+
+  const completedCountAll = completedOrders.length; // all-time completed count
+  const pendingCount = orders.filter(o => o.status === "pending").length;
+  const processingCount = orders.filter(o => o.status === "processing").length;
+  const cancelledCount = orders.filter(o =>
+    ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status)
+  ).length;
+  const cancellationRequestedCount = orders.filter(o => o.status === "Cancellation Requested").length;
+
+  const outOfStockCount = products.filter(p => (p.stockQuantity ?? 0) <= 0).length;
+  const lowStockCount = products.filter(p => {
+    const s = p.stockQuantity ?? 0;
+    return s > 0 && s <= 5;
+  }).length;
+
+  const recentOrders = orders.slice(0, 8);
+  const totalAllOrders = orders.length || 1;
+  const pct = (n) => Math.round((n / totalAllOrders) * 100);
 
   if (!user || !isAdmin) {
     return (
@@ -225,7 +332,7 @@ const AdminPanel = () => {
             </Button>
           </motion.div>
 
-          <Tabs defaultValue="dashboard">
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
@@ -234,26 +341,221 @@ const AdminPanel = () => {
 
             {/* DASHBOARD */}
             <TabsContent value="dashboard">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white p-8 rounded-xl shadow text-center">
-                  <Package className="mx-auto text-purple-500 mb-4" size={48} />
-                  <p className="text-5xl font-bold">{products.length}</p>
-                  <p className="text-gray-600">Total Products</p>
+              <div className="space-y-6">
+
+                {/* KPI CARDS */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-white p-8 rounded-xl shadow text-center">
+                    <Package className="mx-auto text-purple-500 mb-4" size={48} />
+                    <p className="text-5xl font-bold">{products.length}</p>
+                    <p className="text-gray-600">Total Products</p>
+                  </div>
+
+                  <div className="bg-white p-8 rounded-xl shadow text-center">
+                    <ShoppingCart className="mx-auto text-green-500 mb-4" size={48} />
+                    <p className="text-5xl font-bold">{orders.length}</p>
+                    <p className="text-gray-600">Total Orders</p>
+                  </div>
+
+                  <div className="bg-white p-8 rounded-xl shadow text-center">
+                    <CheckCircle className="mx-auto text-blue-500 mb-4" size={48} />
+                    <p className="text-5xl font-bold">{completedCountAll}</p>
+                    <p className="text-gray-600">Completed Orders</p>
+                  </div>
+
+                  <div className="bg-white p-8 rounded-xl shadow text-center">
+                    <DollarSign className="mx-auto text-yellow-500 mb-4" size={48} />
+                    <p className="text-5xl font-bold">
+                      {formatPrice(
+                        completedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+                      )}
+                    </p>
+                    <p className="text-gray-600">Total Income (All-Time)</p>
+                  </div>
                 </div>
-                <div className="bg-white p-8 rounded-xl shadow text-center">
-                  <ShoppingCart className="mx-auto text-green-500 mb-4" size={48} />
-                  <p className="text-5xl font-bold">{orders.length}</p>
-                  <p className="text-gray-600">Total Orders</p>
-                </div>
-                <div className="bg-white p-8 rounded-xl shadow text-center">
-                  <CheckCircle className="mx-auto text-blue-500 mb-4" size={48} />
-                  <p className="text-5xl font-bold">{orders.filter(o => o.status === "completed").length}</p>
-                  <p className="text-gray-600">Completed Orders</p>
-                </div>
-                <div className="bg-white p-8 rounded-xl shadow text-center">
-                  <DollarSign className="mx-auto text-yellow-500 mb-4" size={48} />
-                  <p className="text-5xl font-bold">{formatPrice(totalIncome)}</p>
-                  <p className="text-gray-600">Total Income</p>
+
+                {/* MAIN ROW */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                  {/* RECENT ORDERS */}
+                  <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+                    <div className="p-6 border-b bg-gray-50 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold text-[#118C8C]">Recent Orders</h2>
+                        <p className="text-gray-600 text-sm">Latest activity (most recent first)</p>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => setTab("orders")}
+                        className="text-[#118C8C] border-[#118C8C]"
+                      >
+                        View all
+                      </Button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-white border-b">
+                          <tr className="text-left text-sm text-gray-600">
+                            <th className="p-4">Date</th>
+                            <th className="p-4">Order</th>
+                            <th className="p-4">Customer</th>
+                            <th className="p-4">Total</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4">Quick action</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {recentOrders.map(order => (
+                            <tr key={order.id} className="border-t hover:bg-gray-50">
+                              <td className="p-4 text-sm text-gray-700">{formatDateTime(order.createdAt)}</td>
+                              <td className="p-4 font-medium">#{order.id.slice(0, 8)}</td>
+                              <td className="p-4 text-sm">{order.buyerEmail || "Guest"}</td>
+                              <td className="p-4 font-bold">{formatPrice(order.total || 0)}</td>
+                              <td className="p-4">{getStatusBadge(order.status)}</td>
+                              <td className="p-4">
+                                <div className="flex flex-wrap gap-2">
+                                  {order.status !== "completed" && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => updateOrderStatus(order.id, "completed")}
+                                      className="bg-[#118C8C] hover:bg-[#0d7070] text-white"
+                                    >
+                                      Mark Completed
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setTab("orders")}
+                                  >
+                                    Open
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+
+                          {orders.length === 0 && (
+                            <tr>
+                              <td colSpan={6} className="p-12 text-center text-gray-500">
+                                No orders yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* SIDEBAR */}
+                  <div className="space-y-6">
+
+                    {/* NEEDS ATTENTION */}
+                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                      <h3 className="text-lg font-bold text-[#118C8C] mb-3">Needs Attention</h3>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="text-yellow-600" size={18} />
+                            <span>Pending orders</span>
+                          </div>
+                          <button
+                            className="text-sm font-bold text-[#118C8C] hover:underline"
+                            onClick={() => setTab("orders")}
+                          >
+                            {pendingCount}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-sm">
+                            <AlertCircle className="text-orange-600" size={18} />
+                            <span>Cancellation requests</span>
+                          </div>
+                          <button
+                            className="text-sm font-bold text-[#118C8C] hover:underline"
+                            onClick={() => setTab("orders")}
+                          >
+                            {cancellationRequestedCount}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-sm">
+                            <X className="text-red-600" size={18} />
+                            <span>Out of stock</span>
+                          </div>
+                          <button
+                            className="text-sm font-bold text-[#118C8C] hover:underline"
+                            onClick={() => setTab("analytics")}
+                          >
+                            {outOfStockCount}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-sm">
+                            <AlertCircle className="text-yellow-600" size={18} />
+                            <span>Low stock (≤ 5)</span>
+                          </div>
+                          <button
+                            className="text-sm font-bold text-[#118C8C] hover:underline"
+                            onClick={() => setTab("analytics")}
+                          >
+                            {lowStockCount}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* QUICK ACTIONS */}
+                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                      <h3 className="text-lg font-bold text-[#118C8C] mb-3">Quick Actions</h3>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button onClick={() => setTab("orders")} className="bg-[#118C8C] hover:bg-[#0d7070] text-white">
+                          Manage Orders
+                        </Button>
+                        <Button variant="outline" onClick={() => setTab("analytics")}>
+                          View Analytics
+                        </Button>
+                        <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                          Back to Top
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-3">
+                        Tip: Use “Needs Attention” for priority tasks.
+                      </p>
+                    </div>
+
+                    {/* STATUS BREAKDOWN */}
+                    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                      <h3 className="text-lg font-bold text-[#118C8C] mb-3">Order Status Breakdown</h3>
+
+                      <div className="space-y-3 text-sm">
+                        {[
+                          { label: "Pending", value: pendingCount, bar: "bg-yellow-400" },
+                          { label: "Processing", value: processingCount, bar: "bg-blue-400" },
+                          { label: "Completed", value: completedCountAll, bar: "bg-green-500" },
+                          { label: "Cancelled/Refund", value: cancelledCount, bar: "bg-gray-500" },
+                        ].map(row => (
+                          <div key={row.label}>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-gray-700">{row.label}</span>
+                              <span className="font-bold">{row.value} ({pct(row.value)}%)</span>
+                            </div>
+                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full ${row.bar}`} style={{ width: `${pct(row.value)}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -270,9 +572,7 @@ const AdminPanel = () => {
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        {/* ✅ NEW COLUMN */}
                         <th className="p-4 text-left">Date Ordered</th>
-
                         <th className="p-4 text-left">Order ID</th>
                         <th className="p-4 text-left">Customer</th>
                         <th className="p-4 text-left">Items</th>
@@ -285,7 +585,6 @@ const AdminPanel = () => {
                     <tbody>
                       {orders.map(order => (
                         <tr key={order.id} className="border-t hover:bg-gray-50">
-                          {/* ✅ NEW CELL */}
                           <td className="p-4 text-sm text-gray-700">
                             {order.createdAt?.toDate?.().toLocaleDateString() || "N/A"}
                           </td>
@@ -355,23 +654,58 @@ const AdminPanel = () => {
             {/* ANALYTICS TAB */}
             <TabsContent value="analytics">
               <div className="space-y-8">
-                {/* SUMMARY CARDS - compact & responsive */}
+
+                {/* Range selector */}
+                <div className="bg-white rounded-2xl shadow-lg p-5 border border-gray-100 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#118C8C]">Analytics</h2>
+                    <p className="text-gray-600 text-sm">
+                      Showing <span className="font-bold">{rangeDays === "all" ? "All Time" : `Last ${rangeDays} Days`}</span> (completed orders)
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { label: "7D", value: 7 },
+                      { label: "30D", value: 30 },
+                      { label: "90D", value: 90 },
+                      { label: "All", value: "all" },
+                    ].map(btn => (
+                      <button
+                        key={btn.label}
+                        onClick={() => setRangeDays(btn.value)}
+                        className={`px-4 py-2 rounded-full text-sm font-bold transition ${
+                          rangeDays === btn.value
+                            ? "bg-[#118C8C] text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SUMMARY CARDS */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div className="bg-gradient-to-br from-[#118C8C] to-[#0d7070] text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
                     <DollarSign size={36} className="mb-3 opacity-90" />
                     <p className="text-3xl font-bold">{formatPrice(totalIncome)}</p>
                     <p className="text-sm opacity-90 mt-1">Total Revenue</p>
                   </div>
+
                   <div className="bg-gradient-to-br from-purple-600 to-purple-800 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
                     <ShoppingCart size={36} className="mb-3 opacity-90" />
-                    <p className="text-3xl font-bold">{totalOrders}</p>
+                    <p className="text-3xl font-bold">{totalOrdersCompleted}</p>
                     <p className="text-sm opacity-90 mt-1">Total Orders</p>
                   </div>
+
                   <div className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
                     <TrendingUp size={36} className="mb-3 opacity-90" />
                     <p className="text-3xl font-bold">{formatPrice(avgOrderValue.toFixed(0))}</p>
                     <p className="text-sm opacity-90 mt-1">Avg Order Value</p>
                   </div>
+
                   <div className="bg-gradient-to-br from-pink-500 to-rose-600 text-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center">
                     <Award size={36} className="mb-3 opacity-90" />
                     <p className="text-3xl font-bold">{productStats[0]?.totalSold || 0}</p>
@@ -379,7 +713,26 @@ const AdminPanel = () => {
                   </div>
                 </div>
 
-                {/* BEST + LEAST SELLERS - side-by-side, compact */}
+                {/* REVENUE OVER TIME */}
+                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                  <h3 className="text-xl font-bold text-[#118C8C] mb-4">Revenue Over Time</h3>
+                  <div className="h-72">
+                    <Line
+                      data={revenueOverTimeData}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3">
+                    Based on completed orders in the selected time range.
+                  </p>
+                </div>
+
+                {/* BEST + LEAST SELLERS */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Top 10 Best Sellers */}
                   <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
@@ -448,7 +801,7 @@ const AdminPanel = () => {
                   </div>
                 </div>
 
-                {/* REVENUE CHART */}
+                {/* REVENUE BY PRODUCT CHART */}
                 <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                   <h3 className="text-xl font-bold text-[#118C8C] mb-4">Revenue by Product (Top 10)</h3>
                   <div className="h-72">
@@ -464,15 +817,18 @@ const AdminPanel = () => {
                   </div>
                 </div>
 
-                {/* INCOME PREDICTION */}
+                {/* FORECAST (DEFENDABLE) */}
                 <div className="bg-gradient-to-r from-[#118C8C] to-[#0d7070] text-white p-10 rounded-3xl shadow-2xl text-center border border-white/20">
                   <TrendingUp size={64} className="mx-auto mb-4 opacity-90" />
                   <h3 className="text-3xl font-bold mb-3">Next Month Forecast</h3>
-                  <p className="text-6xl font-extrabold">{formatPrice(Math.round(totalIncome * 1.15))}</p>
-                  <p className="text-xl mt-4 opacity-90">+15% estimated growth based on current trends</p>
+                  <p className="text-6xl font-extrabold">{formatPrice(Math.round(forecast.nextMonth))}</p>
+                  <p className="text-xl mt-4 opacity-90">
+                    Based on avg daily revenue ({formatPrice(forecast.avgDaily.toFixed(0))}) over last {forecast.baseDays} days • +{forecast.growthPct}% growth
+                  </p>
                 </div>
               </div>
             </TabsContent>
+
           </Tabs>
         </div>
       </div>
