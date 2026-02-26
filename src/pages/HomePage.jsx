@@ -1,8 +1,10 @@
 // src/pages/HomePage.jsx
-// FULL-PAGE BACKGROUND (NO WHITE SECTIONS) — ~20% opacity (lighter background)
-// ✅ Featured slider is BACK
-// ✅ Top Sellers + New Arrivals show ONLY 4 + "View all" button -> /gallery
-// ✅ Featured slider made SMALLER (no longer takes whole screen)
+// FIX SUMMARY:
+// 1. Root wrapper uses `relative` + `bg-[#daf0ee]` as base color for Grainient to render over
+// 2. Grainient container is `absolute inset-0 z-0` — stretches with page content, never covers footer
+// 3. Grainient opacity is 1 (was 0.28 which made it invisible)
+// 4. All page content sits in `relative z-10` wrapper so it's always above the background
+// Footer is rendered by your layout/router OUTSIDE this component, so it's unaffected.
 
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
@@ -23,7 +25,9 @@ import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestor
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
-
+import Grainient from '@/components/ui-bits/Grainient';
+import ShinyText from '@/components/ui-bits/ShinyText'; 
+import Particles from '@/components/ui-bits/Particles';
 const HomePage = () => {
   const { user } = useAuth();
   const isAdmin = user?.email?.includes('admin');
@@ -90,7 +94,6 @@ const HomePage = () => {
     );
   };
 
-  // ✅ ONLY SHOW 4 ITEMS PER SECTION
   const topSellersToShow = topSellers.slice(0, 4);
   const newArrivalsToShow = newArrivals.slice(0, 4);
 
@@ -111,205 +114,174 @@ const HomePage = () => {
         <title>D.A.B.S. Co. - Where Art Comes to Life</title>
       </Helmet>
 
-      {/* ✅ ONE WRAPPER THAT CONTROLS THE ENTIRE PAGE BACKGROUND */}
-      <div
-        className="relative min-h-screen overflow-hidden"
-        style={{
-          backgroundColor: '#FAF8F1',
-          backgroundImage: `
-            radial-gradient(rgba(17,140,140,0.20) 1px, transparent 1px),
-            radial-gradient(rgba(242,187,22,0.12) 1px, transparent 1px),
-            linear-gradient(180deg, rgba(17,140,140,0.18) 0%, rgba(250,248,241,0.92) 35%, rgba(242,187,22,0.14) 100%)
-          `,
-          backgroundSize: '22px 22px, 34px 34px, 100% 100%',
-          backgroundPosition: '0 0, 10px 12px, 0 0',
-        }}
-      >
-        {/* extra “flow” waves that continue down the page */}
-        <div className="pointer-events-none absolute inset-0">
-          {/* top waves */}
-          <svg
-            className="absolute left-0 top-[12vh] w-[140%] -translate-x-[12%]"
-            viewBox="0 0 1400 520"
-            preserveAspectRatio="none"
-            style={{ opacity: 1 }}
-          >
-            <path
-              d="M0,120 C180,70 360,190 620,120 C880,50 1100,170 1400,90 L1400,520 L0,520 Z"
-              fill="#118C8C"
-              opacity="0.18"
-            />
-            <path
-              d="M0,285 C260,200 480,360 760,270 C1040,180 1220,340 1400,250"
-              stroke="#F2BB16"
-              strokeWidth="16"
-              fill="none"
-              opacity="0.30"
-              strokeLinecap="round"
-            />
-            <path
-              d="M0,345 C260,260 500,420 780,325 C1060,230 1240,405 1400,315"
-              stroke="#118C8C"
-              strokeWidth="12"
-              fill="none"
-              opacity="0.26"
-              strokeLinecap="round"
-            />
-          </svg>
+      {/*
+        ROOT WRAPPER
+        - `relative` creates the stacking context so `absolute inset-0` on the
+          Grainient container is scoped to THIS div, not the whole page.
+        - `bg-[#daf0ee]` is the neutral teal base the Grainient renders on top of.
+        - NO overflow-hidden, NO min-h-screen — lets the div grow naturally with
+          content so the footer (injected by your layout outside this component)
+          is never covered or hidden.
+      */}
+      <div className="relative bg-[#daf0ee]">
 
-          {/* mid waves */}
-          <svg
-            className="absolute left-0 top-[95vh] w-[140%] -translate-x-[12%]"
-            viewBox="0 0 1400 520"
-            preserveAspectRatio="none"
-            style={{ opacity: 0.95 }}
-          >
-            <path
-              d="M0,140 C220,60 380,240 640,140 C900,40 1110,230 1400,120 L1400,520 L0,520 Z"
-              fill="#118C8C"
-              opacity="0.14"
-            />
-            <path
-              d="M0,300 C260,210 500,390 780,295 C1060,200 1220,370 1400,270"
-              stroke="#F2BB16"
-              strokeWidth="15"
-              fill="none"
-              opacity="0.26"
-              strokeLinecap="round"
-            />
-            <path
-              d="M0,360 C260,270 510,440 800,350 C1090,260 1240,420 1400,330"
-              stroke="#118C8C"
-              strokeWidth="11"
-              fill="none"
-              opacity="0.22"
-              strokeLinecap="round"
-            />
-          </svg>
-
-          {/* lower waves */}
-          <svg
-            className="absolute left-0 top-[175vh] w-[140%] -translate-x-[12%]"
-            viewBox="0 0 1400 520"
-            preserveAspectRatio="none"
-            style={{ opacity: 0.9 }}
-          >
-            <path
-              d="M0,140 C240,80 420,260 700,150 C980,40 1160,240 1400,140 L1400,520 L0,520 Z"
-              fill="#118C8C"
-              opacity="0.12"
-            />
-            <path
-              d="M0,300 C280,220 520,410 820,300 C1120,190 1260,380 1400,280"
-              stroke="#F2BB16"
-              strokeWidth="14"
-              fill="none"
-              opacity="0.22"
-              strokeLinecap="round"
-            />
-            <path
-              d="M0,360 C280,280 540,460 840,350 C1140,240 1280,430 1400,330"
-              stroke="#118C8C"
-              strokeWidth="10"
-              fill="none"
-              opacity="0.18"
-              strokeLinecap="round"
-            />
-          </svg>
-
-          <div className="absolute inset-x-0 bottom-0 h-80 bg-gradient-to-b from-transparent to-[#FAF8F1]" />
+        {/*
+          GRAINIENT BACKGROUND
+          - `absolute inset-0` fills the root wrapper exactly — grows with page content.
+          - Because it's `absolute` (not `fixed`), it stops at the bottom of this
+            component. Your layout footer renders after this div and is unaffected.
+          - `z-0` keeps it below all content layers.
+          - opacity: 1 (was 0.28 — that's why it was invisible before).
+        */}
+        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
+  <Grainient
+    color1="#118c8c"
+    color2="#118c8c"
+    color3="#fbfe9f"
+    timeSpeed={0.25}
+    colorBalance={-0.06}
+    warpStrength={1.5}
+    warpFrequency={3.8}
+    warpSpeed={2}
+    warpAmplitude={50}
+    blendAngle={0}
+    blendSoftness={1}
+    rotationAmount={500}
+    noiseScale={2}
+    grainAmount={0.1}
+    grainScale={2}
+    grainAnimated={false}
+    contrast={1.5}
+    gamma={1}
+    saturation={1}
+    centerX={0}
+    centerY={0}
+    zoom={0.9}
+  />
+      {/* Particles background — pointer-events-none so clicks pass through */}
+    <div className="absolute inset-0 pointer-events-none">
+      <Particles
+        particleCount={400}
+        particleSpread={10}
+        speed={0.1}
+        particleColors={["#faf8f1","#118c8c", "#f1bb19"]}
+        moveParticlesOnHover
+        particleHoverFactor={1}
+        alphaParticles={false}
+        particleBaseSize={150}
+        sizeRandomness={1.7}
+        cameraDistance={53}
+        disableRotation={false}
+      />
+    </div>
         </div>
 
-        {/* ================= HERO ================= */}
-        <section className="relative min-h-[92vh] flex items-center">
-          <div className="mx-auto w-full max-w-6xl px-6 relative z-10 text-center py-20">
-            <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/80 backdrop-blur-md rounded-full mb-8 shadow-lg border-2 border-[#118C8C]/25">
-              <Palette size={20} className="text-[#118C8C]" />
-              <span className="text-sm font-semibold text-slate-700">Handcrafted by Artists</span>
-              <Brush size={20} className="text-[#F2BB16]" />
-            </div>
+        {/* All page content sits above the Grainient via z-10 */}
+        <div className="relative z-10">
 
-            <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-6 relative inline-block">
-              <span
-                className="bg-gradient-to-r from-[#118C8C] via-[#0d7070] to-[#118C8C] bg-clip-text text-transparent"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                D.A.B.S. Co.
-              </span>
-              <svg
-                className="absolute -bottom-4 left-0 w-full h-8"
-                viewBox="0 0 500 40"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M0,20 Q125,10 250,20 T500,20"
-                  stroke="#F2BB16"
-                  strokeWidth="6"
-                  fill="none"
-                  opacity="0.8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </h1>
+          {/* ================= HERO ================= */}
+<section className="relative min-h-[92vh] flex items-center">
+  <div className="mx-auto w-full max-w-6xl px-6 relative z-10 text-center py-20">
+  
+    <h1
+      className="text-7xl md:text-9xl tracking-tight leading-none relative inline-block"
+      style={{ fontFamily: "'Agbalumo', cursive" }}
+    >
+      {/* Emboss shadow layer */}
+      <span
+        className="absolute inset-0"
+        style={{
+          color: "#faf8f1",
+          textShadow: `
+            0 -2px 0 rgba(255,255,255,0.9),
+            0 -1px 0 rgba(255,255,255,0.7),
+            0 1px 0 rgba(0,0,0,0.4),
+            0 3px 4px rgba(0,0,0,0.45),
+            0 6px 10px rgba(0,0,0,0.4),
+            0 14px 28px rgba(0,0,0,0.45),
+            0 20px 40px rgba(0,0,0,0.3),
+            inset 0 1px 0 rgba(255,255,255,0.5)
+          `,
+        }}
+      >
+        D.a.b.s. Co.
+      </span>
+      <span className="relative z-10">
+        <ShinyText
+          text="D.a.b.s. Co."
+          speed={5}
+          delay={0}
+          color="#faf8f1"
+          shineColor="#f2bb16"
+          spread={120}
+          direction="left"
+          yoyo={false}
+          pauseOnHover={false}
+          disabled={false}
+        />
+      </span>
+    </h1>
 
-            <p className="text-xl md:text-2xl font-light mb-4 max-w-3xl mx-auto text-slate-700 italic leading-relaxed">
-              "Every piece tells a story, every stroke carries emotion"
-            </p>
 
-            <p className="text-base md:text-lg mb-12 max-w-2xl mx-auto text-slate-700/90 leading-relaxed">
-              Discover unique artworks crafted with passion, creativity, and soul
-            </p>
+    {/* ── Tagline ── */}
+    <p
+      className="text-lg md:text-xl font-light text-[#FAF8F1]/90 italic leading-relaxed"
+      style={{ fontFamily: "'Georgia', serif" }}
+    >
+      "Every piece tells a story, every stroke carries emotion"
+    </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/gallery">
-                <Button
-                  size="lg"
-                  className="bg-[#118C8C] hover:bg-[#0b5f5f] text-white font-semibold text-lg px-10 py-7 rounded-2xl shadow-xl shadow-[#118C8C]/45 hover:shadow-2xl hover:shadow-[#118C8C]/55 transition-all hover:scale-[1.03]"
-                >
-                  <Palette className="mr-2" size={22} />
-                  Explore Gallery
-                  <ArrowRight className="ml-2" size={20} />
-                </Button>
-              </Link>
-              <Link to="/pricelists">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-3 border-[#118C8C] text-[#0b5f5f] bg-white/55 hover:bg-[#118C8C] hover:text-white font-semibold text-lg px-10 py-7 rounded-2xl backdrop-blur-sm transition-all hover:scale-[1.03]"
-                >
-                  <Brush className="mr-2" size={22} />
-                  View Pricing
-                </Button>
-              </Link>
-            </div>
+    {/* ── CTA Buttons ── */}
+    <div className="flex flex-col sm:flex-row gap-3 justify-center pt-8">
+      <Link to="/gallery">
+        <Button
+          size="lg"
+          className="bg-[#0d7070] hover:bg-[#f2bb16] text-white font-semibold text-base px-9 py-6 rounded-2xl shadow-xl shadow-[#0d7070]/40 hover:shadow-[#f2bb16]/50 transition-all duration-300 hover:scale-[1.03]"
+        >
+          <Palette className="mr-2" size={20} />
+          Explore Gallery
+          <ArrowRight className="ml-2" size={18} />
+        </Button>
+      </Link>
+      <Link to="/pricelists">
+        <Button
+          size="lg"
+          variant="outline"
+          className="border-2 border-white/40 text-white bg-white/15 hover:bg-[#f2bb16] hover:border-[#f2bb16] hover:text-white font-semibold text-base px-9 py-6 rounded-2xl backdrop-blur-sm transition-all duration-300 hover:scale-[1.03]"
+        >
+          <Brush className="mr-2" size={20} />
+          View Pricing
+        </Button>
+      </Link>
+    </div>
 
-            <div className="mt-10 flex flex-col items-center gap-2">
-              <div className="animate-bounce flex flex-col items-center gap-2">
-                <Brush size={24} className="text-[#0d7070]/70" />
-                <span className="text-xs text-slate-700 font-medium">Scroll to explore</span>
-              </div>
-            </div>
-          </div>
-        </section>
+    {/* ── Scroll Indicator ── */}
+    <div className="mt-4 flex flex-col items-center gap-1.5 animate-bounce">
+      <Brush size={20} className="text-[#faf8f1]/60" />
+      <span className="text-xs tracking-widest uppercase text-[#FAF8F1]/60 font-medium">
+        Scroll to explore
+      </span>
+    </div>
 
-        {/* ================= FEATURED (SMALLER) ================= */}
-        <section className="relative py-8 md:py-10">
-          <div className="mx-auto max-w-6xl px-6 relative z-10">
-            {/* smaller heading + button under title */}
-            <div className="mb-6">
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-2">
+  </div>
+</section>
+
+          {/* ================= FEATURED (SLIDER) ================= */}
+          <section className="relative py-8 md:py-10">
+            <div className="mx-auto max-w-6xl px-6 relative z-10">
+              <div className="mb-6 text-center">
+                <div className="flex items-center justify-center gap-3 mb-2">
                   <Sparkles size={18} className="text-[#F2BB16]" />
-                  <span className="text-xs font-bold text-[#0d7070] uppercase tracking-widest">
+                  <span className="text-xs font-bold text-[#faf8f1] uppercase tracking-widest">
                     Featured Collection
                   </span>
                 </div>
 
                 <h2
-                  className="text-3xl md:text-5xl font-bold text-slate-900 relative inline-block"
+                  className="text-3xl md:text-5xl font-bold text-[#FAF8F1] inline-block relative"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
-                  Artist&apos;s Spotlight
+                  Artist's Spotlight
                   <svg
                     className="absolute -bottom-2 left-0 w-full h-6"
                     viewBox="0 0 400 30"
@@ -326,7 +298,7 @@ const HomePage = () => {
                   </svg>
                 </h2>
 
-                <div className="mt-3">
+                <div className="mt-4">
                   <Link to="/gallery">
                     <Button
                       variant="outline"
@@ -338,49 +310,34 @@ const HomePage = () => {
                   </Link>
                 </div>
               </div>
-            </div>
 
-            <div className="relative">
-              <div
-                className="rounded-3xl overflow-hidden shadow-2xl border-8 border-white/80 relative bg-white/22 backdrop-blur-md"
-                style={{
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.10), inset 0 0 0 1px rgba(17,140,140,0.14)',
-                }}
-              >
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iY2FudmFzIiB4PSIwIiB5PSIwIiB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+PHJlY3Qgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iI2YwZjBmMCIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9InVybCgjY2FudmFzKSIvPjwvc3ZnPg==')] opacity-30 pointer-events-none z-10"></div>
-
+              <div className="relative">
                 <div
-                  className="flex transition-transform duration-1000 ease-out"
-                  style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+                  className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white/80 bg-white/30 backdrop-blur-md"
+                  style={{
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.10), inset 0 0 0 1px rgba(17,140,140,0.14)',
+                  }}
                 >
-                  {featuredProducts.map((p) => (
-                    <div key={p.id} className="w-full flex-shrink-0">
-                      <div className="bg-transparent">
-                        {/* smaller padding/gap + center align */}
-                        <div className="grid lg:grid-cols-2 gap-6 p-5 lg:p-6 items-center">
-                          {/* LEFT IMAGE (shorter than square) */}
+                  <div
+                    className="flex transition-transform duration-1000 ease-out"
+                    style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+                  >
+                    {featuredProducts.map((p) => (
+                      <div key={p.id} className="w-full flex-shrink-0">
+                        <div className="grid lg:grid-cols-2 gap-6 p-6 items-center">
                           <div className="relative group">
                             <div
-                              className="aspect-[4/3] lg:aspect-[5/4] rounded-2xl overflow-hidden bg-white shadow-xl border-4 border-[#118C8C]/14 relative"
+                              className="aspect-[4/3] lg:aspect-[5/4] rounded-2xl overflow-hidden bg-white shadow-xl border-4 border-[#118C8C]/14"
                               style={{ boxShadow: 'inset 0 0 30px rgba(17,140,140,0.12)' }}
                             >
                               {p.imageUrl ? (
-                                <>
-                                  <img
-                                    src={p.imageUrl}
-                                    alt={p.name}
-                                    className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
-                                  />
-                                  <div className="absolute inset-0 shadow-[inset_0_0_30px_rgba(0,0,0,0.10)] pointer-events-none" />
-                                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 via-black/18 to-transparent">
-                                    <div className="text-white font-semibold text-base leading-tight line-clamp-1">
-                                      {p.name}
-                                    </div>
-                                    <div className="text-white/85 text-xs">{formatPrice(p.price)}</div>
-                                  </div>
-                                </>
+                                <img
+                                  src={p.imageUrl}
+                                  alt={p.name}
+                                  className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
+                                />
                               ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
                                   <Palette size={64} className="text-gray-300 mb-3" />
                                   <span className="text-gray-400 font-light text-sm">Artwork Preview</span>
                                 </div>
@@ -398,21 +355,20 @@ const HomePage = () => {
                             </div>
                           </div>
 
-                          {/* RIGHT DETAILS (slightly smaller text) */}
-                          <div className="flex flex-col justify-center relative">
+                          <div className="flex flex-col justify-center">
                             <div className="inline-flex items-center gap-2 text-[#0b5f5f] mb-3 bg-[#118C8C]/12 px-4 py-2 rounded-full w-fit">
                               <Palette size={16} className="fill-current" />
                               <span className="text-xs font-bold uppercase tracking-wider">Featured Artwork</span>
                             </div>
 
                             <h3
-                              className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-3 leading-tight"
+                              className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#FAF8F1] mb-3 leading-tight"
                               style={{ fontFamily: "'Playfair Display', serif" }}
                             >
                               {p.name}
                             </h3>
 
-                            <p className="text-base text-slate-800/90 mb-6 leading-relaxed italic">
+                            <p className="text-base text-[#FAF8F1] mb-6 leading-relaxed italic">
                               "
                               {p.description ||
                                 'A masterpiece crafted with passion, where every detail speaks to the soul.'}
@@ -456,92 +412,176 @@ const HomePage = () => {
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {featuredProducts.length > 1 && (
-                <>
-                  <button
-                    onClick={prevSlide}
-                    className="absolute -left-5 top-1/2 -translate-y-1/2 bg-white/88 backdrop-blur-md p-4 rounded-full shadow-2xl hover:scale-105 transition z-20 border-2 border-[#118C8C]/24 hover:border-[#118C8C]"
-                  >
-                    <ChevronLeft size={28} className="text-[#0b5f5f]" />
-                  </button>
-                  <button
-                    onClick={nextSlide}
-                    className="absolute -right-5 top-1/2 -translate-y-1/2 bg-white/88 backdrop-blur-md p-4 rounded-full shadow-2xl hover:scale-105 transition z-20 border-2 border-[#118C8C]/24 hover:border-[#118C8C]"
-                  >
-                    <ChevronRight size={28} className="text-[#0b5f5f]" />
-                  </button>
-
-                  <div className="flex justify-center gap-3 mt-6">
-                    {featuredProducts.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setCurrentIndex(idx)}
-                        className={`transition-all ${
-                          idx === currentIndex
-                            ? 'w-12 h-3 bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] rounded-full shadow-lg'
-                            : 'w-3 h-3 bg-white/70 rounded-full hover:bg-white/90 border border-black/5'
-                        }`}
-                      />
                     ))}
                   </div>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
 
-        {/* ================= TOP SELLERS ================= */}
-        {topSellersToShow.length > 0 && (
-          <section className="relative py-20 md:py-24">
-            <div className="mx-auto max-w-7xl px-6 relative z-10">
-              <div className="text-center mb-16">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <TrendingUp size={28} className="text-[#F2BB16]" />
-                  <span className="text-sm font-bold text-[#F2BB16] uppercase tracking-widest">
-                    Best Sellers
-                  </span>
+                  {featuredProducts.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevSlide}
+                        className="absolute -left-5 top-1/2 -translate-y-1/2 bg-white/88 backdrop-blur-md p-4 rounded-full shadow-2xl hover:scale-105 transition z-20 border-2 border-[#118C8C]/24 hover:border-[#118C8C]"
+                      >
+                        <ChevronLeft size={28} className="text-[#0b5f5f]" />
+                      </button>
+                      <button
+                        onClick={nextSlide}
+                        className="absolute -right-5 top-1/2 -translate-y-1/2 bg-white/88 backdrop-blur-md p-4 rounded-full shadow-2xl hover:scale-105 transition z-20 border-2 border-[#118C8C]/24 hover:border-[#118C8C]"
+                      >
+                        <ChevronRight size={28} className="text-[#0b5f5f]" />
+                      </button>
+
+                      <div className="flex justify-center gap-3 mt-6">
+                        {featuredProducts.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setCurrentIndex(idx)}
+                            className={`transition-all ${
+                              idx === currentIndex
+                                ? 'w-12 h-3 bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] rounded-full shadow-lg'
+                                : 'w-3 h-3 bg-white/70 rounded-full hover:bg-white/90 border border-black/5'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
-                <h2
-                  className="text-4xl md:text-6xl font-bold text-slate-900 mb-4 relative inline-block"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
-                >
-                  Collector&apos;s Favorites
-                  <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#F2BB16] to-transparent opacity-70" />
-                </h2>
-                <p className="text-lg md:text-xl text-slate-800/90 italic">
-                  Most loved by art enthusiasts worldwide
-                </p>
               </div>
+            </div>
+          </section>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {topSellersToShow.map((item, idx) => (
-                  <Link to={`/product/${item.id}`} key={item.id} className="group">
-                    <div className="bg-white/60 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-white/60 hover:border-[#118C8C]/35 hover:-translate-y-2 relative">
-                      <div className="aspect-square relative overflow-hidden bg-white/35">
-                        {item.imageUrl ? (
-                          <>
+          {/* ================= TOP SELLERS ================= */}
+          {topSellersToShow.length > 0 && (
+            <section className="relative py-20 md:py-24">
+              <div className="mx-auto max-w-7xl px-6 relative z-10">
+                <div className="text-center mb-16">
+                  <h2
+                    className="text-4xl md:text-6xl font-bold text-[#FAF8F1] mb-4 relative inline-block"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
+                    Collector's Favorites
+                    <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#F2BB16] to-transparent opacity-70" />
+                  </h2>
+                  <p className="text-lg md:text-xl text-[#FAF8F1]/90 italic">
+                    Most loved by art enthusiasts worldwide
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                  {topSellersToShow.map((item, idx) => (
+                    <Link to={`/product/${item.id}`} key={item.id} className="group block">
+                      <div className="bg-white backdrop-blur-md rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-white/20 hover:border-[#118C8C]/35 hover:-translate-y-2">
+                        <div className="aspect-square relative overflow-hidden bg-white/35">
+                          {item.imageUrl ? (
                             <img
                               src={item.imageUrl}
                               alt={item.name}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                             />
-                            <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.10)] pointer-events-none" />
-                          </>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Palette size={56} className="text-gray-300" />
+                            </div>
+                          )}
+                          <div className="absolute -top-2 -right-2 w-16 h-16 transform rotate-12">
+                            <div className="w-full h-full bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl border-3 border-white">
+                              <span className="text-white font-bold text-xs">#{idx + 1}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-6">
+                          <h3
+                            className="text-xl font-bold text-[#118c8c] mb-3 line-clamp-2 group-hover:text-[#0b5f5f] transition-colors"
+                            style={{ fontFamily: "'Playfair Display', serif" }}
+                          >
+                            {item.name}
+                          </h3>
+
+                          {item.averageRating > 0 && (
+                            <div className="flex items-center gap-2 mb-4">
+                              {renderStars(item.averageRating)}
+                              <span className="text-xs text-slate-700/80">({item.reviewCount || 0})</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold text-[#0b5f5f]">{formatPrice(item.price)}</span>
+                            <div className="w-10 h-10 rounded-full bg-[#f2bb16] flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                              <ArrowRight size={20} className="text-white" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="mt-12 flex justify-center">
+                  <Link to="/gallery">
+                    <Button
+                      size="lg"
+                      className="bg-[#118C8C]/60 hover:bg-[#f2bb16] text-[#faf8f1] border-2 border-[#118C8C]/50 backdrop-blur-md rounded-2xl px-10 py-6 font-semibold shadow-lg"
+                    >
+                      View all
+                      <ArrowRight className="ml-2" size={18} />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ================= NEW ARRIVALS ================= */}
+          <section className="relative py-20 md:py-24">
+            <div className="mx-auto max-w-7xl px-6 relative z-10">
+              <div className="text-center mb-16">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <Sparkles size={28} className="text-[#FAF8F1]" />
+                  <span className="text-sm font-bold text-[#FAF8F1] uppercase tracking-widest">
+                    Fresh from Studio
+                  </span>
+                </div>
+                <h2
+                  className="text-4xl md:text-6xl font-bold text-[#FAF8F1] mb-4 relative inline-block"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Recent Works
+                  <svg className="absolute -bottom-2 left-0 w-full h-6" viewBox="0 0 500 30" preserveAspectRatio="none">
+                    <path
+                      d="M0,15 Q125,10 250,15 T500,15"
+                      stroke="#118C8C"
+                      strokeWidth="5"
+                      fill="none"
+                      opacity="0.42"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </h2>
+                <p className="text-lg md:text-xl text-[#FAF8F1]/90 italic">
+                  Latest creations still drying on the easel
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {newArrivalsToShow.map((item) => (
+                  <Link to={`/product/${item.id}`} key={item.id} className="group block">
+                    <div className="bg-white/60 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-white/60 hover:border-[#118C8C]/35 hover:-translate-y-2">
+                      <div className="aspect-square relative overflow-hidden bg-white/35">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Palette size={56} className="text-gray-300" />
+                            <Brush size={56} className="text-gray-300" />
                           </div>
                         )}
 
-                        <div className="absolute -top-2 -right-2 w-16 h-16 transform rotate-12">
-                          <div className="w-full h-full bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-xl border-3 border-white">
-                            <span className="text-white font-bold text-xs">#{idx + 1}</span>
-                          </div>
+                        <div className="absolute top-3 right-3 px-4 py-2 bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] text-white rounded-xl font-bold text-xs uppercase shadow-xl border-2 border-white transform rotate-2">
+                          Fresh
                         </div>
                       </div>
 
@@ -576,7 +616,7 @@ const HomePage = () => {
                 <Link to="/gallery">
                   <Button
                     size="lg"
-                    className="bg-white/70 hover:bg-white text-[#0b5f5f] border-2 border-[#118C8C]/40 backdrop-blur-md rounded-2xl px-10 py-6 font-semibold shadow-lg"
+                    className="bg-[#118C8C]/60 hover:bg-[#f2bb16] text-[#faf8f1] border-2 border-[#118C8C]/50 backdrop-blur-md rounded-2xl px-10 py-6 font-semibold shadow-lg"
                   >
                     View all
                     <ArrowRight className="ml-2" size={18} />
@@ -585,180 +625,62 @@ const HomePage = () => {
               </div>
             </div>
           </section>
-        )}
 
-        {/* ================= NEW ARRIVALS ================= */}
-        <section className="relative py-20 md:py-24">
-          <div className="mx-auto max-w-7xl px-6 relative z-10">
-            <div className="text-center mb-16">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <Sparkles size={28} className="text-[#118C8C]" />
-                <span className="text-sm font-bold text-[#0d7070] uppercase tracking-widest">
-                  Fresh from Studio
-                </span>
-              </div>
-              <h2
-                className="text-4xl md:text-6xl font-bold text-slate-900 mb-4 relative inline-block"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                Recent Works
-                <svg className="absolute -bottom-2 left-0 w-full h-6" viewBox="0 0 500 30" preserveAspectRatio="none">
-                  <path
-                    d="M0,15 Q125,10 250,15 T500,15"
-                    stroke="#118C8C"
-                    strokeWidth="5"
-                    fill="none"
-                    opacity="0.42"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </h2>
-              <p className="text-lg md:text-xl text-slate-800/90 italic">
-                Latest creations still drying on the easel
-              </p>
-            </div>
+          {/* ================= CTA ================= */}
+  {!isAdmin && (
+  <section className="relative py-28 md:py-32 overflow-hidden">
+    {/* Base color fallback */}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {newArrivalsToShow.map((item) => (
-                <Link to={`/product/${item.id}`} key={item.id} className="group">
-                  <div className="bg-white/60 backdrop-blur-md rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-white/60 hover:border-[#118C8C]/35 hover:-translate-y-2">
-                    <div className="aspect-square relative overflow-hidden bg-white/35">
-                      {item.imageUrl ? (
-                        <>
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                          />
-                          <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.10)] pointer-events-none" />
-                        </>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Brush size={56} className="text-gray-300" />
-                        </div>
-                      )}
 
-                      <div className="absolute top-3 right-3 px-4 py-2 bg-gradient-to-r from-[#118C8C] to-[#0b5f5f] text-white rounded-xl font-bold text-xs uppercase shadow-xl border-2 border-white transform rotate-2">
-                        Fresh
-                      </div>
-                    </div>
+    {/* Particles background — pointer-events-none so clicks pass through */}
 
-                    <div className="p-6">
-                      <h3
-                        className="text-xl font-bold text-slate-900 mb-3 line-clamp-2 group-hover:text-[#0b5f5f] transition-colors"
-                        style={{ fontFamily: "'Playfair Display', serif" }}
-                      >
-                        {item.name}
-                      </h3>
 
-                      {item.averageRating > 0 && (
-                        <div className="flex items-center gap-2 mb-4">
-                          {renderStars(item.averageRating)}
-                          <span className="text-xs text-slate-700/80">({item.reviewCount || 0})</span>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl font-bold text-[#0b5f5f]">{formatPrice(item.price)}</span>
-                        <div className="w-10 h-10 rounded-full bg-[#118C8C] flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                          <ArrowRight size={20} className="text-white" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-12 flex justify-center">
-              <Link to="/gallery">
-                <Button
-                  size="lg"
-                  className="bg-white/70 hover:bg-white text-[#0b5f5f] border-2 border-[#118C8C]/40 backdrop-blur-md rounded-2xl px-10 py-6 font-semibold shadow-lg"
-                >
-                  View all
-                  <ArrowRight className="ml-2" size={18} />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= CTA ================= */}
-        {!isAdmin && (
-          <section className="relative py-28 md:py-32 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#118C8C] via-[#0d7070] to-[#0a5555]" />
-            <div className="absolute inset-0 opacity-20 pointer-events-none">
-              <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 1000 500" preserveAspectRatio="none">
-                <path
-                  d="M0,250 Q250,150 500,250 T1000,250"
-                  stroke="white"
-                  strokeWidth="30"
-                  fill="none"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M0,300 Q250,200 500,300 T1000,300"
-                  stroke="#F2BB16"
-                  strokeWidth="20"
-                  fill="none"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-
-            <div className="mx-auto max-w-6xl px-6 relative z-10 text-center">
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/20 backdrop-blur-md rounded-full mb-8 border-2 border-white/30">
-                <Palette size={20} className="text-[#F2BB16]" />
-                <span className="text-sm font-bold text-white uppercase tracking-wider">Limited Commission Slots</span>
-                <Brush size={20} className="text-white" />
-              </div>
-
-              <h2
-                className="text-4xl md:text-6xl font-bold text-white mb-6 max-w-4xl mx-auto leading-tight"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                Let&apos;s Create Your Masterpiece
-              </h2>
-
-              <p className="text-lg md:text-2xl text-white/90 mb-4 max-w-3xl mx-auto italic">
-                "Art is not what you see, but what you make others see"
-              </p>
-
-              <p className="text-base md:text-lg text-white/80 mb-12 max-w-2xl mx-auto leading-relaxed">
-                Commission a custom artwork and work directly with our artists to bring your vision to life
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/pricelists">
-                  <Button
-                    size="lg"
-                    className="bg-[#F2BB16] hover:bg-[#e6af0f] text-slate-900 font-bold text-xl px-12 py-8 rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-[#F2BB16]/30 transition-all hover:scale-[1.03]"
-                  >
-                    <Palette className="mr-3" size={24} />
-                    Start Commission
-                    <ArrowRight className="ml-3" size={24} />
-                  </Button>
-                </Link>
-                <Link to="/gallery">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-3 border-white text-white hover:bg-white hover:text-[#118C8C] font-bold text-xl px-12 py-8 rounded-2xl backdrop-blur-sm transition-all hover:scale-[1.03]"
-                  >
-                    <Brush className="mr-3" size={24} />
-                    View Gallery
-                  </Button>
-                </Link>
-              </div>
-
-              <div className="mt-16 pt-10 border-t border-white/20">
-                <p className="text-white/70 font-serif italic text-lg">Crafted with passion by D.A.B.S. Co.</p>
-              </div>
-            </div>
-          </section>
-        )}
+    <div className="mx-auto max-w-6xl px-6 relative z-10 text-center">
+      <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/20 backdrop-blur-md rounded-full mb-8 border-2 border-white/30">
+        <Palette size={20} className="text-[#F2BB16]" />
+        <span className="text-sm font-bold text-white uppercase tracking-wider">Limited Commission Slots</span>
+        <Brush size={20} className="text-white" />
       </div>
+
+      <h2
+        className="text-4xl md:text-6xl font-bold text-white mb-6 max-w-4xl mx-auto leading-tight"
+        style={{ fontFamily: "'Playfair Display', serif" }}
+      >
+        Let's Create Your Masterpiece
+      </h2>
+
+      <p className="text-base md:text-lg text-white/80 mb-12 max-w-2xl mx-auto leading-relaxed">
+        Commission a custom artwork and work directly with our artists to bring your vision to life
+      </p>
+
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Link to="/pricelists">
+          <Button
+            size="lg"
+            className="bg-[#118c8c] hover:bg-[#e6af0f] text-[#faf8f1] font-bold text-xl px-12 py-8 rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-[#F2BB16]/30 transition-all hover:scale-[1.03]"
+          >
+            <Palette className="mr-3" size={24} />
+            Start Commission
+            <ArrowRight className="ml-3" size={24} />
+          </Button>
+        </Link>
+        <Link to="/gallery">
+          <Button
+            size="lg"
+            variant="outline"
+           className="border-2 border-white/40 text-white bg-white/15 hover:bg-[#f2bb16] hover:border-[#f2bb16] hover:text-white font-semibold text-base px-12 py-8 rounded-2xl backdrop-blur-sm transition-all duration-300 hover:scale-[1.03]"
+          >
+            <Brush className="mr-3" size={24} />
+            View Gallery
+          </Button>
+        </Link>
+      </div>
+    </div>
+  </section>
+)}
+
+        </div>{/* end relative z-10 content wrapper */}
+      </div>{/* end root wrapper — footer renders AFTER this div via your layout */}
     </>
   );
 };
