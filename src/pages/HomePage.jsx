@@ -111,7 +111,7 @@ const HomePage = () => {
   return (
     <>
       <Helmet>
-        <title>D.A.B.S. Co. - Where Art Comes to Life</title>
+        <title>DABS Co.</title>
       </Helmet>
 
       {/*
@@ -204,11 +204,11 @@ const HomePage = () => {
           `,
         }}
       >
-        D.a.b.s. Co.
+        DABS Co.
       </span>
       <span className="relative z-10">
         <ShinyText
-          text="D.a.b.s. Co."
+          text="DABS Co."
           speed={5}
           delay={0}
           color="#faf8f1"

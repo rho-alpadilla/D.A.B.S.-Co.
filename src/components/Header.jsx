@@ -253,7 +253,7 @@ const Header = () => {
           {/* ── Circular Text Logo ── */}
 <Link to="/" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
   <CircularText
-    text=" D.a.b.s. Co."
+    text="DABS.Co."
     onHover="speedUp"
     spinDuration={20}
     size={50}
