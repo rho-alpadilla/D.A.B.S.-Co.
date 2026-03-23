@@ -1,21 +1,14 @@
-// src/pages/PricelistsPage.jsx ← UPDATED: ADD PRODUCT MOVED TO NEW PAGE (/add-product)
+// src/pages/PricelistsPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Plus, Save } from 'lucide-react';
+import { Plus, Save, Pencil, X } from 'lucide-react';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useNavigate } from 'react-router-dom';
-
-const CATEGORIES = [
-  "Hand-painted needlepoint canvas",
-  "Crocheted products",
-  "Sample portraitures",
-  "Painting on Canvas"
-];
 
 const PricelistsPage = () => {
   const { user } = useAuth();
@@ -23,7 +16,7 @@ const PricelistsPage = () => {
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
 
-  const [pricing, setPricing] = useState({
+  const defaultPricing = {
     needlepoint: [
       { size: 'Small (up to 5x7")', mesh13: 2610, mesh18: 3190, complexity: 'Simple designs' },
       { size: 'Medium (8x10")', mesh13: 4350, mesh18: 5510, complexity: 'Moderate detail' },
@@ -50,43 +43,44 @@ const PricelistsPage = () => {
       { size: 'Large (24x36")', price: 31900, details: 'Complex compositions' },
       { size: 'Custom Sizes', price: 0, details: 'Contact for pricing' }
     ]
-  });
+  };
 
+  const [pricing, setPricing] = useState(defaultPricing);
   const [editing, setEditing] = useState({ section: null, index: null, field: null });
   const [tempValue, setTempValue] = useState('');
 
-  // Load pricing from Firestore
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "settings", "pricelists"), (snap) => {
+    const unsub = onSnapshot(doc(db, 'settings', 'pricelists'), (snap) => {
       if (snap.exists()) {
-        setPricing(snap.data().data || pricing);
+        setPricing(snap.data().data || defaultPricing);
+      } else {
+        setPricing(defaultPricing);
       }
     });
+
     return () => unsub();
   }, []);
 
-  // Edit price
   const startEdit = (section, index, field, value) => {
     setEditing({ section, index, field });
-    setTempValue(value);
+    setTempValue(String(value ?? ''));
   };
 
   const confirmEdit = () => {
     if (editing.section === null) return;
 
-    const newPricing = { ...pricing };
-    const section = newPricing[editing.section];
-    const item = section[editing.index];
-
-    if (editing.field.includes('.')) {
-      const [parent, child] = editing.field.split('.');
-      item[parent][child] = Number(tempValue);
-    } else {
-      item[editing.field] = Number(tempValue);
+    const parsedValue = Number(tempValue);
+    if (Number.isNaN(parsedValue)) {
+      alert('Please enter a valid number.');
+      return;
     }
+
+    const newPricing = structuredClone(pricing);
+    newPricing[editing.section][editing.index][editing.field] = parsedValue;
 
     setPricing(newPricing);
     setEditing({ section: null, index: null, field: null });
+    setTempValue('');
   };
 
   const cancelEdit = () => {
@@ -96,28 +90,86 @@ const PricelistsPage = () => {
 
   const savePricing = async () => {
     try {
-      await updateDoc(doc(db, "settings", "pricelists"), { data: pricing });
+      await setDoc(doc(db, 'settings', 'pricelists'), { data: pricing }, { merge: true });
       setEditing({ section: null, index: null, field: null });
-      alert("Prices updated!");
+      alert('Prices updated!');
     } catch (err) {
-      alert("Save failed: " + err.message);
+      alert('Save failed: ' + err.message);
     }
+  };
+
+  const isEditingField = (section, index, field) =>
+    editing.section === section && editing.index === index && editing.field === field;
+
+  const EditablePrice = ({ section, index, field, value, prefix = '' }) => {
+    const active = isEditingField(section, index, field);
+
+    if (isAdmin && active) {
+      return (
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={tempValue}
+            onChange={(e) => setTempValue(e.target.value)}
+            className="w-32 px-2 py-1 border rounded text-sm"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') confirmEdit();
+              if (e.key === 'Escape') cancelEdit();
+            }}
+            autoFocus
+          />
+          <Button size="sm" onClick={confirmEdit} className="px-2">
+            <Save size={14} />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={cancelEdit} className="px-2">
+            <X size={14} />
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <span className="font-medium">
+          {prefix}{formatPrice(value)}
+        </span>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => startEdit(section, index, field, value)}
+            className="inline-flex items-center justify-center rounded-md border border-gray-300 p-1 text-gray-500 hover:bg-gray-100 hover:text-[#118C8C] transition"
+            title="Edit price"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
     <>
-      <Helmet><title>Pricelists - D.A.B.S. Co.</title></Helmet>
+      <Helmet>
+        <title>Pricelists - D.A.B.S. Co.</title>
+      </Helmet>
 
       <div className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-4">Our Pricelists</h1>
-          <p className="text-lg text-gray-600">Change price thru •(₱)</p>
+          <p className="text-lg text-gray-600">
+            {isAdmin ? 'Use the pencil icon to edit prices.' : 'Browse our current pricing.'}
+          </p>
         </div>
 
-        {/* ADMIN SAVE BUTTON */}
-        {isAdmin && editing.section !== null && (
+        {isAdmin && (
           <div className="text-center mb-12">
-            <Button onClick={savePricing} className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-4">
+            <Button
+              onClick={savePricing}
+              className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-4"
+            >
               <Save className="mr-2" /> Save All Price Changes
             </Button>
           </div>
@@ -142,42 +194,20 @@ const PricelistsPage = () => {
                     <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                       <td className="px-6 py-4 font-medium text-gray-900">{item.size}</td>
                       <td className="px-6 py-4 text-gray-700">
-                        {isAdmin && editing.section === 'needlepoint' && editing.index === i && editing.field === 'mesh13' ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={tempValue}
-                              onChange={e => setTempValue(e.target.value)}
-                              className="w-32 px-2 py-1 border rounded"
-                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
-                            />
-                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
-                          </div>
-                        ) : (
-                          <span onClick={() => isAdmin && startEdit('needlepoint', i, 'mesh13', item.mesh13)} className="cursor-pointer hover:underline font-medium">
-                            {formatPrice(item.mesh13)}
-                          </span>
-                        )}
+                        <EditablePrice
+                          section="needlepoint"
+                          index={i}
+                          field="mesh13"
+                          value={item.mesh13}
+                        />
                       </td>
                       <td className="px-6 py-4 text-gray-700">
-                        {isAdmin && editing.section === 'needlepoint' && editing.index === i && editing.field === 'mesh18' ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={tempValue}
-                              onChange={e => setTempValue(e.target.value)}
-                              className="w-32 px-2 py-1 border rounded"
-                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
-                            />
-                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
-                          </div>
-                        ) : (
-                          <span onClick={() => isAdmin && startEdit('needlepoint', i, 'mesh18', item.mesh18)} className="cursor-pointer hover:underline font-medium">
-                            {formatPrice(item.mesh18)}
-                          </span>
-                        )}
+                        <EditablePrice
+                          section="needlepoint"
+                          index={i}
+                          field="mesh18"
+                          value={item.mesh18}
+                        />
                       </td>
                       <td className="px-6 py-4 text-gray-600">{item.complexity}</td>
                     </tr>
@@ -195,25 +225,14 @@ const PricelistsPage = () => {
             {pricing.crochet.map((item, i) => (
               <motion.div key={i} whileHover={{ scale: 1.03 }} className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-xl font-semibold text-[#118C8C] mb-2">{item.item}</h3>
-                <p className="text-2xl font-bold text-[#F2BB16] mb-2">
-                  {isAdmin && editing.section === 'crochet' && editing.index === i ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={tempValue}
-                        onChange={e => setTempValue(e.target.value)}
-                        className="w-32 px-2 py-1 border rounded"
-                        onKeyDown={e => e.key === 'Enter' && confirmEdit()}
-                      />
-                      <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
-                      <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
-                    </div>
-                  ) : (
-                    <span onClick={() => isAdmin && startEdit('crochet', i, 'price', item.price)} className="cursor-pointer hover:underline">
-                      {formatPrice(item.price)}
-                    </span>
-                  )}
-                </p>
+                <div className="text-2xl font-bold text-[#F2BB16] mb-2">
+                  <EditablePrice
+                    section="crochet"
+                    index={i}
+                    field="price"
+                    value={item.price}
+                  />
+                </div>
                 <p className="text-gray-600">{item.details}</p>
               </motion.div>
             ))}
@@ -239,61 +258,29 @@ const PricelistsPage = () => {
                     <tr key={i} className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                       <td className="px-6 py-4 font-medium text-gray-900">{item.subjects}</td>
                       <td className="px-6 py-4 text-gray-700">
-                        {isAdmin && editing.section === 'portraiture' && editing.index === i && editing.field === 'paper' ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={tempValue}
-                              onChange={e => setTempValue(e.target.value)}
-                              className="w-32 px-2 py-1 border rounded"
-                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
-                            />
-                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
-                          </div>
-                        ) : (
-                          <span onClick={() => isAdmin && startEdit('portraiture', i, 'paper', item.paper)} className="cursor-pointer hover:underline">
-                            {formatPrice(item.paper)}
-                          </span>
-                        )}
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="paper"
+                          value={item.paper}
+                        />
                       </td>
                       <td className="px-6 py-4 text-gray-700">
-                        {isAdmin && editing.section === 'portraiture' && editing.index === i && editing.field === 'canvas' ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={tempValue}
-                              onChange={e => setTempValue(e.target.value)}
-                              className="w-32 px-2 py-1 border rounded"
-                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
-                            />
-                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
-                          </div>
-                        ) : (
-                          <span onClick={() => isAdmin && startEdit('portraiture', i, 'canvas', item.canvas)} className="cursor-pointer hover:underline">
-                            {formatPrice(item.canvas)}
-                          </span>
-                        )}
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="canvas"
+                          value={item.canvas}
+                        />
                       </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {isAdmin && editing.section === 'portraiture' && editing.index === i && editing.field === 'framed' ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={tempValue}
-                              onChange={e => setTempValue(e.target.value)}
-                              className="w-32 px-2 py-1 border rounded"
-                              onKeyDown={e => e.key === 'Enter' && confirmEdit()}
-                            />
-                            <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
-                          </div>
-                        ) : (
-                          <span onClick={() => isAdmin && startEdit('portraiture', i, 'framed', item.framed)} className="cursor-pointer hover:underline">
-                            +{formatPrice(item.framed)}
-                          </span>
-                        )}
+                      <td className="px-6 py-4 text-gray-700">
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="framed"
+                          value={item.framed}
+                          prefix="+"
+                        />
                       </td>
                     </tr>
                   ))}
@@ -310,32 +297,21 @@ const PricelistsPage = () => {
             {pricing.canvas.map((item, i) => (
               <motion.div key={i} whileHover={{ scale: 1.03 }} className="bg-white rounded-lg shadow-lg p-6">
                 <h3 className="text-xl font-semibold text-[#118C8C] mb-2">{item.size}</h3>
-                <p className="text-2xl font-bold text-[#F2BB16] mb-2">
-                  {isAdmin && editing.section === 'canvas' && editing.index === i ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={tempValue}
-                        onChange={e => setTempValue(e.target.value)}
-                        className="w-32 px-2 py-1 border rounded"
-                        onKeyDown={e => e.key === 'Enter' && confirmEdit()}
-                      />
-                      <Button size="sm" onClick={confirmEdit}><Save size={16} /></Button>
-                      <Button size="sm" variant="ghost" onClick={cancelEdit}><X size={16} /></Button>
-                    </div>
-                  ) : (
-                    <span onClick={() => isAdmin && startEdit('canvas', i, 'price', item.price)} className="cursor-pointer hover:underline">
-                      {formatPrice(item.price)}
-                    </span>
-                  )}
-                </p>
+                <div className="text-2xl font-bold text-[#F2BB16] mb-2">
+                  <EditablePrice
+                    section="canvas"
+                    index={i}
+                    field="price"
+                    value={item.price}
+                  />
+                </div>
                 <p className="text-gray-600">{item.details}</p>
               </motion.div>
             ))}
           </div>
         </motion.section>
 
-        {/* ADD NEW PRODUCT BUTTON - LINK TO NEW PAGE */}
+        {/* ADD NEW PRODUCT BUTTON */}
         {isAdmin && (
           <div className="text-center my-20">
             <Button
