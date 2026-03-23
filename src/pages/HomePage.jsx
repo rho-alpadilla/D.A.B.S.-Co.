@@ -28,6 +28,7 @@ import { useCurrency } from '@/context/CurrencyContext';
 import Grainient from '@/components/ui-bits/Grainient';
 import ShinyText from '@/components/ui-bits/ShinyText'; 
 import Particles from '@/components/ui-bits/Particles';
+import CircularText from '@/components/ui-bits/CircularText';
 const HomePage = () => {
   const { user } = useAuth();
   const isAdmin = user?.email?.includes('admin');
@@ -97,11 +98,23 @@ const HomePage = () => {
   const topSellersToShow = topSellers.slice(0, 4);
   const newArrivalsToShow = newArrivals.slice(0, 4);
 
-  if (featuredProducts.length === 0) {
+if (featuredProducts.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FAF8F1]">
-        <div className="flex items-center gap-3">
-          <Palette size={32} className="text-[#118C8C] animate-spin" />
+        <div className="flex items-center gap-4">
+          
+          {/* Replaced Palette with CircularText */}
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <CircularText
+              text="DABS.Co."
+              onHover="speedUp"
+              spinDuration={3}
+              size={50}
+              fontSize="0.50rem"
+              className="!text-[#118C8C]"
+            />
+          </Link>
+
           <div className="text-2xl font-light text-slate-700">Loading artworks...</div>
         </div>
       </div>
@@ -228,7 +241,7 @@ const HomePage = () => {
       className="text-lg md:text-xl font-light text-[#FAF8F1]/90 italic leading-relaxed"
       style={{ fontFamily: "'Georgia', serif" }}
     >
-      "Every piece tells a story, every stroke carries emotion"
+      "Transforming Your Needlepoint Designs into Stitch Ready Canvases"
     </p>
 
     {/* ── CTA Buttons ── */}

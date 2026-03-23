@@ -297,7 +297,7 @@ const GalleryPage = () => {
 
                           <p className="text-gray-600 text-sm line-clamp-2 mb-4">{item.description}</p>
 
-                          <Button className="w-full bg-[#118C8C] hover:bg-[#0d7070]">
+                          <Button className="w-full bg-[#118C8C] hover:bg-[#0d7070] text-white ">
                             View Product
                           </Button>
                         </div>
