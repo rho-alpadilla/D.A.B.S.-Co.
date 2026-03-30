@@ -1,15 +1,23 @@
-// src/pages/ContactPage.jsx ← FINAL: SAVES MESSAGES TO FIRESTORE
-import React, { useState } from 'react';
+// src/pages/ContactPage.jsx
+// UPDATED: guest users are redirected to Register before sending
+// UPDATED: messages now save in the same structure used by ChatWidget admin inbox
+
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Send, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/lib/firebase';
 
 const ContactPage = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,6 +28,16 @@ const ContactPage = () => {
     productInterest: 'None'
   });
 
+  useEffect(() => {
+    if (!user) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      name: user.displayName || prev.name || user.email?.split('@')[0] || '',
+      email: user.email || prev.email || '',
+    }));
+  }, [user]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -27,21 +45,43 @@ const ContactPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!user) {
+      toast({
+        title: "Register Required",
+        description: "Please create an account first so your message can be tracked in support chat.",
+        variant: "destructive",
+      });
+      navigate('/register');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await addDoc(collection(db, "messages"), {
-        ...formData,
+        buyerEmail: user.email || formData.email,
+        buyerName:
+          formData.name?.trim() ||
+          user.displayName ||
+          user.email?.split('@')[0] ||
+          "Guest Buyer",
+        subject: formData.subject?.trim() || "General Inquiry",
+        message: formData.message?.trim(),
         status: "unread",
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        isAdminReply: false,
+        source: "contact-page",
+        productInterest: formData.productInterest || "None",
       });
 
       setIsSuccess(true);
       toast({
         title: "Message Sent!",
-        description: "We'll get back to you as soon as possible.",
+        description: "Your message was sent to support successfully.",
       });
     } catch (err) {
+      console.error("Contact page send error:", err);
       toast({
         title: "Failed to Send",
         description: "Please try again.",
@@ -59,14 +99,16 @@ const ContactPage = () => {
       </Helmet>
 
       <div className="container mx-auto px-4 py-12">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden"
         >
           <div className="bg-[#118C8C] p-8 text-center text-white">
             <h1 className="text-3xl font-bold mb-2">Get in Touch</h1>
-            <p className="text-[#bcecec]">Have a question or want to discuss a custom commission?</p>
+            <p className="text-[#bcecec]">
+              Have a question or want to discuss a custom commission?
+            </p>
           </div>
 
           <div className="p-8">
@@ -76,19 +118,38 @@ const ContactPage = () => {
                   <CheckCircle size={32} />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Message Received!</h2>
-                <p className="text-gray-600 mb-6">Thank you for reaching out. We usually respond within 24-48 hours.</p>
-                <Button onClick={() => {
-                  setIsSuccess(false);
-                  setFormData({
-                    name: '', email: '', subject: 'General Inquiry', message: '', productInterest: 'None'
-                  });
-                }} variant="outline">Send Another Message</Button>
+                <p className="text-gray-600 mb-6">
+                  Thank you for reaching out. Your message is now in the admin support inbox.
+                </p>
+                <Button
+                  onClick={() => {
+                    setIsSuccess(false);
+                    setFormData({
+                      name: user?.displayName || user?.email?.split('@')[0] || '',
+                      email: user?.email || '',
+                      subject: 'General Inquiry',
+                      message: '',
+                      productInterest: 'None'
+                    });
+                  }}
+                  variant="outline"
+                >
+                  Send Another Message
+                </Button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                {!user && (
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+                    You need to register first before sending a contact message so it can appear properly in support chat.
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label htmlFor="name" className="text-sm font-medium text-gray-700">Full Name</label>
+                    <label htmlFor="name" className="text-sm font-medium text-gray-700">
+                      Full Name
+                    </label>
                     <input
                       id="name"
                       name="name"
@@ -96,10 +157,14 @@ const ContactPage = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#118C8C]"
                       value={formData.name}
                       onChange={handleChange}
+                      disabled={!!user}
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address</label>
+                    <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                      Email Address
+                    </label>
                     <input
                       id="email"
                       name="email"
@@ -108,13 +173,16 @@ const ContactPage = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#118C8C]"
                       value={formData.email}
                       onChange={handleChange}
+                      disabled={!!user}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label htmlFor="subject" className="text-sm font-medium text-gray-700">Subject</label>
+                    <label htmlFor="subject" className="text-sm font-medium text-gray-700">
+                      Subject
+                    </label>
                     <input
                       id="subject"
                       name="subject"
@@ -124,8 +192,11 @@ const ContactPage = () => {
                       onChange={handleChange}
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <label htmlFor="productInterest" className="text-sm font-medium text-gray-700">Interest</label>
+                    <label htmlFor="productInterest" className="text-sm font-medium text-gray-700">
+                      Interest
+                    </label>
                     <select
                       id="productInterest"
                       name="productInterest"
@@ -143,7 +214,9 @@ const ContactPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="message" className="text-sm font-medium text-gray-700">Message</label>
+                  <label htmlFor="message" className="text-sm font-medium text-gray-700">
+                    Message
+                  </label>
                   <textarea
                     id="message"
                     name="message"
@@ -155,12 +228,12 @@ const ContactPage = () => {
                   ></textarea>
                 </div>
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={isSubmitting}
                   className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3"
                 >
-                  {isSubmitting ? 'Sending...' : 'Send Message'}
+                  {isSubmitting ? 'Sending...' : user ? 'Send Message to Support' : 'Register to Send Message'}
                   {!isSubmitting && <Send size={18} className="ml-2" />}
                 </Button>
               </form>
