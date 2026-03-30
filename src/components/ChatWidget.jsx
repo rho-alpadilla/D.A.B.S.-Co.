@@ -19,6 +19,7 @@ import {
   addDoc,
   serverTimestamp,
   getDocs,
+  getDoc,
   updateDoc,
   doc,
   where,
