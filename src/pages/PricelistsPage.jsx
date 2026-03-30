@@ -1,5 +1,5 @@
 // src/pages/PricelistsPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
@@ -30,6 +30,56 @@ const PricelistsPage = () => {
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
 
+  // ─── Refs for each section ───────────────────────────────────────────────
+  const sectionRefs = useRef({});
+  const [activeSection, setActiveSection] = useState('');
+
+  const registerRef = (id) => (el) => {
+    if (el) sectionRefs.current[id] = el;
+  };
+
+  // ─── Scroll handler ───────────────────────────────────────────────────────
+  // Uses the stored ref so position is always accurate, regardless of
+  // whether Framer Motion animations have settled.
+  const scrollToSection = useCallback((sectionId) => {
+    const el = sectionRefs.current[sectionId];
+    if (!el) return;
+
+    // 80px  = main site header (top-20)
+    // 60px  = quick-nav bar height + gap
+    // 16px  = breathing room
+    const NAV_OFFSET = 156;
+
+    const top = el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
+    window.scrollTo({ top, behavior: 'smooth' });
+    setActiveSection(sectionId);
+  }, []);
+
+  // ─── Keep active section in sync while scrolling ─────────────────────────
+  useEffect(() => {
+    const NAV_OFFSET = 170;
+
+    const handleScroll = () => {
+      const ids = ['needlepoint', 'crochet', 'portraiture', 'canvas', 'custom-orders'];
+      let current = '';
+
+      for (const id of ids) {
+        const el = sectionRefs.current[id];
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top <= NAV_OFFSET + 10) {
+          current = id;
+        }
+      }
+
+      setActiveSection(current);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // ─── Pricing data ─────────────────────────────────────────────────────────
   const defaultPricing = {
     needlepoint: [
       { size: 'Small (up to 5x7")', mesh13: 2610, mesh18: 3190, complexity: 'Simple designs' },
@@ -71,7 +121,6 @@ const PricelistsPage = () => {
         setPricing(defaultPricing);
       }
     });
-
     return () => unsub();
   }, []);
 
@@ -82,16 +131,13 @@ const PricelistsPage = () => {
 
   const confirmEdit = () => {
     if (editing.section === null) return;
-
     const parsedValue = Number(tempValue);
     if (Number.isNaN(parsedValue)) {
       alert('Please enter a valid number.');
       return;
     }
-
     const newPricing = structuredClone(pricing);
     newPricing[editing.section][editing.index][editing.field] = parsedValue;
-
     setPricing(newPricing);
     setEditing({ section: null, index: null, field: null });
     setTempValue('');
@@ -115,23 +161,7 @@ const PricelistsPage = () => {
   const isEditingField = (section, index, field) =>
     editing.section === section && editing.index === index && editing.field === field;
 
-  // IMPORTANT:
-  // This keeps the quick nav always usable and scrolls to sections with enough
-  // offset so the section title is still visible below the fixed nav.
-  const scrollToSection = (sectionId) => {
-    const element = document.getElementById(sectionId);
-    if (!element) return;
-
-    const NAV_OFFSET = 120;
-    const elementTop = element.getBoundingClientRect().top + window.scrollY;
-    const targetY = elementTop - NAV_OFFSET;
-
-    window.scrollTo({
-      top: targetY,
-      behavior: 'smooth',
-    });
-  };
-
+  // ─── Sub-components ───────────────────────────────────────────────────────
   const EditablePrice = ({ section, index, field, value, prefix = '', isCustom = false }) => {
     const active = isEditingField(section, index, field);
 
@@ -167,7 +197,6 @@ const PricelistsPage = () => {
           <span className="inline-flex items-center rounded-full bg-[#F2BB16]/15 text-[#8e6c00] px-3 py-1 text-sm font-semibold">
             Custom Quote
           </span>
-
           {isAdmin && (
             <button
               type="button"
@@ -188,7 +217,6 @@ const PricelistsPage = () => {
           {prefix}
           {formatPrice(value)}
         </span>
-
         {isAdmin && (
           <button
             type="button"
@@ -223,63 +251,72 @@ const PricelistsPage = () => {
     { label: 'Custom Orders', id: 'custom-orders' },
   ];
 
+  // ─── Shared fade-up variant (opacity only — no Y shift that breaks scroll) ─
+  const fadeUp = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.4 } },
+  };
+
   return (
     <>
       <Helmet>
         <title>Pricelists - D.A.B.S. Co.</title>
       </Helmet>
 
-      {/* IMPORTANT:
-          Fixed quick nav stays visible the whole time.
-          top-4 keeps it properly inside the viewport, not clipped like before. */}
-      <motion.div
-        initial={{ opacity: 0, y: -14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-4xl"
-      >
-        <div className="bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border border-gray-200 shadow-lg rounded-2xl px-3 py-2">
-          <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar justify-start md:justify-center">
-            {quickNavItems.map((item) => (
-              <motion.button
-                key={item.id}
-                type="button"
-                whileHover={{ y: -1, scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => scrollToSection(item.id)}
-                className="shrink-0 px-4 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-[#118C8C]/10 hover:text-[#118C8C] transition text-sm font-medium"
-              >
-                {item.label}
-              </motion.button>
-            ))}
+      {/* ── Fixed quick-nav ────────────────────────────────────────────────── */}
+      <div className="fixed top-20 left-0 right-0 z-40 px-4">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="mx-auto max-w-5xl"
+        >
+          <div className="bg-white/95 backdrop-blur border border-gray-200 shadow-lg rounded-2xl px-3 py-2">
+            <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar justify-start md:justify-center">
+              {quickNavItems.map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <motion.button
+                    key={item.id}
+                    type="button"
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => scrollToSection(item.id)}
+                    className={`shrink-0 px-4 py-2 rounded-full transition text-sm font-medium ${
+                      isActive
+                        ? 'bg-[#118C8C] text-white shadow'
+                        : 'bg-gray-100 text-gray-700 hover:bg-[#118C8C]/10 hover:text-[#118C8C]'
+                    }`}
+                  >
+                    {item.label}
+                  </motion.button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
-      {/* IMPORTANT:
-          pt-28/pt-32 creates enough top space so the fixed nav doesn't overlap the hero. */}
-      <div className="container mx-auto px-4 pt-28 pb-5 md:pt-32 md:pb-10">
+      {/* ── Page body ─────────────────────────────────────────────────────── */}
+      <div className="container mx-auto px-4 pt-40 pb-5 md:pt-44 md:pb-10">
+
         {/* HERO */}
         <motion.section
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
           className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#118C8C] via-[#0f7a7a] to-[#0b5f5f] text-white px-6 py-8 md:px-8 md:py-10 shadow-2xl mb-8"
         >
           <div className="absolute inset-0 opacity-15">
             <div className="absolute -top-10 right-0 w-48 h-48 bg-white rounded-full blur-3xl" />
             <div className="absolute -bottom-16 -left-6 w-64 h-64 bg-[#F2BB16] rounded-full blur-3xl" />
           </div>
-
           <div className="relative z-10 max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold mb-4">
               <Sparkles size={16} />
               Handmade Pricing Guide
             </div>
-
-            <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-3">
-              Our Pricelists
-            </h1>
-
+            <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-3">Our Pricelists</h1>
             <p className="text-sm md:text-base text-white/90 max-w-2xl leading-relaxed">
               Explore current pricing for custom needlepoint, crochet, portraiture, and canvas work.
             </p>
@@ -288,8 +325,9 @@ const PricelistsPage = () => {
 
         {/* INFO BLOCK */}
         <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
           className="mb-12 rounded-3xl border border-[#118C8C]/10 bg-white shadow-lg p-6 md:p-8"
         >
           <div className="flex items-start gap-4">
@@ -327,13 +365,23 @@ const PricelistsPage = () => {
           </div>
         )}
 
-        <motion.section id="needlepoint" className="mb-16" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
+        {/* ── NEEDLEPOINT ─────────────────────────────────────────────────── */}
+        <motion.section
+          ref={registerRef('needlepoint')}
+          id="needlepoint"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          className="mb-16 scroll-mt-40"
+        >
           <SectionHeader
             icon={Palette}
             title="Hand-Painted Needlepoint Canvases"
             subtitle="Choose by size, mesh count, and design detail."
           />
 
+          {/* Desktop table */}
           <div className="hidden md:block bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -363,6 +411,7 @@ const PricelistsPage = () => {
             </div>
           </div>
 
+          {/* Mobile cards */}
           <div className="grid md:hidden gap-4">
             {pricing.needlepoint.map((item, i) => (
               <div key={i} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
@@ -385,7 +434,16 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
-        <motion.section id="crochet" className="mb-16" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
+        {/* ── CROCHET ─────────────────────────────────────────────────────── */}
+        <motion.section
+          ref={registerRef('crochet')}
+          id="crochet"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          className="mb-16 scroll-mt-40"
+        >
           <SectionHeader
             icon={Scissors}
             title="Crocheted Products"
@@ -414,13 +472,23 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
-        <motion.section id="portraiture" className="mb-16" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
+        {/* ── PORTRAITURE ─────────────────────────────────────────────────── */}
+        <motion.section
+          ref={registerRef('portraiture')}
+          id="portraiture"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          className="mb-16 scroll-mt-40"
+        >
           <SectionHeader
             icon={Frame}
             title="Portraiture Pricing"
             subtitle="Portrait options for paper, canvas, and framed commissions."
           />
 
+          {/* Desktop table */}
           <div className="hidden md:block bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -452,6 +520,7 @@ const PricelistsPage = () => {
             </div>
           </div>
 
+          {/* Mobile cards */}
           <div className="grid md:hidden gap-4">
             {pricing.portraiture.map((item, i) => (
               <div key={i} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
@@ -475,7 +544,16 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
-        <motion.section id="canvas" className="mb-16" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}>
+        {/* ── CANVAS ──────────────────────────────────────────────────────── */}
+        <motion.section
+          ref={registerRef('canvas')}
+          id="canvas"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          className="mb-16 scroll-mt-40"
+        >
           <SectionHeader
             icon={Brush}
             title="Painting on Canvas"
@@ -505,9 +583,12 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
+        {/* GALLERY PREVIEW */}
         <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
           className="mb-16 rounded-3xl border border-gray-100 bg-white shadow-xl p-6 md:p-8"
         >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -521,7 +602,7 @@ const PricelistsPage = () => {
               </h2>
               <p className="text-gray-600 leading-relaxed">
                 Browse our gallery to get a better feel for styles, detail levels, and the kind
-                of handmade work we create. It’s the best place to explore ideas before ordering.
+                of handmade work we create. It's the best place to explore ideas before ordering.
               </p>
             </div>
 
@@ -546,6 +627,7 @@ const PricelistsPage = () => {
           </div>
         </motion.section>
 
+        {/* ADMIN CTA */}
         {isAdmin && (
           <div className="text-center my-20">
             <Button
@@ -559,11 +641,15 @@ const PricelistsPage = () => {
           </div>
         )}
 
+        {/* ── CUSTOM ORDERS ────────────────────────────────────────────────── */}
         <motion.section
+          ref={registerRef('custom-orders')}
           id="custom-orders"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#118C8C] via-[#0f7a7a] to-[#0b5f5f] text-white p-8 md:p-12 shadow-2xl"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#118C8C] via-[#0f7a7a] to-[#0b5f5f] text-white p-8 md:p-12 shadow-2xl scroll-mt-40"
         >
           <div className="absolute inset-0 opacity-10">
             <div className="absolute -top-10 -right-10 w-44 h-44 bg-white rounded-full blur-3xl" />
