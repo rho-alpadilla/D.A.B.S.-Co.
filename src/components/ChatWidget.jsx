@@ -176,6 +176,234 @@ const ChatWidget = () => {
     return tones[total % tones.length];
   };
 
+  const DEFAULT_STORE_KNOWLEDGE = {
+    location: 'Baguio City',
+    owner: 'siakniowner',
+    shippingInfo:
+      'For exact shipping timelines, please chat with admin in the Support tab.',
+    fallbackSupport:
+      'I’m not fully sure about that yet. Please chat with admin in the Support tab for a confirmed answer.',
+    faqs: [
+      {
+        triggers: ['where are you from', 'where is dabs from', 'location', 'based in'],
+        answer: 'D.A.B.S. Co is based in Baguio City.',
+      },
+      {
+        triggers: ['who is the owner', 'who is the artist', 'owner', 'artist'],
+        answer: 'The owner/artist is siakniowner.',
+      },
+      {
+        triggers: ['how many days to ship', 'shipping days', 'when will it ship', 'how long is shipping'],
+        answer:
+          'For exact shipping timelines, please chat with admin in the Support tab.',
+      },
+    ],
+  };
+
+  const extractNumericValue = (...values) => {
+    for (const value of values) {
+      if (typeof value === 'number' && !Number.isNaN(value)) return value;
+      if (
+        typeof value === 'string' &&
+        value.trim() !== '' &&
+        !Number.isNaN(Number(value))
+      ) {
+        return Number(value);
+      }
+    }
+    return null;
+  };
+
+  const getProductName = (product) =>
+    product?.name || product?.productName || product?.title || 'Unnamed product';
+
+  const getProductDescription = (product) =>
+    product?.description || product?.details || product?.caption || '';
+
+  const getProductPrice = (product) =>
+    extractNumericValue(product?.price, product?.unitPrice, product?.amount);
+
+  const getProductStock = (product) => {
+    if (product?.inStock === false) return 0;
+
+    return extractNumericValue(
+      product?.stock,
+      product?.stocks,
+      product?.quantity,
+      product?.inventory,
+      product?.inventoryCount,
+      product?.stockLeft,
+      product?.availableStocks
+    );
+  };
+
+  const getAnyDateMillis = (value) => {
+    try {
+      if (!value) return 0;
+      if (typeof value?.toMillis === 'function') return value.toMillis();
+      if (typeof value?.toDate === 'function') return value.toDate().getTime();
+      if (typeof value === 'number') return value;
+      const parsed = new Date(value).getTime();
+      return Number.isNaN(parsed) ? 0 : parsed;
+    } catch {
+      return 0;
+    }
+  };
+
+  const getProductCreatedMillis = (product) =>
+    getAnyDateMillis(
+      product?.createdAt ||
+        product?.addedAt ||
+        product?.dateAdded ||
+        product?.uploadedAt ||
+        product?.timestamp
+    );
+
+  const extractOrderItems = (order) => {
+    const candidates = [
+      order?.items,
+      order?.cartItems,
+      order?.products,
+      order?.orderItems,
+    ];
+
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) return candidate;
+    }
+
+    return [];
+  };
+
+  const getOrderItemName = (item) =>
+    item?.name || item?.productName || item?.title || item?.product?.name || '';
+
+  const getOrderItemQty = (item) =>
+    extractNumericValue(item?.quantity, item?.qty, item?.count, 1) || 1;
+
+  const normalizeText = (value = '') => value.toLowerCase().trim();
+
+  const buildBestSellerSummary = (orders) => {
+    const counts = {};
+
+    orders.forEach((order) => {
+      const items = extractOrderItems(order);
+
+      items.forEach((item) => {
+        const name = getOrderItemName(item);
+        if (!name) return;
+
+        counts[name] = (counts[name] || 0) + getOrderItemQty(item);
+      });
+    });
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, qty], index) => `${index + 1}. ${name} (${qty} sold)`);
+  };
+
+  const buildNewArrivalSummary = (products) => {
+    return [...products]
+      .sort((a, b) => getProductCreatedMillis(b) - getProductCreatedMillis(a))
+      .slice(0, 5)
+      .map((product, index) => `${index + 1}. ${getProductName(product)}`);
+  };
+
+  const buildStockSummary = (products) => {
+    return products.slice(0, 20).map((product) => {
+      const name = getProductName(product);
+      const stock = getProductStock(product);
+
+      if (stock === null) {
+        return `${name}: stock not specified`;
+      }
+
+      return `${name}: ${stock} left`;
+    });
+  };
+
+  const findProductFromQuestion = (question, products) => {
+    const q = normalizeText(question);
+
+    return products.find((product) =>
+      q.includes(normalizeText(getProductName(product)))
+    );
+  };
+
+  const getDirectStoreAnswer = (
+    question,
+    knowledge,
+    products,
+    bestSellers,
+    newArrivals
+  ) => {
+    const q = normalizeText(question);
+
+    if (!q) return null;
+
+    for (const faq of knowledge.faqs || []) {
+      const matched = (faq.triggers || []).some((trigger) =>
+        q.includes(normalizeText(trigger))
+      );
+      if (matched) return faq.answer;
+    }
+
+    if (
+      q.includes('best seller') ||
+      q.includes('bestseller') ||
+      q.includes('most sold') ||
+      q.includes('top selling')
+    ) {
+      return bestSellers.length
+        ? `Our current best sellers are:\n${bestSellers.join('\n')}`
+        : 'I do not have enough order data yet to determine the best sellers.';
+    }
+
+    if (
+      q.includes('new arrival') ||
+      q.includes('new arrivals') ||
+      q.includes('latest') ||
+      q.includes('new product')
+    ) {
+      return newArrivals.length
+        ? `Here are our newest arrivals:\n${newArrivals.join('\n')}`
+        : 'I cannot see any new-arrival data yet.';
+    }
+
+    if (
+      q.includes('stock left') ||
+      q.includes('stocks left') ||
+      q.includes('how many stock') ||
+      q.includes('available stock') ||
+      q.includes('available pieces')
+    ) {
+      const matchedProduct = findProductFromQuestion(question, products);
+
+      if (matchedProduct) {
+        const stock = getProductStock(matchedProduct);
+        const name = getProductName(matchedProduct);
+
+        if (stock === null) {
+          return `${name} is listed, but the exact stock count is not set yet. Please chat with admin to confirm availability.`;
+        }
+
+        if (stock <= 0) {
+          return `${name} is currently out of stock.`;
+        }
+
+        return `${name} currently has ${stock} stock left.`;
+      }
+
+      return 'Please mention the exact product name so I can check the stock left for that item.';
+    }
+
+    if (q.includes('ship') || q.includes('shipping') || q.includes('delivery')) {
+      return knowledge.shippingInfo || DEFAULT_STORE_KNOWLEDGE.shippingInfo;
+    }
+
+    return null;
+  };
+
   const filteredConversations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -438,17 +666,94 @@ const ChatWidget = () => {
     setAiLoading(true);
 
     try {
-      const snapshot = await getDocs(collection(db, 'pricelists'));
-      const products = snapshot.docs
-        .map((d) => d.data())
-        .filter((p) => p.inStock !== false);
+      const [pricelistsResult, ordersResult, knowledgeResult] =
+        await Promise.allSettled([
+          getDocs(collection(db, 'pricelists')),
+          getDocs(collection(db, 'orders')),
+          getDoc(doc(db, 'siteContent', 'assistantKnowledge')),
+        ]);
+
+      const products =
+        pricelistsResult.status === 'fulfilled'
+          ? pricelistsResult.value.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((p) => p.inStock !== false)
+          : [];
+
+      const orders =
+        ordersResult.status === 'fulfilled'
+          ? ordersResult.value.docs.map((d) => ({ id: d.id, ...d.data() }))
+          : [];
+
+      const firestoreKnowledge =
+        knowledgeResult.status === 'fulfilled' && knowledgeResult.value.exists()
+          ? knowledgeResult.value.data()
+          : {};
+
+      const storeKnowledge = {
+        ...DEFAULT_STORE_KNOWLEDGE,
+        ...firestoreKnowledge,
+        faqs: [
+          ...(DEFAULT_STORE_KNOWLEDGE.faqs || []),
+          ...(Array.isArray(firestoreKnowledge?.faqs)
+            ? firestoreKnowledge.faqs
+            : []),
+        ],
+      };
+
+      const bestSellerLines = buildBestSellerSummary(orders);
+      const newArrivalLines = buildNewArrivalSummary(products);
+      const stockLines = buildStockSummary(products);
+
+      const directAnswer = getDirectStoreAnswer(
+        userMsg.content,
+        storeKnowledge,
+        products,
+        bestSellerLines,
+        newArrivalLines
+      );
+
+      if (directAnswer) {
+        setAiMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: directAnswer },
+        ]);
+        return;
+      }
 
       const productsText =
         products.length > 0
           ? products
-              .map((p) => `${p.name}: ₱${p.price} — ${p.description}`)
+              .slice(0, 20)
+              .map((p) => {
+                const name = getProductName(p);
+                const price = getProductPrice(p);
+                const description = getProductDescription(p);
+                const stock = getProductStock(p);
+
+                return `${name}: ${
+                  price !== null ? `₱${price}` : 'price not set'
+                } — ${description || 'No description'} — ${
+                  stock !== null ? `${stock} stock left` : 'stock not specified'
+                }`;
+              })
               .join(' | ')
           : 'No products available right now.';
+
+      const bestSellerText =
+        bestSellerLines.length > 0
+          ? bestSellerLines.join(' | ')
+          : 'Best-seller data is not available yet.';
+
+      const newArrivalText =
+        newArrivalLines.length > 0
+          ? newArrivalLines.join(' | ')
+          : 'New-arrival data is not available yet.';
+
+      const stockText =
+        stockLines.length > 0
+          ? stockLines.join(' | ')
+          : 'Stock data is not available yet.';
 
       const response = await fetch(
         'https://api.groq.com/openai/v1/chat/completions',
@@ -463,13 +768,42 @@ const ChatWidget = () => {
             messages: [
               {
                 role: 'system',
-                content: `You are Dabzzy, a super fun and crafty assistant for D.A.B.S. Co. Current products: ${productsText}. Be short, warm, playful, use emojis!`,
+                content: `
+You are Dabzzy, the assistant for D.A.B.S. Co.
+
+Rules:
+- Be warm, short, and helpful.
+- Answer using the store data provided below.
+- Never invent facts.
+- If exact shipping or business details are not confirmed, tell the user to chat with admin in the Support tab.
+- If asked about stock left, use the stock data.
+- If asked about best sellers, use the sales summary.
+- If asked about new arrivals, use the latest product summary.
+
+Store facts:
+- Location: ${storeKnowledge.location}
+- Owner/Artist: ${storeKnowledge.owner}
+- Shipping guidance: ${storeKnowledge.shippingInfo}
+- Admin fallback: ${storeKnowledge.fallbackSupport}
+
+Current products:
+${productsText}
+
+Current stock summary:
+${stockText}
+
+Best sellers:
+${bestSellerText}
+
+New arrivals:
+${newArrivalText}
+                `.trim(),
               },
               ...aiMessages,
               userMsg,
             ],
-            max_tokens: 180,
-            temperature: 0.8,
+            max_tokens: 220,
+            temperature: 0.5,
           }),
         }
       );
@@ -477,16 +811,22 @@ const ChatWidget = () => {
       if (!response.ok) throw new Error('Groq error');
 
       const data = await response.json();
+      const content =
+        data?.choices?.[0]?.message?.content ||
+        storeKnowledge.fallbackSupport;
+
       setAiMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: data.choices[0].message.content },
+        { role: 'assistant', content },
       ]);
     } catch (err) {
+      console.error(err);
       setAiMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Oops! Dabzzy is having a hiccup. Try again! 🛠️',
+          content:
+            'Oops — I could not load the store details right now. Please try again, or chat with admin in the Support tab.',
         },
       ]);
     } finally {
@@ -503,7 +843,9 @@ const ChatWidget = () => {
     const otherStyle = 'bg-white text-gray-800 border-gray-200 rounded-bl-md';
 
     return (
-      <div className={`flex flex-col gap-1 ${isMine ? 'items-end' : 'items-start'}`}>
+      <div
+        className={`flex flex-col gap-1 ${isMine ? 'items-end' : 'items-start'}`}
+      >
         <div className={`${base} ${isMine ? mineStyle : otherStyle}`}>
           <div className="text-[11px] opacity-80 mb-1">{label}</div>
           <div className="whitespace-pre-wrap break-words">{text}</div>
@@ -712,7 +1054,9 @@ const ChatWidget = () => {
                     <div className="px-4 pt-4 pb-3 bg-white border-b space-y-3">
                       <div>
                         <p className="font-semibold text-gray-900">
-                          {isAdmin ? 'Customer Conversations' : 'Your Conversations'}
+                          {isAdmin
+                            ? 'Customer Conversations'
+                            : 'Your Conversations'}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {isAdmin
@@ -830,9 +1174,7 @@ const ChatWidget = () => {
                         )}`}
                       >
                         {getInitials(
-                          isAdmin
-                            ? getDisplayName(selectedConvo)
-                            : 'Support'
+                          isAdmin ? getDisplayName(selectedConvo) : 'Support'
                         )}
                       </div>
 
