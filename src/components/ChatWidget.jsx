@@ -52,6 +52,7 @@ const ChatWidget = () => {
   const [supportMessages, setSupportMessages] = useState([]);
   const [replyInput, setReplyInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Buyer: start new chat
   const [buyerNewChatOpen, setBuyerNewChatOpen] = useState(false);
@@ -174,6 +175,26 @@ const ChatWidget = () => {
     return tones[total % tones.length];
   };
 
+  const filteredConversations = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    if (!term) return conversations;
+
+    return conversations.filter((convo) => {
+      const buyerName = (convo.buyerName || '').toLowerCase();
+      const buyerEmail = (convo.buyerEmail || '').toLowerCase();
+      const subject = (convo.subject || '').toLowerCase();
+      const preview = (convo.lastPreview || '').toLowerCase();
+
+      return (
+        buyerName.includes(term) ||
+        buyerEmail.includes(term) ||
+        subject.includes(term) ||
+        preview.includes(term)
+      );
+    });
+  }, [conversations, searchTerm]);
+
   // ---------- AI auto-scroll ----------
   useEffect(() => {
     if (!isOpen || activeTab !== 'dabzzy') return;
@@ -262,15 +283,15 @@ const ChatWidget = () => {
         }
       });
 
-const sorted = Object.values(grouped).sort(
-  (a, b) => (b.latestMillis || 0) - (a.latestMillis || 0)
-);
+      const sorted = Object.values(grouped).sort(
+        (a, b) => (b.latestMillis || 0) - (a.latestMillis || 0)
+      );
 
-setConversations(sorted);
+      setConversations(sorted);
     });
 
     return () => unsubscribe();
-  }, [user?.email, activeTab, isOpen, isAdmin, selectedConvo]);
+  }, [user?.email, activeTab, isOpen, isAdmin]);
 
   // ---------- SUPPORT: Load selected conversation messages ----------
   useEffect(() => {
@@ -551,10 +572,10 @@ setConversations(sorted);
                 {activeTab === 'admin' && selectedConvo && (
                   <button
                     onClick={() => {
-  setSelectedConvo(null);
-  setSupportMessages([]);
-  setReplyInput('');
-}}
+                      setSelectedConvo(null);
+                      setSupportMessages([]);
+                      setReplyInput('');
+                    }}
                     className="mr-1 text-white/95 hover:text-white hover:opacity-90 transition"
                   >
                     ← Back
@@ -687,24 +708,44 @@ setConversations(sorted);
                       </div>
                     )}
 
-                    <div className="px-4 pt-4 pb-2 bg-white border-b">
-                      <p className="font-semibold text-gray-900">
-                        {isAdmin ? 'Customer Conversations' : 'Your Conversations'}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {isAdmin
-                          ? 'Tap a customer thread to open the full chat.'
-                          : 'Open a support thread or start a new one.'}
-                      </p>
+                    <div className="px-4 pt-4 pb-3 bg-white border-b space-y-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {isAdmin ? 'Customer Conversations' : 'Your Conversations'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {isAdmin
+                            ? 'Tap a customer thread to open the full chat.'
+                            : 'Open a support thread or start a new one.'}
+                        </p>
+                      </div>
+
+                      {isAdmin && (
+                        <input
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          placeholder="Search by name, email, subject, or message..."
+                          className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                        />
+                      )}
                     </div>
 
                     <div className="flex-1 min-h-0 p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-white space-y-2">
-                      {conversations.length === 0 ? (
-                        <div className="text-center text-gray-500 mt-12">
-                          <p>No conversations yet</p>
+                      {filteredConversations.length === 0 ? (
+                        <div className="text-center text-gray-500 mt-12 px-6">
+                          <p className="font-medium text-gray-700">
+                            {searchTerm.trim()
+                              ? 'No matching conversations'
+                              : 'No conversations yet'}
+                          </p>
+                          <p className="text-sm mt-1">
+                            {searchTerm.trim()
+                              ? 'Try a different name, email, subject, or keyword.'
+                              : 'Customer chats will appear here.'}
+                          </p>
                         </div>
                       ) : (
-                        conversations.map((convo) => {
+                        filteredConversations.map((convo) => {
                           const displayName = isAdmin
                             ? getDisplayName(convo)
                             : convo.subject;
