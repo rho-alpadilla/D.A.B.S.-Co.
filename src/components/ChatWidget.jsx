@@ -1,13 +1,13 @@
 // src/components/ChatWidget.jsx
-// ✅ Fixed: “messages barely visible / too low”
-// - Sealed the flex + min-h-0 chain all the way down (Tabs + TabsContent + panels)
-// - Force TabsContent to be flex ONLY when active (Radix default is display:block)
-// - Added padding-bottom inside message scroller so last bubbles never feel cramped
-// - Jump button only shows inside an open conversation + floats above input cleanly
-// - Real backread: auto-scroll only when user is near bottom
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { MessageCircle, X, Send, Plus, Sparkles, Headphones } from 'lucide-react';
+import {
+  MessageCircle,
+  X,
+  Send,
+  Plus,
+  Sparkles,
+  Headphones,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -83,10 +83,30 @@ const ChatWidget = () => {
   const formatTime = (ts) => {
     try {
       if (!ts?.toDate) return '';
-      return ts.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return ts.toDate().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
     } catch {
       return '';
     }
+  };
+
+  const formatListTime = (millis) => {
+    if (!millis) return '';
+    const d = new Date(millis);
+    const now = new Date();
+
+    const sameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+
+    if (sameDay) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
   const isSameDay = (aMillis, bMillis) => {
@@ -102,13 +122,56 @@ const ChatWidget = () => {
   const dateLabel = (millis) => {
     const d = new Date(millis);
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const thatDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const today = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).getTime();
+    const thatDay = new Date(
+      d.getFullYear(),
+      d.getMonth(),
+      d.getDate()
+    ).getTime();
     const diffDays = Math.round((today - thatDay) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
-    return d.toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString([], {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const getDisplayName = (convo) => {
+    if (!convo) return 'User';
+    return (
+      convo.buyerName ||
+      convo.buyerEmail?.split('@')[0] ||
+      convo.subject ||
+      'User'
+    );
+  };
+
+  const getInitials = (value = '') => {
+    const words = value.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '?';
+    if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
+  };
+
+  const getAvatarTone = (seed = '') => {
+    const tones = [
+      'bg-[#118C8C]/12 text-[#118C8C]',
+      'bg-amber-100 text-amber-700',
+      'bg-blue-100 text-blue-700',
+      'bg-emerald-100 text-emerald-700',
+      'bg-rose-100 text-rose-700',
+      'bg-violet-100 text-violet-700',
+    ];
+
+    const total = seed.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    return tones[total % tones.length];
   };
 
   // ---------- AI auto-scroll ----------
@@ -117,7 +180,7 @@ const ChatWidget = () => {
     aiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [aiMessages, isOpen, activeTab]);
 
-  // ✅ Reset jump state when leaving support convo / switching tabs / closing widget
+  // Reset jump state
   useEffect(() => {
     if (!isOpen || activeTab !== 'admin' || !selectedConvo) {
       setShowJump(false);
@@ -125,7 +188,7 @@ const ChatWidget = () => {
     }
   }, [isOpen, activeTab, selectedConvo]);
 
-  // ✅ Track scroll position only when inside support conversation
+  // Track scroll position only inside support conversation
   useEffect(() => {
     const el = supportScrollRef.current;
     if (!el || !selectedConvo || activeTab !== 'admin' || !isOpen) return;
@@ -143,7 +206,7 @@ const ChatWidget = () => {
     return () => el.removeEventListener('scroll', handleScroll);
   }, [selectedConvo, activeTab, isOpen]);
 
-  // ✅ Auto-scroll only if near bottom
+  // Auto-scroll only if near bottom
   useEffect(() => {
     if (!isOpen || activeTab !== 'admin' || !selectedConvo) return;
     if (isNearBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -155,7 +218,11 @@ const ChatWidget = () => {
 
     const q = isAdmin
       ? query(collection(db, 'messages'), orderBy('createdAt', 'desc'))
-      : query(collection(db, 'messages'), where('buyerEmail', '==', user.email), orderBy('createdAt', 'desc'));
+      : query(
+          collection(db, 'messages'),
+          where('buyerEmail', '==', user.email),
+          orderBy('createdAt', 'desc')
+        );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -176,27 +243,34 @@ const ChatWidget = () => {
             buyerName: msg.buyerName || buyerKey.split('@')[0],
             latestMillis: createdMillis,
             lastPreview: msg.message || '',
+            lastSenderLabel: msg.isAdminReply ? 'Admin' : 'Buyer',
             hasUnread: false,
           };
         }
 
-        grouped[key].latestMillis = Math.max(grouped[key].latestMillis || 0, createdMillis);
-        grouped[key].lastPreview = msg.message || grouped[key].lastPreview;
+        if (createdMillis >= (grouped[key].latestMillis || 0)) {
+          grouped[key].latestMillis = createdMillis;
+          grouped[key].lastPreview = msg.message || '';
+          grouped[key].lastSenderLabel = msg.isAdminReply ? 'Admin' : 'Buyer';
+        }
 
-        if (msg.status === 'unread' && ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))) {
+        if (
+          msg.status === 'unread' &&
+          ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))
+        ) {
           grouped[key].hasUnread = true;
         }
       });
 
-      const sorted = Object.values(grouped).sort((a, b) => (b.latestMillis || 0) - (a.latestMillis || 0));
-      setConversations(sorted);
+const sorted = Object.values(grouped).sort(
+  (a, b) => (b.latestMillis || 0) - (a.latestMillis || 0)
+);
 
-      if (sorted.length > 0 && !selectedConvo) setSelectedConvo(sorted[0]);
+setConversations(sorted);
     });
 
     return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.email, activeTab, isOpen, isAdmin]);
+  }, [user?.email, activeTab, isOpen, isAdmin, selectedConvo]);
 
   // ---------- SUPPORT: Load selected conversation messages ----------
   useEffect(() => {
@@ -216,9 +290,11 @@ const ChatWidget = () => {
       const msgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setSupportMessages(msgs);
 
-      // Mark unread as read
       msgs.forEach(async (msg) => {
-        if (msg.status === 'unread' && ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))) {
+        if (
+          msg.status === 'unread' &&
+          ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))
+        ) {
           try {
             await updateDoc(doc(db, 'messages', msg.id), { status: 'read' });
           } catch (err) {
@@ -239,7 +315,6 @@ const ChatWidget = () => {
     setReplyInput('');
     setSending(true);
 
-    // Optimistic bubble
     const optimisticId = `local-${Date.now()}`;
     setSupportMessages((prev) => [
       ...prev,
@@ -264,12 +339,19 @@ const ChatWidget = () => {
         status: 'unread',
         createdAt: serverTimestamp(),
         isAdminReply: isAdmin,
-        ...(isAdmin && { adminEmail: user.email, adminName: user.displayName || 'Admin' }),
+        ...(isAdmin && {
+          adminEmail: user.email,
+          adminName: user.displayName || 'Admin',
+        }),
       });
     } catch (err) {
       console.error(err);
       setSupportMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      toast({ title: 'Error', description: 'Failed to send.', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Failed to send.',
+        variant: 'destructive',
+      });
     } finally {
       setSending(false);
     }
@@ -278,9 +360,14 @@ const ChatWidget = () => {
   // ---------- Buyer: Start New Chat ----------
   const startBuyerChat = async () => {
     if (!user?.email) {
-      toast({ title: 'Login required', description: 'Please log in to contact support.', variant: 'destructive' });
+      toast({
+        title: 'Login required',
+        description: 'Please log in to contact support.',
+        variant: 'destructive',
+      });
       return;
     }
+
     if (!buyerMessage.trim() || buyerSending) return;
 
     setBuyerSending(true);
@@ -309,7 +396,11 @@ const ChatWidget = () => {
       setBuyerNewChatOpen(false);
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to start chat.', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Failed to start chat.',
+        variant: 'destructive',
+      });
     } finally {
       setBuyerSending(false);
     }
@@ -326,35 +417,56 @@ const ChatWidget = () => {
 
     try {
       const snapshot = await getDocs(collection(db, 'pricelists'));
-      const products = snapshot.docs.map((d) => d.data()).filter((p) => p.inStock !== false);
+      const products = snapshot.docs
+        .map((d) => d.data())
+        .filter((p) => p.inStock !== false);
+
       const productsText =
         products.length > 0
-          ? products.map((p) => `${p.name}: ₱${p.price} — ${p.description}`).join(' | ')
+          ? products
+              .map((p) => `${p.name}: ₱${p.price} — ${p.description}`)
+              .join(' | ')
           : 'No products available right now.';
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: `You are Dabzzy, a super fun and crafty assistant for D.A.B.S. Co. Current products: ${productsText}. Be short, warm, playful, use emojis!` },
-            ...aiMessages,
-            userMsg,
-          ],
-          max_tokens: 180,
-          temperature: 0.8,
-        }),
-      });
+      const response = await fetch(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              {
+                role: 'system',
+                content: `You are Dabzzy, a super fun and crafty assistant for D.A.B.S. Co. Current products: ${productsText}. Be short, warm, playful, use emojis!`,
+              },
+              ...aiMessages,
+              userMsg,
+            ],
+            max_tokens: 180,
+            temperature: 0.8,
+          }),
+        }
+      );
 
       if (!response.ok) throw new Error('Groq error');
+
       const data = await response.json();
-      setAiMessages((prev) => [...prev, { role: 'assistant', content: data.choices[0].message.content }]);
+      setAiMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: data.choices[0].message.content },
+      ]);
     } catch (err) {
-      setAiMessages((prev) => [...prev, { role: 'assistant', content: 'Oops! Dabzzy is having a hiccup. Try again! 🛠️' }]);
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Oops! Dabzzy is having a hiccup. Try again! 🛠️',
+        },
+      ]);
     } finally {
       setAiLoading(false);
     }
@@ -362,8 +474,10 @@ const ChatWidget = () => {
 
   // ---------- bubble ----------
   const Bubble = ({ isMine, label, text, time }) => {
-    const base = 'max-w-[85%] rounded-2xl px-4 py-3 shadow-sm border text-sm leading-relaxed';
-    const mineStyle = 'bg-[#118C8C] text-white border-[#118C8C]/20 rounded-br-md ml-auto';
+    const base =
+      'max-w-[85%] rounded-2xl px-4 py-3 shadow-sm border text-sm leading-relaxed';
+    const mineStyle =
+      'bg-[#118C8C] text-white border-[#118C8C]/20 rounded-br-md ml-auto';
     const otherStyle = 'bg-white text-gray-800 border-gray-200 rounded-bl-md';
 
     return (
@@ -377,7 +491,7 @@ const ChatWidget = () => {
     );
   };
 
-  // ---------- render support (date separators) ----------
+  // ---------- render support ----------
   const renderedSupportStream = useMemo(() => {
     if (!supportMessages?.length) return [];
 
@@ -391,14 +505,29 @@ const ChatWidget = () => {
       const millis = toMillis(msg.createdAt);
 
       if (i === 0 || !isSameDay(prevMillis, millis)) {
-        out.push({ _type: 'date', id: `date-${millis}-${i}`, label: dateLabel(millis) });
+        out.push({
+          _type: 'date',
+          id: `date-${millis}-${i}`,
+          label: dateLabel(millis),
+        });
       }
 
       const isMine = mineOf(msg);
-      const label = msg.isAdminReply ? 'Admin' : isAdmin ? msg.buyerName || 'Buyer' : 'You';
+      const label = msg.isAdminReply
+        ? 'Admin'
+        : isAdmin
+        ? msg.buyerName || 'Buyer'
+        : 'You';
       const time = msg.createdAt?.toDate ? formatTime(msg.createdAt) : '';
 
-      out.push({ _type: 'msg', id: msg.id, isMine, label, text: msg.message, time });
+      out.push({
+        _type: 'msg',
+        id: msg.id,
+        isMine,
+        label,
+        text: msg.message,
+        time,
+      });
 
       prevMillis = millis;
     }
@@ -414,29 +543,41 @@ const ChatWidget = () => {
             initial={{ opacity: 0, scale: 0.9, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 16 }}
-            className="w-[380px] h-[560px] rounded-3xl overflow-hidden shadow-2xl border border-gray-200 bg-white flex flex-col min-h-0"
+            className="w-[390px] h-[580px] rounded-3xl overflow-hidden shadow-2xl border border-gray-200 bg-white flex flex-col min-h-0"
           >
             {/* Header */}
             <div className="bg-[#118C8C] p-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-3">
                 {activeTab === 'admin' && selectedConvo && (
                   <button
-                    onClick={() => setSelectedConvo(null)}
-                    className="mr-2 text-white/95 hover:text-white hover:opacity-90 transition"
+                    onClick={() => {
+  setSelectedConvo(null);
+  setSupportMessages([]);
+  setReplyInput('');
+}}
+                    className="mr-1 text-white/95 hover:text-white hover:opacity-90 transition"
                   >
                     ← Back
                   </button>
                 )}
                 <MessageCircle size={22} />
-                <h3 className="font-bold text-lg">D.A.B.S. Chat {isAdmin && '(Admin)'}</h3>
+                <h3 className="font-bold text-lg">
+                  D.A.B.S. Chat {isAdmin && '(Admin)'}
+                </h3>
               </div>
-              <button onClick={() => setIsOpen(false)} className="hover:opacity-90 transition">
+              <button
+                onClick={() => setIsOpen(false)}
+                className="hover:opacity-90 transition"
+              >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Tabs (sealed flex chain) */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="flex-1 min-h-0 flex flex-col"
+            >
               <TabsList className="grid w-full grid-cols-2 bg-gray-50 p-1">
                 <TabsTrigger value="dabzzy" className="gap-2">
                   <Sparkles size={16} /> Dabzzy AI
@@ -446,7 +587,7 @@ const ChatWidget = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {/* IMPORTANT: TabsContent is block by default; force flex only when active */}
+              {/* AI */}
               <TabsContent
                 value="dabzzy"
                 className="m-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
@@ -460,7 +601,9 @@ const ChatWidget = () => {
                       text={msg.content}
                     />
                   ))}
-                  {aiLoading && <div className="text-sm text-gray-500 px-2">Thinking…</div>}
+                  {aiLoading && (
+                    <div className="text-sm text-gray-500 px-2">Thinking…</div>
+                  )}
                   <div ref={aiEndRef} />
                 </div>
 
@@ -486,6 +629,7 @@ const ChatWidget = () => {
                 </div>
               </TabsContent>
 
+              {/* Support */}
               <TabsContent
                 value="admin"
                 className="m-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
@@ -521,7 +665,12 @@ const ChatWidget = () => {
                               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
                             />
                             <div className="flex gap-2 justify-end">
-                              <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setBuyerNewChatOpen(false)}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => setBuyerNewChatOpen(false)}
+                              >
                                 Cancel
                               </Button>
                               <Button
@@ -538,33 +687,92 @@ const ChatWidget = () => {
                       </div>
                     )}
 
-                    <div className="flex-1 min-h-0 p-4 overflow-y-auto bg-gradient-to-b from-gray-50 to-white space-y-3">
+                    <div className="px-4 pt-4 pb-2 bg-white border-b">
+                      <p className="font-semibold text-gray-900">
+                        {isAdmin ? 'Customer Conversations' : 'Your Conversations'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {isAdmin
+                          ? 'Tap a customer thread to open the full chat.'
+                          : 'Open a support thread or start a new one.'}
+                      </p>
+                    </div>
+
+                    <div className="flex-1 min-h-0 p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-white space-y-2">
                       {conversations.length === 0 ? (
                         <div className="text-center text-gray-500 mt-12">
                           <p>No conversations yet</p>
                         </div>
                       ) : (
-                        conversations.map((convo) => (
-                          <button
-                            key={convo.key}
-                            onClick={() => setSelectedConvo(convo)}
-                            className="w-full text-left bg-white border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 transition flex items-start gap-3 shadow-sm"
-                          >
-                            <div className="w-10 h-10 rounded-2xl bg-[#118C8C]/10 flex items-center justify-center text-[#118C8C] font-bold">
-                              {(isAdmin ? convo.buyerName || convo.buyerEmail : convo.subject)?.[0]?.toUpperCase() || '?'}
-                            </div>
+                        conversations.map((convo) => {
+                          const displayName = isAdmin
+                            ? getDisplayName(convo)
+                            : convo.subject;
+                          const avatarSeed = isAdmin
+                            ? convo.buyerEmail || convo.buyerName || convo.key
+                            : convo.subject || convo.key;
+                          const avatarTone = getAvatarTone(avatarSeed);
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="font-semibold text-gray-900 truncate">
-                                  {isAdmin ? convo.buyerName || convo.buyerEmail : convo.subject}
-                                </p>
-                                {convo.hasUnread && <span className="w-2.5 h-2.5 bg-red-500 rounded-full" />}
+                          return (
+                            <button
+                              key={convo.key}
+                              onClick={() => setSelectedConvo(convo)}
+                              className="w-full text-left bg-white border border-gray-200 rounded-2xl px-3 py-3 hover:bg-gray-50 transition flex items-start gap-3 shadow-sm"
+                            >
+                              <div
+                                className={`relative w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${avatarTone}`}
+                              >
+                                {getInitials(displayName)}
+                                {convo.hasUnread && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full" />
+                                )}
                               </div>
-                              <p className="text-sm text-gray-600 truncate mt-1">{convo.lastPreview || 'Tap to open conversation'}</p>
-                            </div>
-                          </button>
-                        ))
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-gray-900 truncate">
+                                      {displayName}
+                                    </p>
+
+                                    {isAdmin ? (
+                                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                                        {convo.buyerEmail || 'No email'}
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                                        D.A.B.S. Support
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="shrink-0 text-[11px] text-gray-400 pt-0.5">
+                                    {formatListTime(convo.latestMillis)}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                  <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2.5 py-1 text-[11px] font-medium">
+                                    {convo.subject || 'General Support'}
+                                  </span>
+
+                                  {convo.hasUnread && (
+                                    <span className="inline-flex items-center rounded-full bg-red-50 text-red-600 px-2.5 py-1 text-[11px] font-medium">
+                                      New
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="text-sm text-gray-600 truncate mt-2">
+                                  <span className="font-medium text-gray-500">
+                                    {convo.lastSenderLabel}:
+                                  </span>{' '}
+                                  {convo.lastPreview || 'Tap to open conversation'}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -572,14 +780,44 @@ const ChatWidget = () => {
                   <div className="flex-1 min-h-0 flex flex-col relative">
                     {/* Conversation header */}
                     <div className="px-4 py-3 bg-white border-b flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-[#118C8C]/10 flex items-center justify-center text-[#118C8C] font-bold">
-                        {(isAdmin ? selectedConvo.buyerName || selectedConvo.buyerEmail : 'S')?.[0]?.toUpperCase() || 'S'}
+                      <div
+                        className={`w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 ${getAvatarTone(
+                          selectedConvo.buyerEmail ||
+                            selectedConvo.buyerName ||
+                            selectedConvo.subject
+                        )}`}
+                      >
+                        {getInitials(
+                          isAdmin
+                            ? getDisplayName(selectedConvo)
+                            : 'Support'
+                        )}
                       </div>
+
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 truncate">
-                          {isAdmin ? selectedConvo.buyerName || selectedConvo.buyerEmail : 'Support'}
+                          {isAdmin
+                            ? getDisplayName(selectedConvo)
+                            : 'D.A.B.S. Support'}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">{selectedConvo.subject}</p>
+
+                        {isAdmin ? (
+                          <p className="text-xs text-gray-500 truncate">
+                            {selectedConvo.buyerEmail}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-500 truncate">
+                            {selectedConvo.subject}
+                          </p>
+                        )}
+
+                        {isAdmin && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2 py-0.5 text-[11px] font-medium">
+                              {selectedConvo.subject}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -592,7 +830,10 @@ const ChatWidget = () => {
                       {renderedSupportStream.map((item) => {
                         if (item._type === 'date') {
                           return (
-                            <div key={item.id} className="flex items-center justify-center my-2">
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-center my-2"
+                            >
                               <div className="px-3 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-600 shadow-sm">
                                 {item.label}
                               </div>
@@ -611,7 +852,6 @@ const ChatWidget = () => {
                         );
                       })}
 
-                      {/* Extra space so last message never feels hidden near input */}
                       <div className="h-6" />
                       <div ref={bottomRef} />
                     </div>
@@ -620,7 +860,11 @@ const ChatWidget = () => {
                     {showJump && (
                       <div className="absolute bottom-[86px] right-4">
                         <button
-                          onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                          onClick={() =>
+                            bottomRef.current?.scrollIntoView({
+                              behavior: 'smooth',
+                            })
+                          }
                           className="px-3 py-2 rounded-full bg-white border border-gray-200 shadow-md text-sm hover:bg-gray-50"
                         >
                           Jump to latest
@@ -635,7 +879,9 @@ const ChatWidget = () => {
                           value={replyInput}
                           onChange={(e) => setReplyInput(e.target.value)}
                           placeholder="Type your message…"
-                          onKeyDown={(e) => e.key === 'Enter' && !sending && sendSupportReply()}
+                          onKeyDown={(e) =>
+                            e.key === 'Enter' && !sending && sendSupportReply()
+                          }
                           className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
                           disabled={sending}
                         />
