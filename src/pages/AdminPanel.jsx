@@ -2,6 +2,7 @@
 // UPDATED: Dashboard upgraded + Analytics upgraded (Date range filter + Revenue over time line chart + defendable forecast)
 // UPDATED UI: Recent Orders section modernized into cards with summary chips
 // UPDATED UI: Orders tab now has search + status filters + order details drawer
+// UPDATED UI: Drawer now shows shipping address + payment method + delivery method
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
@@ -34,7 +35,8 @@ import {
   LogOut, CheckCircle, X,
   AlertCircle, Truck, Clock, Award,
   ArrowRight, User, CalendarDays, CreditCard, Search, Filter,
-  Eye, X as CloseIcon, Mail, Hash, Box, ReceiptText
+  Eye, X as CloseIcon, Mail, Hash, Box, ReceiptText,
+  MapPin, Phone, Wallet
 } from "lucide-react";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
@@ -52,7 +54,6 @@ const AdminPanel = () => {
   const [tab, setTab] = useState("dashboard");
   const [productStats, setProductStats] = useState([]);
 
-  // Orders tab UI
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -294,6 +295,37 @@ const AdminPanel = () => {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatPaymentMethod = (value) => {
+    if (!value) return "Not specified";
+    const map = {
+      bank: "Bank Transfer",
+      paypal: "PayPal",
+      cod: "Cash on Delivery"
+    };
+    return map[value] || value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const formatDeliveryMethod = (value) => {
+    if (!value) return "Not specified";
+    const map = {
+      courier: "Courier Shipping",
+      pickup: "Local Pickup"
+    };
+    return map[value] || value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const formatFullShippingAddress = (shippingInfo) => {
+    if (!shippingInfo) return "No shipping address saved.";
+    const parts = [
+      shippingInfo.street,
+      shippingInfo.city,
+      shippingInfo.stateProvince,
+      shippingInfo.postalCode,
+      shippingInfo.country,
+    ].filter(Boolean);
+    return parts.length ? parts.join(', ') : "No shipping address saved.";
+  };
+
   const completedCountAll = completedOrders.length;
   const pendingCount = orders.filter(o => o.status === "pending").length;
   const processingCount = orders.filter(o => o.status === "processing").length;
@@ -320,7 +352,6 @@ const AdminPanel = () => {
         orderStatusFilter === 'all' ? true : (order.status || '') === orderStatusFilter;
 
       if (!matchesStatus) return false;
-
       if (!term) return true;
 
       const shortId = order.id?.slice(0, 8).toLowerCase() || '';
@@ -1110,6 +1141,9 @@ const AdminPanel = () => {
                       <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Customer</p>
                         <p className="text-sm font-medium text-gray-900 break-all">
+                          {selectedOrderLive.buyerName || "Guest Buyer"}
+                        </p>
+                        <p className="text-sm text-gray-600 break-all mt-0.5">
                           {selectedOrderLive.buyerEmail || "Guest"}
                         </p>
                       </div>
@@ -1141,12 +1175,69 @@ const AdminPanel = () => {
 
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
-                        <CreditCard size={18} />
+                        <Wallet size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Payment Summary</p>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Payment Method</p>
                         <p className="text-sm font-medium text-gray-900">
-                          {formatPrice(selectedOrderLive.total || 0)}
+                          {formatPaymentMethod(selectedOrderLive.paymentMethod)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Delivery: {formatDeliveryMethod(selectedOrderLive.deliveryMethod)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                  <h4 className="text-lg font-bold text-[#118C8C] mb-4">Shipping Address</h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-start gap-3 sm:col-span-2">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                        <User size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Recipient</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {`${selectedOrderLive.shippingInfo?.firstName || ""} ${selectedOrderLive.shippingInfo?.lastName || ""}`.trim() || selectedOrderLive.buyerName || "Not provided"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                        <Phone size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Phone</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedOrderLive.shippingInfo?.phone || "Not provided"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                        <Mail size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Email</p>
+                        <p className="text-sm font-medium text-gray-900 break-all">
+                          {selectedOrderLive.shippingInfo?.email || selectedOrderLive.buyerEmail || "Not provided"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 sm:col-span-2">
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Full Address</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {formatFullShippingAddress(selectedOrderLive.shippingInfo)}
                         </p>
                       </div>
                     </div>
