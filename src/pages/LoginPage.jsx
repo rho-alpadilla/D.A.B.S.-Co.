@@ -1,48 +1,123 @@
-// src/pages/LoginPage.jsx ← UPDATED: non-admin redirects to /gallery (admin still to /admin-panel)
-// ✅ Also fixed: no navigate() during render (moved to useEffect)
-
-import React, { useState, useEffect } from 'react';
+// src/pages/LoginPage.jsx
+import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { refreshCart } = useCart();
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // ✅ If already logged in → redirect
-  useEffect(() => {
-    if (!user) return;
-    const isAdmin = (user.email || "").toLowerCase().includes('admin');
-    navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
-  }, [user, navigate]);
+  const LOCAL_CART_KEY = 'dabs_guest_cart';
 
+  // Update form fields
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Read guest cart from localStorage
+  const getGuestCart = () => {
+    try {
+      return JSON.parse(localStorage.getItem(LOCAL_CART_KEY) || '[]');
+    } catch (error) {
+      console.error('Failed to read guest cart:', error);
+      return [];
+    }
+  };
+
+  // Read existing Firestore cart
+  const getFirestoreCart = async (uid) => {
+    const cartRef = collection(db, 'users', uid, 'cart');
+    const snap = await getDocs(cartRef);
+
+    return snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+  };
+
+  // Clear all items in Firestore cart
+  const clearFirestoreCart = async (uid) => {
+    const cartRef = collection(db, 'users', uid, 'cart');
+    const snap = await getDocs(cartRef);
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  };
+
+  // Merge guest cart with existing Firestore cart
+  const mergeAndSaveCart = async (uid, guestItems) => {
+    const existingItems = await getFirestoreCart(uid);
+    const mergedMap = new Map();
+
+    // Keep existing user cart items
+    existingItems.forEach((item) => {
+      mergedMap.set(item.id, { ...item });
+    });
+
+    // Add guest items, or combine quantity if item already exists
+    guestItems.forEach((item) => {
+      if (mergedMap.has(item.id)) {
+        const existing = mergedMap.get(item.id);
+        mergedMap.set(item.id, {
+          ...existing,
+          quantity: (existing.quantity || 0) + (item.quantity || 0),
+        });
+      } else {
+        mergedMap.set(item.id, { ...item });
+      }
+    });
+
+    const mergedItems = Array.from(mergedMap.values());
+
+    // Rewrite Firestore cart with merged result
+    await clearFirestoreCart(uid);
+
+    if (mergedItems.length === 0) return;
+
+    await Promise.all(
+      mergedItems.map((item) =>
+        setDoc(doc(db, 'users', uid, 'cart', item.id), item)
+      )
+    );
+  };
+
+  // Handle login
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      const guestCart = getGuestCart();
 
-      // ✅ Same admin check (kept consistent with your setup)
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
+      const loggedInUser = userCredential.user;
+
+      // Merge guest cart into the logged-in user's cart
+      if (guestCart.length > 0 && loggedInUser?.uid) {
+        await mergeAndSaveCart(loggedInUser.uid, guestCart);
+        localStorage.removeItem(LOCAL_CART_KEY);
+      }
+
+      // Refresh cart UI immediately
+      await refreshCart(loggedInUser.uid);
+
       const isAdmin = formData.email.toLowerCase().includes('admin');
-
-      // ✅ Redirect correctly: admin → admin panel, everyone else → gallery
       navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
     } catch (err) {
       setError(err.message);
@@ -50,9 +125,6 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
-
-  // Optional: while redirecting logged-in users, render nothing
-  if (user) return null;
 
   return (
     <>
@@ -76,7 +148,9 @@ const LoginPage = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700" htmlFor="email">Email Address</label>
+                <label className="text-sm font-medium text-gray-700" htmlFor="email">
+                  Email Address
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
                   <input
@@ -96,7 +170,9 @@ const LoginPage = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700" htmlFor="password">Password</label>
+                <label className="text-sm font-medium text-gray-700" htmlFor="password">
+                  Password
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
                   <input

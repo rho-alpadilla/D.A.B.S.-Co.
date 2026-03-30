@@ -1,5 +1,12 @@
-// src/context/CartContext.jsx ← FIXED: Prevent cross-user cart leak + proper clear + safe sync
-import React, { createContext, useContext, useState, useEffect } from 'react';
+// src/context/CartContext.jsx
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   collection,
@@ -12,178 +19,212 @@ import {
   setDoc,
   deleteDoc,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/lib/firebase';
+import { db, useAuth } from '@/lib/firebase';
 
 const CartContext = createContext(null);
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
-  const [cartLoading, setCartLoading] = useState(true); // ✅ prevents bad sync during auth switch
+  const [cartLoading, setCartLoading] = useState(true);
+
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
   const LOCAL_CART_KEY = 'dabs_guest_cart';
 
-  // Helper: delete ALL items in a user's Firestore cart
-  const clearFirestoreCart = async (uid) => {
-    if (!uid) return;
+  // Prevent save before correct cart source is loaded
+  const hydratedRef = useRef(false);
+
+  // Skip first save after cart source changes
+  const skipNextSaveRef = useRef(false);
+
+  // Read guest cart from localStorage
+  const getGuestCart = () => {
+    try {
+      return JSON.parse(localStorage.getItem(LOCAL_CART_KEY) || '[]');
+    } catch (error) {
+      console.error('Failed to read guest cart:', error);
+      return [];
+    }
+  };
+
+  // Save guest cart to localStorage
+  const setGuestCart = (items) => {
+    if (!items || items.length === 0) {
+      localStorage.removeItem(LOCAL_CART_KEY);
+    } else {
+      localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(items));
+    }
+  };
+
+  // Get logged-in user's Firestore cart
+  const getFirestoreCart = async (uid) => {
     const cartRef = collection(db, 'users', uid, 'cart');
     const snap = await getDocs(cartRef);
+
+    return snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+  };
+
+  // Delete all items in Firestore cart
+  const clearFirestoreCart = async (uid) => {
+    if (!uid) return;
+
+    const cartRef = collection(db, 'users', uid, 'cart');
+    const snap = await getDocs(cartRef);
+
     await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
   };
 
-  // ✅ Load cart when auth state changes (IMPORTANT: reset immediately to avoid leak)
-  useEffect(() => {
-    if (authLoading) return;
+  // Replace Firestore cart with current items
+  const overwriteFirestoreCart = async (uid, items) => {
+    if (!uid) return;
 
-    let cancelled = false;
+    await clearFirestoreCart(uid);
 
-    const loadCart = async () => {
+    if (!items || items.length === 0) return;
+
+    await Promise.all(
+      items.map((item) =>
+        setDoc(doc(db, 'users', uid, 'cart', item.id), item)
+      )
+    );
+  };
+
+  // Reusable cart loader
+  const refreshCart = useCallback(
+    async (overrideUid = null) => {
+      const activeUid = overrideUid || user?.uid;
+
+      if (authLoading && !overrideUid) return;
+
+      skipNextSaveRef.current = true;
       setCartLoading(true);
-
-      // ✅ Reset immediately when user changes so old cart doesn't flash / get synced
-      setCartItems([]);
+      hydratedRef.current = false;
 
       try {
-        if (user?.uid) {
-          // Logged-in: load from Firestore
-          const cartRef = collection(db, 'users', user.uid, 'cart');
-          const snap = await getDocs(cartRef);
-          const firestoreItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-          // Merge guest cart if any exists
-          const guestCart = JSON.parse(localStorage.getItem(LOCAL_CART_KEY) || '[]');
-
-          let merged = [...firestoreItems];
-
-          if (guestCart.length > 0) {
-            guestCart.forEach((guestItem) => {
-              const existing = merged.find((i) => i.id === guestItem.id);
-              if (!existing) {
-                merged.push(guestItem);
-              } else {
-                existing.quantity = (existing.quantity || 0) + (guestItem.quantity || 0);
-              }
-            });
-
-            // Save merged to Firestore
-            await Promise.all(
-              merged.map((item) =>
-                setDoc(doc(db, 'users', user.uid, 'cart', item.id), item, { merge: true })
-              )
-            );
-
-            // Clear guest cart after merge
-            localStorage.removeItem(LOCAL_CART_KEY);
-
-            toast({
-              title: 'Cart Updated',
-              description: 'Guest items merged into your account.',
-            });
-          }
-
-          if (!cancelled) setCartItems(merged);
+        if (activeUid) {
+          const firestoreItems = await getFirestoreCart(activeUid);
+          setCartItems(firestoreItems);
         } else {
-          // Guest: load from localStorage
-          const saved = JSON.parse(localStorage.getItem(LOCAL_CART_KEY) || '[]');
-          if (!cancelled) setCartItems(saved);
+          const guestCart = getGuestCart();
+          setCartItems(guestCart);
         }
       } catch (err) {
         console.error('Cart load error:', err);
       } finally {
-        if (!cancelled) setCartLoading(false);
+        hydratedRef.current = true;
+        setCartLoading(false);
       }
-    };
+    },
+    [user?.uid, authLoading]
+  );
 
-    loadCart();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.uid, authLoading]); // ✅ ONLY depends on uid changes
-
-  // ✅ Sync cart AFTER it has loaded (prevents writing old cart into new user)
+  // Load correct cart source when auth changes
   useEffect(() => {
-    if (authLoading || cartLoading) return;
+    if (authLoading) return;
+    refreshCart();
+  }, [refreshCart, authLoading]);
 
-    const sync = async () => {
+  // Save cart after correct source is loaded
+  useEffect(() => {
+    if (authLoading || cartLoading || !hydratedRef.current) return;
+
+    // Skip first auto-save after reload
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
+
+    const saveCart = async () => {
       try {
         if (user?.uid) {
-          // Logged-in: sync to Firestore
-          // (Only upsert current items; removals handled by removeFromCart / clearCart)
-          await Promise.all(
-            cartItems.map((item) =>
-              setDoc(doc(db, 'users', user.uid, 'cart', item.id), item, { merge: true })
-            )
-          );
+          await overwriteFirestoreCart(user.uid, cartItems);
         } else {
-          // Guest: always sync localStorage (even when empty)
-          if (cartItems.length === 0) localStorage.removeItem(LOCAL_CART_KEY);
-          else localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(cartItems));
+          setGuestCart(cartItems);
         }
       } catch (err) {
-        console.error('Cart sync error:', err);
+        console.error('Cart save error:', err);
       }
     };
 
-    sync();
+    saveCart();
   }, [cartItems, user?.uid, authLoading, cartLoading]);
 
+  // Add item to cart
   const addToCart = (product, quantity = 1) => {
     setCartItems((prev) => {
-      const exists = prev.find((i) => i.id === product.id);
-      if (exists) {
-        return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: (i.quantity || 0) + quantity } : i
+      const existing = prev.find((item) => item.id === product.id);
+
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: (item.quantity || 0) + quantity }
+            : item
         );
       }
+
       return [...prev, { ...product, quantity }];
     });
 
-    toast({ title: 'Added!', description: `${product.name} added to cart.` });
+    toast({
+      title: 'Added!',
+      description: `${product.name} added to cart.`,
+    });
   };
 
-  const removeFromCart = async (id) => {
-    setCartItems((prev) => prev.filter((i) => i.id !== id));
-
-    // Also delete from Firestore for logged-in users
-    if (user?.uid) {
-      try {
-        await deleteDoc(doc(db, 'users', user.uid, 'cart', id));
-      } catch (err) {
-        console.error('Remove Firestore cart item failed:', err);
-      }
-    }
+  // Remove item
+  const removeFromCart = (id) => {
+    setCartItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Update quantity
   const updateQuantity = (id, qty) => {
     if (qty < 1) return;
-    setCartItems((prev) => prev.map((i) => (i.id === id ? { ...i, quantity: qty } : i)));
+
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: qty } : item
+      )
+    );
   };
 
+  // Clear cart
   const clearCart = async () => {
     setCartItems([]);
 
-    if (user?.uid) {
-      // ✅ Actually clear Firestore cart so it doesn't "come back" on reload
-      try {
+    try {
+      if (user?.uid) {
         await clearFirestoreCart(user.uid);
-      } catch (err) {
-        console.error('Clear Firestore cart failed:', err);
+      } else {
+        localStorage.removeItem(LOCAL_CART_KEY);
       }
-    } else {
-      localStorage.removeItem(LOCAL_CART_KEY);
+    } catch (err) {
+      console.error('Clear cart error:', err);
     }
   };
 
-  const cartTotal = cartItems.reduce((sum, i) => sum + (i.price || 0) * (i.quantity || 0), 0);
-  const cartCount = cartItems.reduce((sum, i) => sum + (i.quantity || 0), 0);
+  // Total price
+  const cartTotal = cartItems.reduce(
+    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+    0
+  );
 
-  // Checkout: only for logged-in
+  // Total quantity
+  const cartCount = cartItems.reduce(
+    (sum, item) => sum + (item.quantity || 0),
+    0
+  );
+
+  // Checkout
   const checkout = async () => {
     if (cartItems.length === 0 || !user?.uid) {
-      toast({ title: 'Error', description: 'Cart empty or not logged in.' });
+      toast({
+        title: 'Error',
+        description: 'Cart empty or not logged in.',
+      });
       return false;
     }
 
@@ -197,15 +238,13 @@ export const CartProvider = ({ children }) => {
         createdAt: serverTimestamp(),
       });
 
-      // Increment totalSold
       const updatePromises = cartItems.map((item) =>
         updateDoc(doc(db, 'pricelists', item.id), {
           totalSold: increment(item.quantity || 0),
         })
       );
-      await Promise.all(updatePromises);
 
-      // ✅ Clear cart after success (also clears Firestore now)
+      await Promise.all(updatePromises);
       await clearCart();
 
       toast({
@@ -216,11 +255,13 @@ export const CartProvider = ({ children }) => {
       return true;
     } catch (err) {
       console.error('Checkout error:', err);
+
       toast({
         title: 'Error',
         description: 'Could not place order. Please try again.',
         variant: 'destructive',
       });
+
       return false;
     }
   };
@@ -237,6 +278,7 @@ export const CartProvider = ({ children }) => {
         checkout,
         cartTotal,
         cartCount,
+        refreshCart,
       }}
     >
       {children}
@@ -244,4 +286,12 @@ export const CartProvider = ({ children }) => {
   );
 };
 
-export const useCart = () => useContext(CartContext);
+export const useCart = () => {
+  const context = useContext(CartContext);
+
+  if (!context) {
+    throw new Error('useCart must be used inside CartProvider');
+  }
+
+  return context;
+};
