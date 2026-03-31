@@ -3,6 +3,8 @@
 // UPDATED UI: Recent Orders section modernized into cards with summary chips
 // UPDATED UI: Orders tab now has search + status filters + order details drawer
 // UPDATED UI: Drawer now shows shipping address + payment method + delivery method
+// UPDATED: Added richer order status flow + action dropdowns in dashboard/orders/drawer
+// UPDATED: Safer completion logic so stock is deducted only once when moving into "completed"
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
@@ -57,6 +59,15 @@ const AdminPanel = () => {
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const orderWorkflowStatuses = [
+    "pending",
+    "payment_confirmed",
+    "processing",
+    "shipping",
+    "completed",
+    "cancelled"
+  ];
 
   useEffect(() => {
     if (!user) return;
@@ -114,16 +125,24 @@ const AdminPanel = () => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
+    const currentStatus = order.status || "pending";
+
     try {
-      if (newStatus === "completed") {
+      // Only deduct stock when transitioning INTO completed for the first time
+      if (newStatus === "completed" && currentStatus !== "completed") {
         const promises = (order.items || []).map(async (item) => {
           const productRef = doc(db, "pricelists", item.id);
           const productSnap = await getDoc(productRef);
+
           if (productSnap.exists()) {
             const data = productSnap.data();
             const currentStock = data.stockQuantity || 0;
             const newStock = currentStock - item.quantity;
-            if (newStock < 0) throw new Error(`Not enough stock for "${item.name}"`);
+
+            if (newStock < 0) {
+              throw new Error(`Not enough stock for "${item.name}"`);
+            }
+
             await updateDoc(productRef, {
               stockQuantity: newStock,
               inStock: newStock > 0,
@@ -131,11 +150,16 @@ const AdminPanel = () => {
             });
           }
         });
+
         await Promise.all(promises);
       }
 
-      await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-      alert(`Order marked as ${newStatus}!`);
+      await updateDoc(doc(db, "orders", orderId), {
+        status: newStatus,
+        updatedAt: new Date()
+      });
+
+      alert(`Order marked as ${newStatus.replace(/_/g, " ")}!`);
     } catch (err) {
       alert(err.message || "Failed to update order");
       console.error(err);
@@ -144,15 +168,55 @@ const AdminPanel = () => {
 
   const getStatusBadge = (status) => {
     const map = {
-      "pending": { text: "Pending", color: "bg-yellow-100 text-yellow-700", icon: <Clock size={16} /> },
-      "processing": { text: "Processing", color: "bg-blue-100 text-blue-700", icon: <Truck size={16} /> },
-      "completed": { text: "Completed", color: "bg-green-100 text-green-700", icon: <CheckCircle size={16} /> },
-      "Cancellation Requested": { text: "Cancellation Requested", color: "bg-orange-100 text-orange-700", icon: <AlertCircle size={16} /> },
-      "Cancelled – Pending Refund": { text: "Pending Refund", color: "bg-red-100 text-red-700", icon: <AlertCircle size={16} /> },
-      "Refunded": { text: "Refunded", color: "bg-purple-100 text-purple-700", icon: <CheckCircle size={16} /> },
-      "cancelled": { text: "Cancelled", color: "bg-gray-100 text-gray-700", icon: <X size={16} /> }
+      "pending": {
+        text: "Pending",
+        color: "bg-yellow-100 text-yellow-700",
+        icon: <Clock size={16} />
+      },
+      "payment_confirmed": {
+        text: "Payment Confirmed",
+        color: "bg-emerald-100 text-emerald-700",
+        icon: <CheckCircle size={16} />
+      },
+      "processing": {
+        text: "Processing",
+        color: "bg-blue-100 text-blue-700",
+        icon: <Package size={16} />
+      },
+      "shipping": {
+        text: "Shipping",
+        color: "bg-cyan-100 text-cyan-700",
+        icon: <Truck size={16} />
+      },
+      "completed": {
+        text: "Completed",
+        color: "bg-green-100 text-green-700",
+        icon: <CheckCircle size={16} />
+      },
+      "Cancellation Requested": {
+        text: "Cancellation Requested",
+        color: "bg-orange-100 text-orange-700",
+        icon: <AlertCircle size={16} />
+      },
+      "Cancelled – Pending Refund": {
+        text: "Pending Refund",
+        color: "bg-red-100 text-red-700",
+        icon: <AlertCircle size={16} />
+      },
+      "Refunded": {
+        text: "Refunded",
+        color: "bg-purple-100 text-purple-700",
+        icon: <CheckCircle size={16} />
+      },
+      "cancelled": {
+        text: "Cancelled",
+        color: "bg-gray-100 text-gray-700",
+        icon: <X size={16} />
+      }
     };
+
     const item = map[status] || map.pending;
+
     return (
       <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${item.color}`}>
         {item.icon} {item.text}
@@ -328,7 +392,9 @@ const AdminPanel = () => {
 
   const completedCountAll = completedOrders.length;
   const pendingCount = orders.filter(o => o.status === "pending").length;
+  const paymentConfirmedCount = orders.filter(o => o.status === "payment_confirmed").length;
   const processingCount = orders.filter(o => o.status === "processing").length;
+  const shippingCount = orders.filter(o => o.status === "shipping").length;
   const cancelledCount = orders.filter(o =>
     ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status)
   ).length;
@@ -374,7 +440,9 @@ const AdminPanel = () => {
   const orderStatusOptions = [
     'all',
     'pending',
+    'payment_confirmed',
     'processing',
+    'shipping',
     'completed',
     'cancelled',
     'Cancellation Requested',
@@ -476,7 +544,7 @@ const AdminPanel = () => {
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-5">
                         <div className="rounded-2xl bg-white border border-gray-100 p-4">
                           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Shown here</p>
                           <p className="text-2xl font-bold text-gray-900 mt-1">{recentOrders.length}</p>
@@ -490,9 +558,15 @@ const AdminPanel = () => {
                         </div>
 
                         <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Processing</p>
-                          <p className="text-2xl font-bold text-blue-600 mt-1">{processingCount}</p>
-                          <p className="text-sm text-gray-500 mt-1">Orders currently being handled</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Paid</p>
+                          <p className="text-2xl font-bold text-emerald-600 mt-1">{paymentConfirmedCount}</p>
+                          <p className="text-sm text-gray-500 mt-1">Payments confirmed</p>
+                        </div>
+
+                        <div className="rounded-2xl bg-white border border-gray-100 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Shipping</p>
+                          <p className="text-2xl font-bold text-cyan-600 mt-1">{shippingCount}</p>
+                          <p className="text-sm text-gray-500 mt-1">Orders on the way</p>
                         </div>
                       </div>
                     </div>
@@ -591,16 +665,21 @@ const AdminPanel = () => {
                                 </div>
                               </div>
 
-                              <div className="lg:w-[190px] shrink-0">
+                              <div className="lg:w-[220px] shrink-0">
                                 <div className="flex flex-col gap-2">
-                                  {order.status !== "completed" && (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => updateOrderStatus(order.id, "completed")}
-                                      className="w-full bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
+                                  {orderWorkflowStatuses.includes(order.status || "pending") && (
+                                    <select
+                                      value={order.status || "pending"}
+                                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#118C8C]/20"
                                     >
-                                      Mark Completed
-                                    </Button>
+                                      <option value="pending">Pending</option>
+                                      <option value="payment_confirmed">Payment Confirmed</option>
+                                      <option value="processing">Processing</option>
+                                      <option value="shipping">Shipping</option>
+                                      <option value="completed">Completed</option>
+                                      <option value="cancelled">Cancelled</option>
+                                    </select>
                                   )}
 
                                   <Button
@@ -712,7 +791,9 @@ const AdminPanel = () => {
                       <div className="space-y-3 text-sm">
                         {[
                           { label: "Pending", value: pendingCount, bar: "bg-yellow-400" },
+                          { label: "Payment Confirmed", value: paymentConfirmedCount, bar: "bg-emerald-400" },
                           { label: "Processing", value: processingCount, bar: "bg-blue-400" },
+                          { label: "Shipping", value: shippingCount, bar: "bg-cyan-400" },
                           { label: "Completed", value: completedCountAll, bar: "bg-green-500" },
                           { label: "Cancelled/Refund", value: cancelledCount, bar: "bg-gray-500" },
                         ].map(row => (
@@ -780,7 +861,11 @@ const AdminPanel = () => {
                       >
                         {orderStatusOptions.map((status) => (
                           <option key={status} value={status}>
-                            {status === 'all' ? 'All statuses' : status}
+                            {status === 'all'
+                              ? 'All statuses'
+                              : status === 'payment_confirmed'
+                              ? 'Payment Confirmed'
+                              : status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
                           </option>
                         ))}
                       </select>
@@ -838,14 +923,16 @@ const AdminPanel = () => {
                                 View Details
                               </Button>
 
-                              {["pending", "processing", "completed", "cancelled"].includes(order.status || "") && (
+                              {orderWorkflowStatuses.includes(order.status || "pending") && (
                                 <select
                                   value={order.status || "pending"}
                                   onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                  className="px-3 py-1 border rounded text-sm"
+                                  className="px-3 py-1 border rounded text-sm bg-white"
                                 >
                                   <option value="pending">Pending</option>
+                                  <option value="payment_confirmed">Payment Confirmed</option>
                                   <option value="processing">Processing</option>
+                                  <option value="shipping">Shipping</option>
                                   <option value="completed">Completed</option>
                                   <option value="cancelled">Cancelled</option>
                                 </select>
@@ -1289,26 +1376,19 @@ const AdminPanel = () => {
                   <h4 className="text-lg font-bold text-[#118C8C] mb-4">Admin Actions</h4>
 
                   <div className="flex flex-wrap gap-3">
-                    {["pending", "processing", "completed", "cancelled"].includes(selectedOrderLive.status || "") && (
+                    {orderWorkflowStatuses.includes(selectedOrderLive.status || "pending") && (
                       <select
                         value={selectedOrderLive.status || "pending"}
                         onChange={(e) => updateOrderStatus(selectedOrderLive.id, e.target.value)}
                         className="px-4 py-2 border rounded-xl text-sm bg-white"
                       >
                         <option value="pending">Pending</option>
+                        <option value="payment_confirmed">Payment Confirmed</option>
                         <option value="processing">Processing</option>
+                        <option value="shipping">Shipping</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
-                    )}
-
-                    {selectedOrderLive.status !== "completed" && (
-                      <Button
-                        onClick={() => updateOrderStatus(selectedOrderLive.id, "completed")}
-                        className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
-                      >
-                        Mark Completed
-                      </Button>
                     )}
 
                     {selectedOrderLive.status === "Cancellation Requested" && (
