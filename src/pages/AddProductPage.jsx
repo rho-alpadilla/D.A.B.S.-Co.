@@ -8,6 +8,8 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload, Save, X, ArrowLeft, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import Grainient from '@/components/ui-bits/Grainient';
+import Particles from '@/components/ui-bits/Particles';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -123,148 +125,193 @@ const AddProductPage = () => {
     <>
       <Helmet><title>Add New Product - D.A.B.S. Co.</title></Helmet>
 
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto px-6 max-w-4xl">
-          <div className="flex items-center gap-4 mb-8">
-            <Button variant="outline" onClick={() => navigate('/pricelists')}>
-              <ArrowLeft size={20} className="mr-2" /> Back to Pricelists
-            </Button>
-            <h1 className="text-3xl font-bold text-[#118C8C]">Add New Product</h1>
+      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
+          <Grainient
+            color1="#118c8c"
+            color2="#118c8c"
+            color3="#fbfe9f"
+            timeSpeed={0.25}
+            colorBalance={-0.06}
+            warpStrength={1.5}
+            warpFrequency={3.8}
+            warpSpeed={2}
+            warpAmplitude={50}
+            blendAngle={0}
+            blendSoftness={1}
+            rotationAmount={500}
+            noiseScale={2}
+            grainAmount={0.1}
+            grainScale={2}
+            grainAnimated={false}
+            contrast={1.5}
+            gamma={1}
+            saturation={1}
+            centerX={0}
+            centerY={0}
+            zoom={0.9}
+          />
+
+          <div className="absolute inset-0 pointer-events-none">
+            <Particles
+              particleCount={400}
+              particleSpread={10}
+              speed={0.1}
+              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              moveParticlesOnHover
+              particleHoverFactor={1}
+              alphaParticles={false}
+              particleBaseSize={150}
+              sizeRandomness={1.7}
+              cameraDistance={53}
+              disableRotation={false}
+            />
           </div>
+        </div>
 
-          <div className="bg-white rounded-3xl shadow-2xl p-10">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="relative z-10 py-12">
+          <div className="container mx-auto px-6 max-w-4xl">
+            <div className="flex items-center gap-4 mb-8">
+              <Button variant="outline" onClick={() => navigate('/pricelists')}>
+                <ArrowLeft size={20} className="mr-2" /> Back to Pricelists
+              </Button>
+              <h1 className="text-3xl font-bold text-[#118C8C]">Add New Product</h1>
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-2xl p-10">
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                    <input
+                      value={form.name}
+                      onChange={e => setForm({ ...form, name: e.target.value })}
+                      className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Price (PHP)</label>
+                    <input
+                      type="number"
+                      value={form.price}
+                      onChange={e => setForm({ ...form, price: e.target.value })}
+                      className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
-                  <input
-                    value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    className="w-full px-5 py-4 border-2 rounded-xl h-40 focus:border-[#118C8C]"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Price (PHP)</label>
-                  <input
-                    type="number"
-                    value={form.price}
-                    onChange={e => setForm({ ...form, price: e.target.value })}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <select
+                    value={form.category}
+                    onChange={e => setForm({ ...form, category: e.target.value })}
                     className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
                     required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={form.description}
-                  onChange={e => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-5 py-4 border-2 rounded-xl h-40 focus:border-[#118C8C]"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm({ ...form, category: e.target.value })}
-                  className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product Images (multiple allowed)</label>
-                <input 
-                  ref={fileInputRef} 
-                  type="file" 
-                  accept="image/*" 
-                  multiple 
-                  onChange={handleImagesChange} 
-                  className="hidden" 
-                />
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="lg" 
-                  onClick={() => fileInputRef.current?.click()} 
-                  disabled={uploading}
-                >
-                  <Upload className="mr-2" /> {uploading ? "Uploading..." : "Upload Images"}
-                </Button>
-                <p className="text-sm text-gray-500 mt-2">You can select multiple images at once (different angles, details, etc.)</p>
-              </div>
-
-              {previews.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
-                  {previews.map((preview, index) => (
-                    <div key={index} className="relative group">
-                      <img 
-                        src={preview} 
-                        alt={`preview ${index}`} 
-                        className="w-full h-40 object-cover rounded-lg shadow" 
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removePreview(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="flex items-center gap-4">
-                  <input
-                    type="checkbox"
-                    checked={form.inStock}
-                    onChange={e => setForm({ ...form, inStock: e.target.checked })}
-                    className="w-6 h-6 text-[#118C8C] rounded"
-                  />
-                  <label className="text-lg font-medium">In Stock</label>
+                  >
+                    <option value="">Select Category</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity</label>
-                  <input
-                    type="number"
-                    value={form.stockQuantity}
-                    onChange={e => setForm({ ...form, stockQuantity: e.target.value })}
-                    className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
-                    min="0"
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Product Images (multiple allowed)</label>
+                  <input 
+                    ref={fileInputRef} 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={handleImagesChange} 
+                    className="hidden" 
                   />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="lg" 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={uploading}
+                  >
+                    <Upload className="mr-2" /> {uploading ? "Uploading..." : "Upload Images"}
+                  </Button>
+                  <p className="text-sm text-gray-500 mt-2">You can select multiple images at once (different angles, details, etc.)</p>
                 </div>
-              </div>
 
-              <div className="flex justify-center gap-6 mt-12">
-                <Button 
-                  type="submit" 
-                  size="lg" 
-                  className="bg-[#118C8C] hover:bg-[#0d7070] px-12 py-6 text-xl font-bold"
-                  disabled={uploading || !form.imageUrls.length}
-                >
-                  <Save className="mr-3" /> Add Product
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="lg" 
-                  onClick={() => navigate('/pricelists')}
-                >
-                  <X className="mr-3" /> Cancel
-                </Button>
-              </div>
-            </form>
+                {previews.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                    {previews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img 
+                          src={preview} 
+                          alt={`preview ${index}`} 
+                          className="w-full h-40 object-cover rounded-lg shadow" 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePreview(index)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="checkbox"
+                      checked={form.inStock}
+                      onChange={e => setForm({ ...form, inStock: e.target.checked })}
+                      className="w-6 h-6 text-[#118C8C] rounded"
+                    />
+                    <label className="text-lg font-medium">In Stock</label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity</label>
+                    <input
+                      type="number"
+                      value={form.stockQuantity}
+                      onChange={e => setForm({ ...form, stockQuantity: e.target.value })}
+                      className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-center gap-6 mt-12">
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="bg-[#118C8C] hover:bg-[#0d7070] px-12 py-6 text-xl font-bold"
+                    disabled={uploading || !form.imageUrls.length}
+                  >
+                    <Save className="mr-3" /> Add Product
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="lg" 
+                    onClick={() => navigate('/pricelists')}
+                  >
+                    <X className="mr-3" /> Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </div>

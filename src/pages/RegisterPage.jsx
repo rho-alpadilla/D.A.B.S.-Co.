@@ -19,6 +19,8 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import Grainient from '@/components/ui-bits/Grainient';
+import Particles from '@/components/ui-bits/Particles';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -152,318 +154,363 @@ const RegisterPage = () => {
     <>
       <Helmet><title>Register - D.A.B.S. Co.</title></Helmet>
 
-      <div className="container mx-auto px-4 py-12 min-h-screen">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden"
-        >
-          <div className="bg-[#118C8C] p-12 text-center">
-            <h1 className="text-5xl font-bold text-white mb-4">Join D.A.B.S. Co.</h1>
-            <p className="text-2xl text-[#bcecec]">Create your account and start shopping</p>
+      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
+          <Grainient
+            color1="#118c8c"
+            color2="#118c8c"
+            color3="#fbfe9f"
+            timeSpeed={0.25}
+            colorBalance={-0.06}
+            warpStrength={1.5}
+            warpFrequency={3.8}
+            warpSpeed={2}
+            warpAmplitude={50}
+            blendAngle={0}
+            blendSoftness={1}
+            rotationAmount={500}
+            noiseScale={2}
+            grainAmount={0.1}
+            grainScale={2}
+            grainAnimated={false}
+            contrast={1.5}
+            gamma={1}
+            saturation={1}
+            centerX={0}
+            centerY={0}
+            zoom={0.9}
+          />
+
+          <div className="absolute inset-0 pointer-events-none">
+            <Particles
+              particleCount={400}
+              particleSpread={10}
+              speed={0.1}
+              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              moveParticlesOnHover
+              particleHoverFactor={1}
+              alphaParticles={false}
+              particleBaseSize={150}
+              sizeRandomness={1.7}
+              cameraDistance={53}
+              disableRotation={false}
+            />
           </div>
+        </div>
 
-          <div className="p-12">
-            {error && (
-              <div className="mb-8 p-6 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center text-lg">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Personal Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
-                    <User size={20} /> Full Name
-                  </label>
-                  <input
-                    name="fullName"
-                    type="text"
-                    required
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    placeholder="Juan Dela Cruz"
-                    value={formData.fullName}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
-                    <AtSign size={20} /> Username
-                  </label>
-                  <input
-                    name="username"
-                    type="text"
-                    required
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    placeholder="JuanDelaCruz_123 (anything is allowed)"
-                    value={formData.username}
-                    onChange={handleChange}
-                  />
-                  {/* ✅ removed "No spaces • lowercase only" */}
-                </div>
-              </div>
-
-              {/* Email */}
-              <div className="space-y-2">
-                <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
-                  <Mail size={20} /> Email Address
-                </label>
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                  placeholder="juan@example.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-              </div>
-
-              {/* Phone + Country */}
-              <div className="space-y-2">
-                <label className="text-lg font-medium text-gray-700">Phone Number</label>
-                <div className="flex gap-4">
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsPhoneCountryOpen(!isPhoneCountryOpen)}
-                      className="flex items-center gap-3 px-5 py-4 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition"
-                    >
-                      <img src={selectedPhoneCountry.flag} alt="" className="w-8 h-6 rounded" />
-                      <span className="font-medium">{selectedPhoneCountry.callingCode}</span>
-                      <ChevronDown size={20} />
-                    </button>
-
-                    {isPhoneCountryOpen && (
-                      <div className="absolute top-full mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                        <div className="p-4 border-b">
-                          <input
-                            type="text"
-                            placeholder="Search country..."
-                            value={phoneCountrySearch}
-                            onChange={(e) => setPhoneCountrySearch(e.target.value)}
-                            className="w-full px-4 py-3 border rounded-lg"
-                            autoFocus
-                          />
-                        </div>
-                        {filteredPhoneCountries.map(country => (
-                          <button
-                            key={country.code}
-                            type="button"
-                            onClick={() => {
-                              setSelectedPhoneCountry(country);
-                              setIsPhoneCountryOpen(false);
-                              setPhoneCountrySearch("");
-                            }}
-                            className="w-full text-left px-5 py-4 hover:bg-gray-50 flex items-center gap-4"
-                          >
-                            <img src={country.flag} alt="" className="w-10 h-7 rounded" />
-                            <span className="flex-1">{country.name}</span>
-                            <span className="text-gray-500">{country.callingCode}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <input
-                    name="phone"
-                    type="tel"
-                    required
-                    className="flex-1 px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    placeholder="912 345 6789"
-                    value={formData.phone}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              {/* Shipping Address */}
-              <div className="space-y-6 pt-8 border-t-2 border-gray-200">
-                <h3 className="text-2xl font-bold text-[#118C8C] flex items-center gap-3">
-                  <Home size={28} /> Shipping Address
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <input
-                    name="streetAddress"
-                    type="text"
-                    required
-                    placeholder="Street Address"
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    value={formData.streetAddress}
-                    onChange={handleChange}
-                  />
-                  <input
-                    name="city"
-                    type="text"
-                    required
-                    placeholder="City"
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    value={formData.city}
-                    onChange={handleChange}
-                  />
-                  <input
-                    name="stateProvince"
-                    type="text"
-                    required
-                    placeholder="State / Province"
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    value={formData.stateProvince}
-                    onChange={handleChange}
-                  />
-                  <input
-                    name="postalCode"
-                    type="text"
-                    required
-                    placeholder="Postal / ZIP Code"
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                    value={formData.postalCode}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                {/* COUNTRY SELECTOR FOR ADDRESS */}
-                <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700">Country</label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
-                      className="w-full flex items-center justify-between px-6 py-5 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition text-left"
-                    >
-                      <div className="flex items-center gap-4">
-                        <img src={selectedAddressCountry.flag} alt="" className="w-10 h-7 rounded" />
-                        <span className="font-medium">{selectedAddressCountry.name}</span>
-                      </div>
-                      <ChevronDown size={20} />
-                    </button>
-
-                    {isAddressCountryOpen && (
-                      <div className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                        <div className="p-4 border-b">
-                          <input
-                            type="text"
-                            placeholder="Search country..."
-                            value={addressCountrySearch}
-                            onChange={(e) => setAddressCountrySearch(e.target.value)}
-                            className="w-full px-4 py-3 border rounded-lg"
-                            autoFocus
-                          />
-                        </div>
-                        {filteredAddressCountries.map(country => (
-                          <button
-                            key={country.code}
-                            type="button"
-                            onClick={() => {
-                              setSelectedAddressCountry(country);
-                              setIsAddressCountryOpen(false);
-                              setAddressCountrySearch("");
-                            }}
-                            className="w-full text-left px-6 py-4 hover:bg-gray-50 flex items-center gap-4"
-                          >
-                            <img src={country.flag} alt="" className="w-10 h-7 rounded" />
-                            <span>{country.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Birthdate */}
-              <div className="space-y-2">
-                <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
-                  <Calendar size={20} /> Birthdate
-                </label>
-                <input
-                  name="birthdate"
-                  type="date"
-                  required
-                  className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                  value={formData.birthdate}
-                  onChange={handleChange}
-                />
-              </div>
-
-              {/* Password */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
-                    <Lock size={20} /> Password
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      minLength="6"
-                      className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={handleChange}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(prev => !prev)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
-                    <Lock size={20} /> Confirm Password
-                  </label>
-
-                  <div className="relative">
-                    <input
-                      name="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      required
-                      className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
-                      placeholder="••••••••"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(prev => !prev)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                    >
-                      {showConfirmPassword ? <EyeOff size={22} /> : <Eye size={22} />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-5 text-2xl"
-                disabled={loading}
-              >
-                {loading ? 'Creating Account...' : 'Create Account'}
-              </Button>
-            </form>
-
-            <div className="mt-10 text-center">
-              <p className="text-gray-600 text-lg">
-                Already have an account?{' '}
-                <Link to="/login" className="text-[#118C8C] font-bold hover:underline text-xl">
-                  Log In
-                </Link>
-              </p>
+        <div className="relative z-10 container mx-auto px-4 py-12 min-h-screen">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden"
+          >
+            <div className="bg-[#118C8C] p-12 text-center">
+              <h1 className="text-5xl font-bold text-white mb-4">Join D.A.B.S. Co.</h1>
+              <p className="text-2xl text-[#bcecec]">Create your account and start shopping</p>
             </div>
-          </div>
-        </motion.div>
+
+            <div className="p-12">
+              {error && (
+                <div className="mb-8 p-6 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center text-lg">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-8">
+                {/* Personal Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                      <User size={20} /> Full Name
+                    </label>
+                    <input
+                      name="fullName"
+                      type="text"
+                      required
+                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      placeholder="Juan Dela Cruz"
+                      value={formData.fullName}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                      <AtSign size={20} /> Username
+                    </label>
+                    <input
+                      name="username"
+                      type="text"
+                      required
+                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      placeholder="JuanDelaCruz_123 (anything is allowed)"
+                      value={formData.username}
+                      onChange={handleChange}
+                    />
+                    {/* ✅ removed "No spaces • lowercase only" */}
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                    <Mail size={20} /> Email Address
+                  </label>
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                    placeholder="juan@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                {/* Phone + Country */}
+                <div className="space-y-2">
+                  <label className="text-lg font-medium text-gray-700">Phone Number</label>
+                  <div className="flex gap-4">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsPhoneCountryOpen(!isPhoneCountryOpen)}
+                        className="flex items-center gap-3 px-5 py-4 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition"
+                      >
+                        <img src={selectedPhoneCountry.flag} alt="" className="w-8 h-6 rounded" />
+                        <span className="font-medium">{selectedPhoneCountry.callingCode}</span>
+                        <ChevronDown size={20} />
+                      </button>
+
+                      {isPhoneCountryOpen && (
+                        <div className="absolute top-full mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                          <div className="p-4 border-b">
+                            <input
+                              type="text"
+                              placeholder="Search country..."
+                              value={phoneCountrySearch}
+                              onChange={(e) => setPhoneCountrySearch(e.target.value)}
+                              className="w-full px-4 py-3 border rounded-lg"
+                              autoFocus
+                            />
+                          </div>
+                          {filteredPhoneCountries.map(country => (
+                            <button
+                              key={country.code}
+                              type="button"
+                              onClick={() => {
+                                setSelectedPhoneCountry(country);
+                                setIsPhoneCountryOpen(false);
+                                setPhoneCountrySearch("");
+                              }}
+                              className="w-full text-left px-5 py-4 hover:bg-gray-50 flex items-center gap-4"
+                            >
+                              <img src={country.flag} alt="" className="w-10 h-7 rounded" />
+                              <span className="flex-1">{country.name}</span>
+                              <span className="text-gray-500">{country.callingCode}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      name="phone"
+                      type="tel"
+                      required
+                      className="flex-1 px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      placeholder="912 345 6789"
+                      value={formData.phone}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                {/* Shipping Address */}
+                <div className="space-y-6 pt-8 border-t-2 border-gray-200">
+                  <h3 className="text-2xl font-bold text-[#118C8C] flex items-center gap-3">
+                    <Home size={28} /> Shipping Address
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <input
+                      name="streetAddress"
+                      type="text"
+                      required
+                      placeholder="Street Address"
+                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      value={formData.streetAddress}
+                      onChange={handleChange}
+                    />
+                    <input
+                      name="city"
+                      type="text"
+                      required
+                      placeholder="City"
+                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      value={formData.city}
+                      onChange={handleChange}
+                    />
+                    <input
+                      name="stateProvince"
+                      type="text"
+                      required
+                      placeholder="State / Province"
+                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      value={formData.stateProvince}
+                      onChange={handleChange}
+                    />
+                    <input
+                      name="postalCode"
+                      type="text"
+                      required
+                      placeholder="Postal / ZIP Code"
+                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      value={formData.postalCode}
+                      onChange={handleChange}
+                    />
+                  </div>
+
+                  {/* COUNTRY SELECTOR FOR ADDRESS */}
+                  <div className="space-y-2">
+                    <label className="text-lg font-medium text-gray-700">Country</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
+                        className="w-full flex items-center justify-between px-6 py-5 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition text-left"
+                      >
+                        <div className="flex items-center gap-4">
+                          <img src={selectedAddressCountry.flag} alt="" className="w-10 h-7 rounded" />
+                          <span className="font-medium">{selectedAddressCountry.name}</span>
+                        </div>
+                        <ChevronDown size={20} />
+                      </button>
+
+                      {isAddressCountryOpen && (
+                        <div className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                          <div className="p-4 border-b">
+                            <input
+                              type="text"
+                              placeholder="Search country..."
+                              value={addressCountrySearch}
+                              onChange={(e) => setAddressCountrySearch(e.target.value)}
+                              className="w-full px-4 py-3 border rounded-lg"
+                              autoFocus
+                            />
+                          </div>
+                          {filteredAddressCountries.map(country => (
+                            <button
+                              key={country.code}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAddressCountry(country);
+                                setIsAddressCountryOpen(false);
+                                setAddressCountrySearch("");
+                              }}
+                              className="w-full text-left px-6 py-4 hover:bg-gray-50 flex items-center gap-4"
+                            >
+                              <img src={country.flag} alt="" className="w-10 h-7 rounded" />
+                              <span>{country.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Birthdate */}
+                <div className="space-y-2">
+                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                    <Calendar size={20} /> Birthdate
+                  </label>
+                  <input
+                    name="birthdate"
+                    type="date"
+                    required
+                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                    value={formData.birthdate}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                      <Lock size={20} /> Password
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        minLength="6"
+                        className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={handleChange}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                      <Lock size={20} /> Confirm Password
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        name="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        required
+                        className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                        placeholder="••••••••"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(prev => !prev)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                      >
+                        {showConfirmPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-5 text-2xl"
+                  disabled={loading}
+                >
+                  {loading ? 'Creating Account...' : 'Create Account'}
+                </Button>
+              </form>
+
+              <div className="mt-10 text-center">
+                <p className="text-gray-600 text-lg">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-[#118C8C] font-bold hover:underline text-xl">
+                    Log In
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </>
   );
