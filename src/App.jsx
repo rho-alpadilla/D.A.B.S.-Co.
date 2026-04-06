@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
-import { useAuth } from '@/lib/firebase';
+import { useAuth, db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 // Layout
 import Header from '@/components/Header';
@@ -80,10 +81,38 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const ProtectedAdminRoute = ({ children }) => {
+const ProtectedAdminRoute = ({ children, allowSubAdmin = false }) => {
   const { user, loading } = useAuth();
+  const [role, setRole] = useState(null);
+  const [roleLoading, setRoleLoading] = useState(true);
 
-  if (loading) {
+  useEffect(() => {
+    if (!user) {
+      setRole(null);
+      setRoleLoading(false);
+      return;
+    }
+
+    const unsub = onSnapshot(
+      doc(db, 'users', user.uid),
+      (snap) => {
+        if (snap.exists()) {
+          setRole(snap.data()?.role || null);
+        } else {
+          setRole(null);
+        }
+        setRoleLoading(false);
+      },
+      () => {
+        setRole(null);
+        setRoleLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [user]);
+
+  if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
@@ -95,7 +124,63 @@ const ProtectedAdminRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  if (allowSubAdmin) {
+    if (role !== 'admin' && role !== 'sub-admin') {
+      return <Navigate to="/" replace />;
+    }
+  } else {
+    if (role !== 'admin') {
+      return <Navigate to="/" replace />;
+    }
+  }
+
   return children;
+};
+
+const RoleBasedHome = () => {
+  const { user, loading } = useAuth();
+  const [role, setRole] = useState(null);
+  const [roleLoading, setRoleLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setRole(null);
+      setRoleLoading(false);
+      return;
+    }
+
+    const unsub = onSnapshot(
+      doc(db, 'users', user.uid),
+      (snap) => {
+        if (snap.exists()) {
+          setRole(snap.data()?.role || null);
+        } else {
+          setRole(null);
+        }
+        setRoleLoading(false);
+      },
+      () => {
+        setRole(null);
+        setRoleLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [user]);
+
+  if (loading || roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (role === 'admin' || role === 'sub-admin') {
+    return <AdminPanel />;
+  }
+
+  return <HomePage />;
 };
 
 function AppContent() {
@@ -125,8 +210,7 @@ function AppContent() {
 
       <main className="flex-grow">
         <Routes>
-          {/* PUBLIC */}
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<RoleBasedHome />} />
           <Route path="/highlights" element={<HighlightsPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
@@ -138,13 +222,11 @@ function AppContent() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/faqs" element={<FAQsPage />} />
 
-          {/* AUTH */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
           <Route path="/profile" element={<ProfilePage />} />
 
-          {/* BUYER PROTECTED */}
           <Route
             path="/checkout"
             element={
@@ -162,11 +244,10 @@ function AppContent() {
             }
           />
 
-          {/* ADMIN PROTECTED */}
           <Route
             path="/admin-panel"
             element={
-              <ProtectedAdminRoute>
+              <ProtectedAdminRoute allowSubAdmin={true}>
                 <AdminPanel />
               </ProtectedAdminRoute>
             }
@@ -174,13 +255,12 @@ function AppContent() {
           <Route
             path="/add-product"
             element={
-              <ProtectedAdminRoute>
+              <ProtectedAdminRoute allowSubAdmin={true}>
                 <AddProductPage />
               </ProtectedAdminRoute>
             }
           />
 
-          {/* Redirects */}
           <Route path="/admin" element={<Navigate to="/admin-panel" replace />} />
           <Route path="*" element={<HomePage />} />
         </Routes>

@@ -40,6 +40,9 @@ const Header = () => {
   const { cartCount } = useCart();
   const { currency, setCurrency, CURRENCIES } = useCurrency();
 
+  const homeLabel = isAdmin ? 'Dashboard' : 'Home';
+  const homePath = '/';
+
   const filteredCurrencies = CURRENCIES.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -71,7 +74,7 @@ const Header = () => {
       if (snap.exists()) {
         const d = snap.data();
         setPhotoURL(d.photoURL || '');
-        setIsAdmin(d.role === 'admin');
+        setIsAdmin(d.role === 'admin' || d.role === 'sub-admin');
       }
     });
     return unsub;
@@ -143,7 +146,7 @@ const Header = () => {
   const isHighlightsPage = location.pathname === '/highlights';
 
   const desktopLinks = [
-    { type: 'link', path: '/', label: 'Home' },
+    { type: 'link', path: homePath, label: homeLabel },
     { type: 'dropdown', label: 'Highlights' },
     { type: 'link', path: '/gallery', label: 'Gallery' },
     { type: 'link', path: '/pricelists', label: 'Pricing' },
@@ -310,7 +313,7 @@ const Header = () => {
       >
         <nav className="container mx-auto px-6 py-3.5 relative flex items-center justify-between">
           <Link
-            to="/"
+            to={homePath}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             <CircularText
@@ -556,13 +559,17 @@ const Header = () => {
                           </span>
                         )}
                       </div>
-                      <Link
-                        to={isAdmin ? '/admin-panel' : '/buyer-dashboard'}
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
-                      >
-                        <Settings size={15} strokeWidth={1.75} /> Dashboard
-                      </Link>
+
+                      {!isAdmin && (
+                        <Link
+                          to="/buyer-dashboard"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
+                        >
+                          <Settings size={15} strokeWidth={1.75} /> Dashboard
+                        </Link>
+                      )}
+
                       <Link
                         to="/profile"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -657,7 +664,7 @@ const Header = () => {
                 <div className="h-px bg-gray-100 mx-3 mb-2" />
 
                 <Link
-                  to="/"
+                  to={homePath}
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
                   style={{
@@ -665,7 +672,7 @@ const Header = () => {
                     color: isActive('/') ? '#fff' : '#374151',
                   }}
                 >
-                  Home
+                  {homeLabel}
                   {isActive('/') && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />}
                 </Link>
 
@@ -776,13 +783,17 @@ const Header = () => {
                         {isAdmin && <span className="text-[10px] text-amber-500 font-bold">Admin</span>}
                       </div>
                     </div>
-                    <Link
-                      to={isAdmin ? '/admin-panel' : '/buyer-dashboard'}
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#118C8C] font-medium hover:bg-gray-50 rounded-xl transition"
-                    >
-                      <Settings size={15} /> Dashboard
-                    </Link>
+
+                    {!isAdmin && (
+                      <Link
+                        to="/buyer-dashboard"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-[#118C8C] font-medium hover:bg-gray-50 rounded-xl transition"
+                      >
+                        <Settings size={15} /> Dashboard
+                      </Link>
+                    )}
+
                     <Link
                       to="/profile"
                       onClick={() => setIsMenuOpen(false)}

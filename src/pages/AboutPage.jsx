@@ -23,33 +23,6 @@ const AboutPage = () => {
     },
   ];
 
-  const steps = [
-    {
-      number: '01',
-      title: 'Design Submission',
-      description:
-        'All approved designers will submit needlepoint canvas designs through the Gallery tab. We can work off painted masters or PDF chart files.',
-    },
-    {
-      number: '02',
-      title: 'Design Quoted',
-      description:
-        'Receive your quote with price per piece within 1-3 business days via email. If satisfied, place your order through Contact.',
-    },
-    {
-      number: '03',
-      title: 'Master Painted',
-      description:
-        'A painted proof of your design will be sent via email for approval. This will be stored at the studio as a master for easy reordering.',
-    },
-    {
-      number: '04',
-      title: 'Order Painted',
-      description:
-        'Upon master approval, production begins. Once completed, we receive the canvases in Dallas and invoice you.',
-    },
-  ];
-
   return (
     <>
       <Helmet>
@@ -151,45 +124,6 @@ const AboutPage = () => {
                   <span className="text-base font-bold text-[#118C8C] text-center">
                     {value.title}
                   </span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-
-          <motion.section
-            initial={{ opacity: 0, y: 18 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.45 }}
-            className="bg-white/90 backdrop-blur-md rounded-3xl p-8 md:p-12 shadow-sm border border-white/30 mb-16 md:mb-20 relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#118C8C] opacity-[0.05] rounded-bl-full pointer-events-none" />
-
-            <div className="text-center max-w-2xl mx-auto mb-10 md:mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-[#118C8C] mb-4">
-                Our Creative Process
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-6 relative">
-              {steps.map((step, index) => (
-                <motion.div
-                  key={step.number}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.35, delay: index * 0.08 }}
-                  className="text-center relative z-10 bg-white/80 backdrop-blur-sm rounded-2xl border border-[#eef7f7] p-6 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="w-16 h-16 bg-[#e0f2f2] rounded-full flex items-center justify-center mx-auto mb-6 text-[#118C8C] font-bold text-xl shadow-sm border border-[#cbebeb]">
-                    {step.number}
-                  </div>
-
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">{step.title}</h3>
-
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {step.description}
-                  </p>
                 </motion.div>
               ))}
             </div>
