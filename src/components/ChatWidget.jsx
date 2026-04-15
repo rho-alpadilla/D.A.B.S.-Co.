@@ -7,10 +7,13 @@ import {
   Plus,
   Sparkles,
   Headphones,
+  ShieldCheck,
+  LogIn,
+  Bot,
+  ArrowLeft,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   collection,
   query,
@@ -18,8 +21,6 @@ import {
   onSnapshot,
   addDoc,
   serverTimestamp,
-  getDocs,
-  getDoc,
   updateDoc,
   doc,
   where,
@@ -27,25 +28,73 @@ import {
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useToast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
+import { faqs, findBestFaqMatch } from '@/data/faqs';
+
+const FAQ_WELCOME_MESSAGE = {
+  role: 'assistant',
+  content:
+    'Hi! I can answer factual questions based on our approved FAQs. Ask me about pricing, timelines, shipping, payments, rush orders, and more.',
+};
+
+const USER_AI_WELCOME_MESSAGE = {
+  role: 'assistant',
+  content:
+    'Hi! You can continue to chat with AI here. I can help with general store-related questions and guide you to support when needed.',
+};
+
+const ADMIN_AI_WELCOME_MESSAGE = {
+  role: 'assistant',
+  content:
+    'Admin Assistant is ready. You can ask about products, orders, stock, best sellers, revenue, and order status counts.',
+};
+
+// Returns a random set of FAQ questions from the full FAQ pool
+const getRandomFaqQuestions = (faqPool, count = 4, exclude = []) => {
+  const excluded = new Set(exclude);
+  const available = faqPool
+    .map((faq) => faq.question)
+    .filter((question) => !excluded.has(question));
+
+  const shuffled = [...available].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, shuffled.length));
+};
 
 const ChatWidget = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dabzzy');
+  const [activeTab, setActiveTab] = useState('ask');
+  const [role, setRole] = useState(null);
 
-  // Dabzzy AI
-  const [aiMessages, setAiMessages] = useState([
-    {
-      role: 'assistant',
-      content:
-        'Hey there! I’m Dabzzy, your crafty sidekick! 🛍️✨ Ask me anything about our artisan goodies!',
-    },
-  ]);
+  const isAdmin = role === 'admin';
+  const isSubAdmin = role === 'sub-admin';
+  const isAdminLike = isAdmin || isSubAdmin;
+
+  // Ask Questions mode
+  const [askMode, setAskMode] = useState('faq'); // faq | ai
+
+  // Ask Questions
+  const [faqMessages, setFaqMessages] = useState([FAQ_WELCOME_MESSAGE]);
+  const [faqInput, setFaqInput] = useState('');
+  const [suggestedFaqs, setSuggestedFaqs] = useState(() =>
+    getRandomFaqQuestions(faqs, 4)
+  );
+  const faqEndRef = useRef(null);
+
+  // User AI inside Ask Questions
+  const [aiMessages, setAiMessages] = useState([USER_AI_WELCOME_MESSAGE]);
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const aiEndRef = useRef(null);
+
+  // Admin Assistant
+  const [adminMessages, setAdminMessages] = useState([ADMIN_AI_WELCOME_MESSAGE]);
+  const [adminInput, setAdminInput] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+  const adminEndRef = useRef(null);
 
   // Support
   const [conversations, setConversations] = useState([]);
@@ -61,14 +110,67 @@ const ChatWidget = () => {
   const [buyerMessage, setBuyerMessage] = useState('');
   const [buyerSending, setBuyerSending] = useState(false);
 
-  // Admin
-  const isAdmin = user?.email === 'admin@dabs.co';
+  // Admin assistant live data
+  const [adminProducts, setAdminProducts] = useState([]);
+  const [adminOrders, setAdminOrders] = useState([]);
 
   // Support scroll behavior
   const supportScrollRef = useRef(null);
   const bottomRef = useRef(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [showJump, setShowJump] = useState(false);
+
+  // ---------- role ----------
+  useEffect(() => {
+    if (!user?.uid) {
+      setRole(null);
+      return;
+    }
+
+    const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) {
+        setRole(snap.data()?.role || null);
+      } else {
+        setRole(null);
+      }
+    });
+
+    return () => unsub();
+  }, [user?.uid]);
+
+  // ---------- reset chat state when auth changes ----------
+  useEffect(() => {
+    setFaqMessages([FAQ_WELCOME_MESSAGE]);
+    setFaqInput('');
+    setSuggestedFaqs(getRandomFaqQuestions(faqs, 4));
+
+    setAiMessages([USER_AI_WELCOME_MESSAGE]);
+    setAiInput('');
+    setAiLoading(false);
+
+    setAdminMessages([ADMIN_AI_WELCOME_MESSAGE]);
+    setAdminInput('');
+    setAdminLoading(false);
+
+    setSelectedConvo(null);
+    setSupportMessages([]);
+    setReplyInput('');
+    setBuyerNewChatOpen(false);
+    setBuyerSubject('General Support');
+    setBuyerMessage('');
+
+    setAskMode('faq');
+
+    if (isAdminLike) {
+      setActiveTab('admin-ai');
+    } else {
+      setActiveTab('ask');
+    }
+  }, [user?.uid, role, isAdminLike]);
+
+  const refreshSuggestedFaqs = (excludeQuestion = '') => {
+    setSuggestedFaqs(getRandomFaqQuestions(faqs, 4, excludeQuestion ? [excludeQuestion] : []));
+  };
 
   // ---------- helpers ----------
   const toMillis = (ts) => {
@@ -176,29 +278,8 @@ const ChatWidget = () => {
     return tones[total % tones.length];
   };
 
-  const DEFAULT_STORE_KNOWLEDGE = {
-    location: 'Baguio City',
-    owner: 'siakniowner',
-    shippingInfo:
-      'For exact shipping timelines, please chat with admin in the Support tab.',
-    fallbackSupport:
-      'I’m not fully sure about that yet. Please chat with admin in the Support tab for a confirmed answer.',
-    faqs: [
-      {
-        triggers: ['where are you from', 'where is dabs from', 'location', 'based in'],
-        answer: 'D.A.B.S. Co is based in Baguio City.',
-      },
-      {
-        triggers: ['who is the owner', 'who is the artist', 'owner', 'artist'],
-        answer: 'The owner/artist is siakniowner.',
-      },
-      {
-        triggers: ['how many days to ship', 'shipping days', 'when will it ship', 'how long is shipping'],
-        answer:
-          'For exact shipping timelines, please chat with admin in the Support tab.',
-      },
-    ],
-  };
+  const normalizeText = (value = '') =>
+    value.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
   const extractNumericValue = (...values) => {
     for (const value of values) {
@@ -227,6 +308,7 @@ const ChatWidget = () => {
     if (product?.inStock === false) return 0;
 
     return extractNumericValue(
+      product?.stockQuantity,
       product?.stock,
       product?.stocks,
       product?.quantity,
@@ -280,8 +362,6 @@ const ChatWidget = () => {
   const getOrderItemQty = (item) =>
     extractNumericValue(item?.quantity, item?.qty, item?.count, 1) || 1;
 
-  const normalizeText = (value = '') => value.toLowerCase().trim();
-
   const buildBestSellerSummary = (orders) => {
     const counts = {};
 
@@ -309,101 +389,228 @@ const ChatWidget = () => {
       .map((product, index) => `${index + 1}. ${getProductName(product)}`);
   };
 
-  const buildStockSummary = (products) => {
-    return products.slice(0, 20).map((product) => {
-      const name = getProductName(product);
-      const stock = getProductStock(product);
+  // ---------- admin assistant live data ----------
+  useEffect(() => {
+    if (!isOpen || !isAdminLike) return;
 
-      if (stock === null) {
-        return `${name}: stock not specified`;
-      }
-
-      return `${name}: ${stock} left`;
+    const unsubProducts = onSnapshot(collection(db, 'pricelists'), (snap) => {
+      setAdminProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-  };
 
-  const findProductFromQuestion = (question, products) => {
-    const q = normalizeText(question);
-
-    return products.find((product) =>
-      q.includes(normalizeText(getProductName(product)))
+    const unsubOrders = onSnapshot(
+      query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
+      (snap) => setAdminOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
-  };
 
-  const getDirectStoreAnswer = (
-    question,
-    knowledge,
-    products,
-    bestSellers,
-    newArrivals
-  ) => {
+    return () => {
+      unsubProducts();
+      unsubOrders();
+    };
+  }, [isOpen, isAdminLike]);
+
+  const getAdminAssistantAnswer = (question) => {
     const q = normalizeText(question);
 
-    if (!q) return null;
+    if (!q) return 'Please type a question first.';
 
-    for (const faq of knowledge.faqs || []) {
-      const matched = (faq.triggers || []).some((trigger) =>
-        q.includes(normalizeText(trigger))
-      );
-      if (matched) return faq.answer;
+    const products = adminProducts || [];
+    const orders = adminOrders || [];
+
+    const completedOrders = orders.filter((o) => o.status === 'completed');
+    const pendingCount = orders.filter((o) => o.status === 'pending').length;
+    const paymentConfirmedCount = orders.filter(
+      (o) => o.status === 'payment_confirmed'
+    ).length;
+    const processingCount = orders.filter((o) => o.status === 'processing').length;
+    const shippingCount = orders.filter((o) => o.status === 'shipping').length;
+    const cancelledCount = orders.filter((o) =>
+      ['cancelled', 'Cancelled – Pending Refund', 'Refunded'].includes(o.status)
+    ).length;
+    const cancellationRequestedCount = orders.filter(
+      (o) => o.status === 'Cancellation Requested'
+    ).length;
+
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const avgOrderValue =
+      completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
+
+    const outOfStockProducts = products.filter((p) => (getProductStock(p) ?? 0) <= 0);
+    const lowStockProducts = products.filter((p) => {
+      const stock = getProductStock(p) ?? 0;
+      return stock > 0 && stock <= 5;
+    });
+
+    const bestSellers = buildBestSellerSummary(orders);
+    const newArrivals = buildNewArrivalSummary(products);
+
+    if (
+      q.includes('how many products') ||
+      q.includes('total products') ||
+      q.includes('number of products')
+    ) {
+      return `You currently have ${products.length} total products.`;
+    }
+
+    if (
+      q.includes('how many orders') ||
+      q.includes('total orders') ||
+      q.includes('number of orders')
+    ) {
+      return `You currently have ${orders.length} total orders.`;
+    }
+
+    if (q.includes('completed orders') || q.includes('how many completed')) {
+      return `There are ${completedOrders.length} completed orders.`;
+    }
+
+    if (q.includes('pending orders') || q.includes('how many pending')) {
+      return `There are ${pendingCount} pending orders.`;
+    }
+
+    if (q.includes('payment confirmed')) {
+      return `There are ${paymentConfirmedCount} payment confirmed orders.`;
+    }
+
+    if (q.includes('processing orders') || q.includes('how many processing')) {
+      return `There are ${processingCount} processing orders.`;
+    }
+
+    if (q.includes('shipping orders') || q.includes('how many shipping')) {
+      return `There are ${shippingCount} orders currently marked as shipping.`;
+    }
+
+    if (
+      q.includes('cancellation request') ||
+      q.includes('cancellation requests')
+    ) {
+      return `There are ${cancellationRequestedCount} cancellation requests right now.`;
+    }
+
+    if (
+      q.includes('cancelled orders') ||
+      q.includes('refund') ||
+      q.includes('refunded')
+    ) {
+      return `There are ${cancelledCount} cancelled/refund-related orders.`;
+    }
+
+    if (
+      q.includes('total revenue') ||
+      q.includes('income') ||
+      q.includes('sales total')
+    ) {
+      return `Your current completed-order revenue is ₱${Math.round(totalRevenue).toLocaleString()}.`;
+    }
+
+    if (
+      q.includes('average order') ||
+      q.includes('avg order') ||
+      q.includes('average order value')
+    ) {
+      return `Your average order value is ₱${Math.round(avgOrderValue).toLocaleString()}.`;
     }
 
     if (
       q.includes('best seller') ||
       q.includes('bestseller') ||
-      q.includes('most sold') ||
       q.includes('top selling')
     ) {
       return bestSellers.length
-        ? `Our current best sellers are:\n${bestSellers.join('\n')}`
-        : 'I do not have enough order data yet to determine the best sellers.';
+        ? `Current best sellers:\n${bestSellers.join('\n')}`
+        : 'There is not enough order data yet to determine best sellers.';
     }
 
     if (
       q.includes('new arrival') ||
       q.includes('new arrivals') ||
-      q.includes('latest') ||
-      q.includes('new product')
+      q.includes('latest products')
     ) {
       return newArrivals.length
-        ? `Here are our newest arrivals:\n${newArrivals.join('\n')}`
-        : 'I cannot see any new-arrival data yet.';
+        ? `Newest products:\n${newArrivals.join('\n')}`
+        : 'No recent product data is available yet.';
+    }
+
+    if (q.includes('out of stock') || q.includes('no stock')) {
+      if (!outOfStockProducts.length) {
+        return 'No products are currently out of stock.';
+      }
+
+      return `Out of stock products:\n${outOfStockProducts
+        .slice(0, 10)
+        .map((product, index) => `${index + 1}. ${getProductName(product)}`)
+        .join('\n')}`;
     }
 
     if (
-      q.includes('stock left') ||
-      q.includes('stocks left') ||
-      q.includes('how many stock') ||
-      q.includes('available stock') ||
-      q.includes('available pieces')
+      q.includes('low stock') ||
+      q.includes('stocks running low') ||
+      q.includes('stock is low')
     ) {
-      const matchedProduct = findProductFromQuestion(question, products);
-
-      if (matchedProduct) {
-        const stock = getProductStock(matchedProduct);
-        const name = getProductName(matchedProduct);
-
-        if (stock === null) {
-          return `${name} is listed, but the exact stock count is not set yet. Please chat with admin to confirm availability.`;
-        }
-
-        if (stock <= 0) {
-          return `${name} is currently out of stock.`;
-        }
-
-        return `${name} currently has ${stock} stock left.`;
+      if (!lowStockProducts.length) {
+        return 'No products are currently in low stock.';
       }
 
-      return 'Please mention the exact product name so I can check the stock left for that item.';
+      return `Low stock products:\n${lowStockProducts
+        .slice(0, 10)
+        .map((product, index) => {
+          const stock = getProductStock(product) ?? 0;
+          return `${index + 1}. ${getProductName(product)} (${stock} left)`;
+        })
+        .join('\n')}`;
     }
 
-    if (q.includes('ship') || q.includes('shipping') || q.includes('delivery')) {
-      return knowledge.shippingInfo || DEFAULT_STORE_KNOWLEDGE.shippingInfo;
+    const matchedProduct = products.find((product) =>
+      q.includes(normalizeText(getProductName(product)))
+    );
+
+    if (matchedProduct) {
+      const name = getProductName(matchedProduct);
+      const stock = getProductStock(matchedProduct);
+      const price = getProductPrice(matchedProduct);
+      const description = getProductDescription(matchedProduct);
+
+      return [
+        `${name}`,
+        price !== null ? `Price: ₱${price.toLocaleString()}` : 'Price: not set',
+        stock !== null ? `Stock: ${stock}` : 'Stock: not specified',
+        description ? `Details: ${description}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
     }
 
-    return null;
+    return `I can help with products, orders, stock, best sellers, revenue, completed orders, pending orders, shipping counts, and new arrivals. Try asking something like “How many pending orders do we have?” or “What are our best sellers?”`;
   };
 
+  const getUserAiReply = (question) => {
+    const q = normalizeText(question);
+
+    if (!q) return 'Please type a message first.';
+
+    const faqMatch = findBestFaqMatch(question);
+    if (faqMatch) {
+      return `${faqMatch.question}\n\n${faqMatch.answer}`;
+    }
+
+    if (
+      q.includes('support') ||
+      q.includes('follow up') ||
+      q.includes('order concern') ||
+      q.includes('payment concern') ||
+      q.includes('custom concern') ||
+      q.includes('problem with order')
+    ) {
+      return 'For account-specific, order-specific, or payment concerns, please use the Support Chat tab so our team can assist you properly.';
+    }
+
+    if (q.includes('hello') || q.includes('hi') || q.includes('hey')) {
+      return 'Hello! You can ask me about our products, pricing, shipping, timelines, and other general store-related questions.';
+    }
+
+    return 'I can help with general store questions and approved FAQ information. For factual questions, you can also use Ask Questions. For order-specific concerns, please use Support Chat.';
+  };
+
+  // ---------- filtered conversations ----------
   const filteredConversations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -424,24 +631,33 @@ const ChatWidget = () => {
     });
   }, [conversations, searchTerm]);
 
-  // ---------- AI auto-scroll ----------
+  // ---------- auto-scroll ----------
   useEffect(() => {
-    if (!isOpen || activeTab !== 'dabzzy') return;
+    if (!isOpen || activeTab !== 'ask' || askMode !== 'faq') return;
+    faqEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [faqMessages, suggestedFaqs, isOpen, activeTab, askMode]);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'ask' || askMode !== 'ai') return;
     aiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [aiMessages, isOpen, activeTab]);
+  }, [aiMessages, isOpen, activeTab, askMode]);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'admin-ai') return;
+    adminEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [adminMessages, isOpen, activeTab]);
 
   // Reset jump state
   useEffect(() => {
-    if (!isOpen || activeTab !== 'admin' || !selectedConvo) {
+    if (!isOpen || activeTab !== 'support' || !selectedConvo) {
       setShowJump(false);
       setIsNearBottom(true);
     }
   }, [isOpen, activeTab, selectedConvo]);
 
-  // Track scroll position only inside support conversation
   useEffect(() => {
     const el = supportScrollRef.current;
-    if (!el || !selectedConvo || activeTab !== 'admin' || !isOpen) return;
+    if (!el || !selectedConvo || activeTab !== 'support' || !isOpen) return;
 
     const handleScroll = () => {
       const threshold = 160;
@@ -456,17 +672,16 @@ const ChatWidget = () => {
     return () => el.removeEventListener('scroll', handleScroll);
   }, [selectedConvo, activeTab, isOpen]);
 
-  // Auto-scroll only if near bottom
   useEffect(() => {
-    if (!isOpen || activeTab !== 'admin' || !selectedConvo) return;
+    if (!isOpen || activeTab !== 'support' || !selectedConvo) return;
     if (isNearBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [supportMessages, isNearBottom, isOpen, activeTab, selectedConvo]);
 
-  // ---------- SUPPORT: Load conversations ----------
+  // ---------- support: load conversations ----------
   useEffect(() => {
-    if (!user?.email || activeTab !== 'admin' || !isOpen) return;
+    if (!user?.email || activeTab !== 'support' || !isOpen) return;
 
-    const q = isAdmin
+    const q = isAdminLike
       ? query(collection(db, 'messages'), orderBy('createdAt', 'desc'))
       : query(
           collection(db, 'messages'),
@@ -481,7 +696,7 @@ const ChatWidget = () => {
       messages.forEach((msg) => {
         const buyerKey = msg.buyerEmail || 'unknown';
         const subject = msg.subject || 'General Support';
-        const key = isAdmin ? `${buyerKey}-${subject}` : subject;
+        const key = isAdminLike ? `${buyerKey}-${subject}` : subject;
 
         const createdMillis = msg.createdAt?.toMillis?.() || 0;
 
@@ -506,7 +721,7 @@ const ChatWidget = () => {
 
         if (
           msg.status === 'unread' &&
-          ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))
+          ((isAdminLike && !msg.isAdminReply) || (!isAdminLike && msg.isAdminReply))
         ) {
           grouped[key].hasUnread = true;
         }
@@ -520,13 +735,13 @@ const ChatWidget = () => {
     });
 
     return () => unsubscribe();
-  }, [user?.email, activeTab, isOpen, isAdmin]);
+  }, [user?.email, activeTab, isOpen, isAdminLike]);
 
-  // ---------- SUPPORT: Load selected conversation messages ----------
+  // ---------- support: load selected conversation messages ----------
   useEffect(() => {
-    if (!selectedConvo || !isOpen || activeTab !== 'admin') return;
+    if (!selectedConvo || !isOpen || activeTab !== 'support') return;
 
-    const buyerEmail = isAdmin ? selectedConvo.buyerEmail : user?.email;
+    const buyerEmail = isAdminLike ? selectedConvo.buyerEmail : user?.email;
     if (!buyerEmail) return;
 
     const q = query(
@@ -543,7 +758,7 @@ const ChatWidget = () => {
       msgs.forEach(async (msg) => {
         if (
           msg.status === 'unread' &&
-          ((isAdmin && !msg.isAdminReply) || (!isAdmin && msg.isAdminReply))
+          ((isAdminLike && !msg.isAdminReply) || (!isAdminLike && msg.isAdminReply))
         ) {
           try {
             await updateDoc(doc(db, 'messages', msg.id), { status: 'read' });
@@ -555,9 +770,9 @@ const ChatWidget = () => {
     });
 
     return () => unsubscribe();
-  }, [selectedConvo, isOpen, activeTab, isAdmin, user?.email]);
+  }, [selectedConvo, isOpen, activeTab, isAdminLike, user?.email]);
 
-  // ---------- Reply in existing conversation ----------
+  // ---------- send support reply ----------
   const sendSupportReply = async () => {
     if (!replyInput.trim() || !selectedConvo || sending) return;
 
@@ -571,7 +786,7 @@ const ChatWidget = () => {
       {
         id: optimisticId,
         message: text,
-        isAdminReply: isAdmin,
+        isAdminReply: isAdminLike,
         status: 'unread',
         createdAt: { toDate: () => new Date(), toMillis: () => Date.now() },
         _optimistic: true,
@@ -579,7 +794,7 @@ const ChatWidget = () => {
     ]);
 
     try {
-      const buyerEmail = isAdmin ? selectedConvo.buyerEmail : user?.email;
+      const buyerEmail = isAdminLike ? selectedConvo.buyerEmail : user?.email;
 
       await addDoc(collection(db, 'messages'), {
         buyerEmail,
@@ -588,8 +803,8 @@ const ChatWidget = () => {
         message: text,
         status: 'unread',
         createdAt: serverTimestamp(),
-        isAdminReply: isAdmin,
-        ...(isAdmin && {
+        isAdminReply: isAdminLike,
+        ...(isAdminLike && {
           adminEmail: user.email,
           adminName: user.displayName || 'Admin',
         }),
@@ -607,7 +822,7 @@ const ChatWidget = () => {
     }
   };
 
-  // ---------- Buyer: Start New Chat ----------
+  // ---------- buyer: start new chat ----------
   const startBuyerChat = async () => {
     if (!user?.email) {
       toast({
@@ -656,168 +871,77 @@ const ChatWidget = () => {
     }
   };
 
-  // ---------- Dabzzy AI ----------
+  // ---------- Ask Questions ----------
+  const sendFaqMessage = () => {
+    if (!faqInput.trim()) return;
+
+    const text = faqInput.trim();
+    const userMsg = { role: 'user', content: text };
+    setFaqMessages((prev) => [...prev, userMsg]);
+    setFaqInput('');
+
+    const match = findBestFaqMatch(text);
+
+    if (match) {
+      setFaqMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `${match.question}\n\n${match.answer}`,
+        },
+      ]);
+      refreshSuggestedFaqs(match.question);
+      return;
+    }
+
+    setFaqMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content:
+          'I can only answer factual questions based on our approved FAQs right now. Try another question below.',
+      },
+    ]);
+    refreshSuggestedFaqs();
+  };
+
+  const handleSuggestedFaqClick = (question) => {
+    const match = faqs.find((faq) => faq.question === question);
+
+    setFaqMessages((prev) => [
+      ...prev,
+      { role: 'user', content: question },
+      {
+        role: 'assistant',
+        content: match
+          ? `${match.question}\n\n${match.answer}`
+          : 'Sorry, I could not find that FAQ right now.',
+      },
+    ]);
+
+    refreshSuggestedFaqs(question);
+  };
+
+  // ---------- User AI ----------
   const sendAiMessage = async () => {
     if (!aiInput.trim() || aiLoading) return;
 
-    const userMsg = { role: 'user', content: aiInput };
+    const text = aiInput.trim();
+    const userMsg = { role: 'user', content: text };
+
     setAiMessages((prev) => [...prev, userMsg]);
     setAiInput('');
     setAiLoading(true);
 
     try {
-      const [pricelistsResult, ordersResult, knowledgeResult] =
-        await Promise.allSettled([
-          getDocs(collection(db, 'pricelists')),
-          getDocs(collection(db, 'orders')),
-          getDoc(doc(db, 'siteContent', 'assistantKnowledge')),
-        ]);
-
-      const products =
-        pricelistsResult.status === 'fulfilled'
-          ? pricelistsResult.value.docs
-              .map((d) => ({ id: d.id, ...d.data() }))
-              .filter((p) => p.inStock !== false)
-          : [];
-
-      const orders =
-        ordersResult.status === 'fulfilled'
-          ? ordersResult.value.docs.map((d) => ({ id: d.id, ...d.data() }))
-          : [];
-
-      const firestoreKnowledge =
-        knowledgeResult.status === 'fulfilled' && knowledgeResult.value.exists()
-          ? knowledgeResult.value.data()
-          : {};
-
-      const storeKnowledge = {
-        ...DEFAULT_STORE_KNOWLEDGE,
-        ...firestoreKnowledge,
-        faqs: [
-          ...(DEFAULT_STORE_KNOWLEDGE.faqs || []),
-          ...(Array.isArray(firestoreKnowledge?.faqs)
-            ? firestoreKnowledge.faqs
-            : []),
-        ],
-      };
-
-      const bestSellerLines = buildBestSellerSummary(orders);
-      const newArrivalLines = buildNewArrivalSummary(products);
-      const stockLines = buildStockSummary(products);
-
-      const directAnswer = getDirectStoreAnswer(
-        userMsg.content,
-        storeKnowledge,
-        products,
-        bestSellerLines,
-        newArrivalLines
-      );
-
-      if (directAnswer) {
-        setAiMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: directAnswer },
-        ]);
-        return;
-      }
-
-      const productsText =
-        products.length > 0
-          ? products
-              .slice(0, 20)
-              .map((p) => {
-                const name = getProductName(p);
-                const price = getProductPrice(p);
-                const description = getProductDescription(p);
-                const stock = getProductStock(p);
-
-                return `${name}: ${
-                  price !== null ? `₱${price}` : 'price not set'
-                } — ${description || 'No description'} — ${
-                  stock !== null ? `${stock} stock left` : 'stock not specified'
-                }`;
-              })
-              .join(' | ')
-          : 'No products available right now.';
-
-      const bestSellerText =
-        bestSellerLines.length > 0
-          ? bestSellerLines.join(' | ')
-          : 'Best-seller data is not available yet.';
-
-      const newArrivalText =
-        newArrivalLines.length > 0
-          ? newArrivalLines.join(' | ')
-          : 'New-arrival data is not available yet.';
-
-      const stockText =
-        stockLines.length > 0
-          ? stockLines.join(' | ')
-          : 'Stock data is not available yet.';
-
-      const response = await fetch(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              {
-                role: 'system',
-                content: `
-You are Dabzzy, the assistant for D.A.B.S. Co.
-
-Rules:
-- Be warm, short, and helpful.
-- Answer using the store data provided below.
-- Never invent facts.
-- If exact shipping or business details are not confirmed, tell the user to chat with admin in the Support tab.
-- If asked about stock left, use the stock data.
-- If asked about best sellers, use the sales summary.
-- If asked about new arrivals, use the latest product summary.
-
-Store facts:
-- Location: ${storeKnowledge.location}
-- Owner/Artist: ${storeKnowledge.owner}
-- Shipping guidance: ${storeKnowledge.shippingInfo}
-- Admin fallback: ${storeKnowledge.fallbackSupport}
-
-Current products:
-${productsText}
-
-Current stock summary:
-${stockText}
-
-Best sellers:
-${bestSellerText}
-
-New arrivals:
-${newArrivalText}
-                `.trim(),
-              },
-              ...aiMessages,
-              userMsg,
-            ],
-            max_tokens: 220,
-            temperature: 0.5,
-          }),
-        }
-      );
-
-      if (!response.ok) throw new Error('Groq error');
-
-      const data = await response.json();
-      const content =
-        data?.choices?.[0]?.message?.content ||
-        storeKnowledge.fallbackSupport;
+      const answer = getUserAiReply(text);
 
       setAiMessages((prev) => [
         ...prev,
-        { role: 'assistant', content },
+        {
+          role: 'assistant',
+          content: answer,
+        },
       ]);
     } catch (err) {
       console.error(err);
@@ -825,8 +949,7 @@ ${newArrivalText}
         ...prev,
         {
           role: 'assistant',
-          content:
-            'Oops — I could not load the store details right now. Please try again, or chat with admin in the Support tab.',
+          content: 'I could not respond right now. Please try again.',
         },
       ]);
     } finally {
@@ -834,10 +957,46 @@ ${newArrivalText}
     }
   };
 
+  // ---------- Admin Assistant ----------
+  const sendAdminMessage = async () => {
+    if (!adminInput.trim() || adminLoading) return;
+
+    const text = adminInput.trim();
+    const userMsg = { role: 'user', content: text };
+
+    setAdminMessages((prev) => [...prev, userMsg]);
+    setAdminInput('');
+    setAdminLoading(true);
+
+    try {
+      const answer = getAdminAssistantAnswer(text);
+
+      setAdminMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: answer,
+        },
+      ]);
+    } catch (err) {
+      console.error(err);
+      setAdminMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content:
+            'I could not load the admin data right now. Please try again.',
+        },
+      ]);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
   // ---------- bubble ----------
   const Bubble = ({ isMine, label, text, time }) => {
     const base =
-      'max-w-[85%] rounded-2xl px-4 py-3 shadow-sm border text-sm leading-relaxed';
+      'max-w-[86%] rounded-2xl px-4 py-3 shadow-sm border text-sm leading-relaxed';
     const mineStyle =
       'bg-[#118C8C] text-white border-[#118C8C]/20 rounded-br-md ml-auto';
     const otherStyle = 'bg-white text-gray-800 border-gray-200 rounded-bl-md';
@@ -859,7 +1018,7 @@ ${newArrivalText}
   const renderedSupportStream = useMemo(() => {
     if (!supportMessages?.length) return [];
 
-    const mineOf = (msg) => (isAdmin ? !!msg.isAdminReply : !msg.isAdminReply);
+    const mineOf = (msg) => (isAdminLike ? !!msg.isAdminReply : !msg.isAdminReply);
 
     const out = [];
     let prevMillis = 0;
@@ -879,7 +1038,7 @@ ${newArrivalText}
       const isMine = mineOf(msg);
       const label = msg.isAdminReply
         ? 'Admin'
-        : isAdmin
+        : isAdminLike
         ? msg.buyerName || 'Buyer'
         : 'You';
       const time = msg.createdAt?.toDate ? formatTime(msg.createdAt) : '';
@@ -897,111 +1056,339 @@ ${newArrivalText}
     }
 
     return out;
-  }, [supportMessages, isAdmin]);
+  }, [supportMessages, isAdminLike]);
+
+  const supportLockedForGuest = !user;
+  const aiLockedForGuest = !user;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 16 }}
+            initial={{ opacity: 0, scale: 0.94, y: 14 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 16 }}
-            className="w-[390px] h-[580px] rounded-3xl overflow-hidden shadow-2xl border border-gray-200 bg-white flex flex-col min-h-0"
+            exit={{ opacity: 0, scale: 0.94, y: 14 }}
+            className="w-[390px] h-[580px] rounded-[28px] overflow-hidden shadow-2xl border border-gray-200 bg-white flex flex-col min-h-0"
           >
             {/* Header */}
-            <div className="bg-[#118C8C] p-4 flex items-center justify-between text-white">
-              <div className="flex items-center gap-3">
-                {activeTab === 'admin' && selectedConvo && (
+            <div className="bg-[#118C8C] px-4 py-3.5 flex items-center justify-between text-white shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                {activeTab === 'support' && selectedConvo && (
                   <button
                     onClick={() => {
                       setSelectedConvo(null);
                       setSupportMessages([]);
                       setReplyInput('');
                     }}
-                    className="mr-1 text-white/95 hover:text-white hover:opacity-90 transition"
+                    className="text-white/95 hover:text-white transition shrink-0"
                   >
-                    ← Back
+                    <ArrowLeft size={18} />
                   </button>
                 )}
-                <MessageCircle size={22} />
-                <h3 className="font-bold text-lg">
-                  D.A.B.S. Chat {isAdmin && '(Admin)'}
-                </h3>
+
+                <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+                  <MessageCircle size={20} />
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base truncate">
+                    D.A.B.S. Chat {isAdminLike ? '(Admin)' : ''}
+                  </h3>
+                  <p className="text-[11px] text-white/85 truncate">
+                    {activeTab === 'ask'
+                      ? askMode === 'faq'
+                        ? 'Approved factual questions only'
+                        : aiLockedForGuest
+                        ? 'Login first to chat with AI'
+                        : 'Continue to chat with AI'
+                      : activeTab === 'admin-ai'
+                      ? 'Internal admin tools'
+                      : supportLockedForGuest
+                      ? 'Login required for support'
+                      : 'Support conversations'}
+                  </p>
+                </div>
               </div>
+
               <button
                 onClick={() => setIsOpen(false)}
-                className="hover:opacity-90 transition"
+                className="hover:opacity-90 transition shrink-0"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="flex-1 min-h-0 flex flex-col"
+            {/* Top nav */}
+            <div
+              className={`grid ${isAdminLike ? 'grid-cols-2' : 'grid-cols-2'} gap-1 bg-gray-50 p-1.5 border-b shrink-0`}
             >
-              <TabsList className="grid w-full grid-cols-2 bg-gray-50 p-1">
-                <TabsTrigger value="dabzzy" className="gap-2">
-                  <Sparkles size={16} /> Dabzzy AI
-                </TabsTrigger>
-                <TabsTrigger value="admin" className="gap-2">
-                  <Headphones size={16} /> Support
-                </TabsTrigger>
-              </TabsList>
+              {!isAdminLike && (
+                <button
+                  onClick={() => {
+                    setActiveTab('ask');
+                    setAskMode('faq');
+                  }}
+                  className={`rounded-2xl px-3 py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 ${
+                    activeTab === 'ask'
+                      ? 'bg-white text-[#118C8C] shadow-sm'
+                      : 'text-gray-600 hover:bg-white/80'
+                  }`}
+                >
+                  <Sparkles size={16} />
+                  Ask Questions
+                </button>
+              )}
 
-              {/* AI */}
-              <TabsContent
-                value="dabzzy"
-                className="m-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+              <button
+                onClick={() => setActiveTab('support')}
+                className={`rounded-2xl px-3 py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 ${
+                  activeTab === 'support'
+                    ? 'bg-white text-[#118C8C] shadow-sm'
+                    : 'text-gray-600 hover:bg-white/80'
+                }`}
               >
-                <div className="flex-1 min-h-0 p-4 overflow-y-auto space-y-3 bg-gradient-to-b from-gray-50 to-white">
-                  {aiMessages.map((msg, i) => (
-                    <Bubble
-                      key={i}
-                      isMine={msg.role === 'user'}
-                      label={msg.role === 'user' ? 'You' : 'Dabzzy AI'}
-                      text={msg.content}
-                    />
-                  ))}
-                  {aiLoading && (
-                    <div className="text-sm text-gray-500 px-2">Thinking…</div>
-                  )}
-                  <div ref={aiEndRef} />
-                </div>
+                <Headphones size={16} />
+                Support
+              </button>
 
-                <div className="p-3 border-t bg-white">
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={aiInput}
-                      onChange={(e) => setAiInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && sendAiMessage()}
-                      placeholder="Ask Dabzzy…"
-                      className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
-                      disabled={aiLoading}
-                    />
-                    <Button
-                      size="icon"
-                      onClick={sendAiMessage}
-                      disabled={aiLoading || !aiInput.trim()}
-                      className="rounded-2xl bg-[#118C8C] hover:bg-[#0d7070]"
-                    >
-                      <Send size={16} />
-                    </Button>
+              {isAdminLike && (
+                <button
+                  onClick={() => setActiveTab('admin-ai')}
+                  className={`rounded-2xl px-3 py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 ${
+                    activeTab === 'admin-ai'
+                      ? 'bg-white text-[#118C8C] shadow-sm'
+                      : 'text-gray-600 hover:bg-white/80'
+                  }`}
+                >
+                  <ShieldCheck size={16} />
+                  Admin AI
+                </button>
+              )}
+            </div>
+
+            {/* Ask Questions */}
+            {!isAdminLike && activeTab === 'ask' && (
+              <div className="flex-1 min-h-0 flex flex-col bg-white">
+                {/* FAQ mode */}
+                {askMode === 'faq' && (
+                  <>
+                    <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
+                      <div className="p-3 space-y-3">
+                        <div className="rounded-[22px] bg-[#118C8C]/7 border border-[#118C8C]/15 p-4">
+                          <p className="text-sm font-semibold text-[#118C8C]">
+                            Factual Questions Only
+                          </p>
+                          <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                            This section answers only from the approved FAQs page.
+                          </p>
+
+                          <div className="mt-4">
+                            <Button
+                              type="button"
+                              onClick={() => setAskMode('ai')}
+                              variant="outline"
+                              className="rounded-xl border-[#118C8C]/20 text-[#118C8C] hover:bg-[#118C8C]/5"
+                            >
+                              <Bot className="mr-2" size={16} />
+                              {aiLockedForGuest
+                                ? 'Login First to Chat with AI'
+                                : 'Continue to Chat with AI'}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Random suggested questions at the top */}
+                        <div className="flex flex-wrap gap-2">
+                          {suggestedFaqs.map((question) => (
+                            <button
+                              key={`top-${question}`}
+                              onClick={() => handleSuggestedFaqClick(question)}
+                              className="text-sm rounded-full border border-gray-200 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
+                            >
+                              {question}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Actual chat messages */}
+                        {faqMessages.map((msg, i) => (
+                          <Bubble
+                            key={i}
+                            isMine={msg.role === 'user'}
+                            label={msg.role === 'user' ? 'You' : 'FAQ Assistant'}
+                            text={msg.content}
+                          />
+                        ))}
+
+                        {/* Random FAQ quick questions again after the chat */}
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {suggestedFaqs.map((question) => (
+                            <button
+                              key={`bottom-${question}`}
+                              onClick={() => handleSuggestedFaqClick(question)}
+                              className="text-sm rounded-full border border-gray-200 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
+                            >
+                              {question}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div ref={faqEndRef} />
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white border-t shrink-0">
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={faqInput}
+                          onChange={(e) => setFaqInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && sendFaqMessage()}
+                          placeholder="Ask a factual question..."
+                          className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                        />
+                        <Button
+                          size="icon"
+                          onClick={sendFaqMessage}
+                          disabled={!faqInput.trim()}
+                          className="rounded-2xl bg-[#118C8C] hover:bg-[#0d7070] shrink-0"
+                        >
+                          <Send size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* AI mode inside Ask Questions */}
+                {askMode === 'ai' && (
+                  <>
+                    {aiLockedForGuest ? (
+                      <div className="flex-1 min-h-0 flex items-center justify-center bg-gradient-to-b from-gray-50 to-white p-6">
+                        <div className="w-full max-w-sm text-center">
+                          <div className="w-16 h-16 rounded-full bg-[#118C8C]/10 text-[#118C8C] flex items-center justify-center mx-auto mb-4">
+                            <LogIn size={28} />
+                          </div>
+                          <h3 className="text-xl font-bold text-gray-900">
+                            Login First
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                            To chat with AI, login first.
+                          </p>
+                          <Button
+                            onClick={() => navigate('/login')}
+                            className="mt-5 bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-2xl px-6"
+                          >
+                            Login to Continue
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setAskMode('faq')}
+                            className="mt-3 rounded-2xl"
+                          >
+                            <ArrowLeft className="mr-2" size={16} />
+                            Back to Factual Questions
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
+                          <div className="p-3 space-y-3">
+                            <div className="rounded-[22px] bg-[#118C8C]/7 border border-[#118C8C]/15 p-4">
+                              <p className="text-sm font-semibold text-[#118C8C]">
+                                AI Chat
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                                You are now chatting with AI for general store-related questions.
+                              </p>
+
+                              <div className="mt-4">
+                                <Button
+                                  type="button"
+                                  onClick={() => setAskMode('faq')}
+                                  variant="outline"
+                                  className="rounded-xl border-[#118C8C]/20 text-[#118C8C] hover:bg-[#118C8C]/5"
+                                >
+                                  <ArrowLeft className="mr-2" size={16} />
+                                  Back to Factual Questions
+                                </Button>
+                              </div>
+                            </div>
+
+                            {aiMessages.map((msg, i) => (
+                              <Bubble
+                                key={i}
+                                isMine={msg.role === 'user'}
+                                label={msg.role === 'user' ? 'You' : 'AI Assistant'}
+                                text={msg.content}
+                              />
+                            ))}
+
+                            {aiLoading && (
+                              <div className="text-sm text-gray-500 px-2">Thinking…</div>
+                            )}
+
+                            <div ref={aiEndRef} />
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-white border-t shrink-0">
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={aiInput}
+                              onChange={(e) => setAiInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && sendAiMessage()}
+                              placeholder="Continue to chat with AI..."
+                              className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                              disabled={aiLoading}
+                            />
+                            <Button
+                              size="icon"
+                              onClick={sendAiMessage}
+                              disabled={aiLoading || !aiInput.trim()}
+                              className="rounded-2xl bg-[#118C8C] hover:bg-[#0d7070] shrink-0"
+                            >
+                              <Send size={16} />
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Support */}
+            {activeTab === 'support' && (
+              <>
+                {supportLockedForGuest ? (
+                  <div className="flex-1 min-h-0 flex items-center justify-center bg-gradient-to-b from-gray-50 to-white p-6">
+                    <div className="w-full max-w-sm text-center">
+                      <div className="w-16 h-16 rounded-full bg-[#118C8C]/10 text-[#118C8C] flex items-center justify-center mx-auto mb-4">
+                        <LogIn size={28} />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900">
+                        Login Required
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                        Please log in first before using Support Chat.
+                      </p>
+                      <Button
+                        onClick={() => navigate('/login')}
+                        className="mt-5 bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-2xl px-6"
+                      >
+                        Go to Login
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
-
-              {/* Support */}
-              <TabsContent
-                value="admin"
-                className="m-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
-              >
-                {!selectedConvo ? (
+                ) : !selectedConvo ? (
                   <div className="flex-1 min-h-0 flex flex-col">
-                    {!isAdmin && (
-                      <div className="px-4 pt-4 pb-3 border-b bg-white">
+                    {!isAdminLike && (
+                      <div className="px-4 pt-4 pb-3 border-b bg-white shrink-0">
                         <div className="flex items-center justify-between">
                           <p className="font-semibold text-gray-900">Support</p>
                           <Button
@@ -1051,21 +1438,21 @@ ${newArrivalText}
                       </div>
                     )}
 
-                    <div className="px-4 pt-4 pb-3 bg-white border-b space-y-3">
+                    <div className="px-4 pt-4 pb-3 bg-white border-b space-y-3 shrink-0">
                       <div>
                         <p className="font-semibold text-gray-900">
-                          {isAdmin
+                          {isAdminLike
                             ? 'Customer Conversations'
                             : 'Your Conversations'}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {isAdmin
+                          {isAdminLike
                             ? 'Tap a customer thread to open the full chat.'
                             : 'Open a support thread or start a new one.'}
                         </p>
                       </div>
 
-                      {isAdmin && (
+                      {isAdminLike && (
                         <input
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
@@ -1091,10 +1478,10 @@ ${newArrivalText}
                         </div>
                       ) : (
                         filteredConversations.map((convo) => {
-                          const displayName = isAdmin
+                          const displayName = isAdminLike
                             ? getDisplayName(convo)
                             : convo.subject;
-                          const avatarSeed = isAdmin
+                          const avatarSeed = isAdminLike
                             ? convo.buyerEmail || convo.buyerName || convo.key
                             : convo.subject || convo.key;
                           const avatarTone = getAvatarTone(avatarSeed);
@@ -1121,7 +1508,7 @@ ${newArrivalText}
                                       {displayName}
                                     </p>
 
-                                    {isAdmin ? (
+                                    {isAdminLike ? (
                                       <p className="text-xs text-gray-500 truncate mt-0.5">
                                         {convo.buyerEmail || 'No email'}
                                       </p>
@@ -1164,8 +1551,7 @@ ${newArrivalText}
                   </div>
                 ) : (
                   <div className="flex-1 min-h-0 flex flex-col relative">
-                    {/* Conversation header */}
-                    <div className="px-4 py-3 bg-white border-b flex items-center gap-3">
+                    <div className="px-4 py-3 bg-white border-b flex items-center gap-3 shrink-0">
                       <div
                         className={`w-11 h-11 rounded-full flex items-center justify-center font-bold shrink-0 ${getAvatarTone(
                           selectedConvo.buyerEmail ||
@@ -1174,18 +1560,18 @@ ${newArrivalText}
                         )}`}
                       >
                         {getInitials(
-                          isAdmin ? getDisplayName(selectedConvo) : 'Support'
+                          isAdminLike ? getDisplayName(selectedConvo) : 'Support'
                         )}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 truncate">
-                          {isAdmin
+                          {isAdminLike
                             ? getDisplayName(selectedConvo)
                             : 'D.A.B.S. Support'}
                         </p>
 
-                        {isAdmin ? (
+                        {isAdminLike ? (
                           <p className="text-xs text-gray-500 truncate">
                             {selectedConvo.buyerEmail}
                           </p>
@@ -1195,7 +1581,7 @@ ${newArrivalText}
                           </p>
                         )}
 
-                        {isAdmin && (
+                        {isAdminLike && (
                           <div className="mt-1">
                             <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2 py-0.5 text-[11px] font-medium">
                               {selectedConvo.subject}
@@ -1205,7 +1591,6 @@ ${newArrivalText}
                       </div>
                     </div>
 
-                    {/* Messages */}
                     <div
                       ref={supportScrollRef}
                       className="flex-1 min-h-0 p-4 overflow-y-auto space-y-3 bg-gradient-to-b from-gray-50 to-white"
@@ -1240,7 +1625,6 @@ ${newArrivalText}
                       <div ref={bottomRef} />
                     </div>
 
-                    {/* Jump */}
                     {showJump && (
                       <div className="absolute bottom-[86px] right-4">
                         <button
@@ -1256,8 +1640,7 @@ ${newArrivalText}
                       </div>
                     )}
 
-                    {/* Input */}
-                    <div className="p-3 border-t bg-white">
+                    <div className="p-3 border-t bg-white shrink-0">
                       <div className="flex items-center gap-2">
                         <input
                           value={replyInput}
@@ -1281,13 +1664,64 @@ ${newArrivalText}
                     </div>
                   </div>
                 )}
-              </TabsContent>
-            </Tabs>
+              </>
+            )}
+
+            {/* Admin AI */}
+            {activeTab === 'admin-ai' && isAdminLike && (
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="px-4 pt-4 pb-3 border-b bg-white shrink-0">
+                  <div className="rounded-2xl bg-[#118C8C]/7 border border-[#118C8C]/12 p-3">
+                    <p className="text-sm font-semibold text-[#118C8C]">
+                      Admin AI
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Ask about products, orders, stock, revenue, best sellers, and order statuses.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex-1 min-h-0 p-3 overflow-y-auto space-y-3 bg-gradient-to-b from-gray-50 to-white">
+                  {adminMessages.map((msg, i) => (
+                    <Bubble
+                      key={i}
+                      isMine={msg.role === 'user'}
+                      label={msg.role === 'user' ? 'You' : 'Admin AI'}
+                      text={msg.content}
+                    />
+                  ))}
+                  {adminLoading && (
+                    <div className="text-sm text-gray-500 px-2">Checking live admin data…</div>
+                  )}
+                  <div ref={adminEndRef} />
+                </div>
+
+                <div className="p-3 border-t bg-white shrink-0">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={adminInput}
+                      onChange={(e) => setAdminInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && sendAdminMessage()}
+                      placeholder="Ask about products, orders, or analytics..."
+                      className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                      disabled={adminLoading}
+                    />
+                    <Button
+                      size="icon"
+                      onClick={sendAdminMessage}
+                      disabled={adminLoading || !adminInput.trim()}
+                      className="rounded-2xl bg-[#118C8C] hover:bg-[#0d7070]"
+                    >
+                      <Send size={16} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Floating button */}
       <motion.button
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
