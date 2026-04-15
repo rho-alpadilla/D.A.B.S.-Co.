@@ -182,16 +182,19 @@ const MessageCenterPage = () => {
           (msg.attachmentUrl ? 'Attachment sent' : '');
 
         if (!grouped[key]) {
-          grouped[key] = {
-            key,
-            subject,
-            buyerEmail: msg.buyerEmail,
-            buyerName: msg.buyerName || buyerKey.split('@')[0],
-            latestMillis: createdMillis,
-            lastPreview: previewText,
-            lastSenderLabel: msg.isAdminReply ? 'Admin' : 'Buyer',
-            hasUnread: false,
-          };
+grouped[key] = {
+  key,
+  subject,
+  buyerId: isAdminLike
+  ? selectedConvo?.buyerId || null
+  : user?.uid || null,
+  buyerEmail: msg.buyerEmail,
+  buyerName: msg.buyerName || buyerKey.split('@')[0],
+  latestMillis: createdMillis,
+  lastPreview: previewText,
+  lastSenderLabel: msg.isAdminReply ? 'Admin' : 'Buyer',
+  hasUnread: false,
+};
         }
 
         if (createdMillis >= (grouped[key].latestMillis || 0)) {
@@ -303,24 +306,25 @@ const MessageCenterPage = () => {
         setUploading(false);
       }
 
-      await addDoc(collection(db, 'messages'), {
-        buyerEmail: isAdminLike ? selectedConvo.buyerEmail : user.email,
-        buyerName:
-          selectedConvo.buyerName ||
-          user?.displayName ||
-          user?.email?.split('@')[0] ||
-          'User',
-        subject: selectedConvo.subject || 'General Support',
-        message: text.trim(),
-        status: 'unread',
-        createdAt: serverTimestamp(),
-        isAdminReply: isAdminLike,
-        ...(isAdminLike && {
-          adminEmail: user?.email || '',
-          adminName: user?.displayName || 'Admin',
-        }),
-        ...(attachmentData || {}),
-      });
+await addDoc(collection(db, 'messages'), {
+  buyerId: selectedConvo?.buyerId || user?.uid || null,
+  buyerEmail: isAdminLike ? selectedConvo.buyerEmail : user.email,
+  buyerName:
+    selectedConvo.buyerName ||
+    user?.displayName ||
+    user?.email?.split('@')[0] ||
+    'User',
+  subject: selectedConvo.subject || 'General Support',
+  message: text.trim(),
+  status: 'unread',
+  createdAt: serverTimestamp(),
+  isAdminReply: isAdminLike,
+  ...(isAdminLike && {
+    adminEmail: user?.email || '',
+    adminName: user?.displayName || 'Admin',
+  }),
+  ...(attachmentData || {}),
+});
 
       setReplyInput('');
       if (fileInputRef.current) {

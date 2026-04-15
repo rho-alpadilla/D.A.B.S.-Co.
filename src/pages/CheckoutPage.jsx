@@ -19,13 +19,23 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useToast } from '@/components/ui/use-toast';
-import { collection, addDoc, serverTimestamp, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  onSnapshot,
+  updateDoc,
+  getDocs,
+  query,
+  where,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import Grainient from '@/components/ui-bits/Grainient';
 import Particles from '@/components/ui-bits/Particles';
-
+import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
 // ALL COUNTRIES (copied from ProfilePage)
 const ALL_COUNTRIES = [
   { name: 'Philippines', code: 'PH', flag: 'https://flagcdn.com/ph.svg', callingCode: '+63' },
@@ -203,25 +213,40 @@ const CheckoutPage = () => {
     try {
       const orderedItems = cartItems.filter((item) => checkedIds.includes(item.id));
 
-      const docRef = await addDoc(collection(db, 'orders'), {
-        items: orderedItems,
-        total: selectedTotal,
-        grandTotal,
-        deliveryMethod,
-        paymentMethod,
-        shippingInfo: {
-          ...formData,
-          country: formData.countryObj.name,
-        },
-        buyerEmail: user?.email || formData.email || 'guest@dabs.co',
-        buyerName: `${formData.firstName} ${formData.lastName}`.trim() || 'Guest Buyer',
-        status,
-        createdAt: serverTimestamp(),
-      });
+ const docRef = await addDoc(collection(db, 'orders'), {
+  items: orderedItems,
+  total: selectedTotal,
+  grandTotal,
+  deliveryMethod,
+  paymentMethod,
+  shippingInfo: {
+    ...formData,
+    country: formData.countryObj.name,
+  },
+  buyerId: user?.uid || null,
+  buyerEmail: user?.email || formData.email || 'guest@dabs.co',
+  buyerName: `${formData.firstName} ${formData.lastName}`.trim() || 'Guest Buyer',
+  status,
+  createdAt: serverTimestamp(),
+});
 
       clearCart();
       setOrderId(docRef.id);
       setOrderPlaced(true);
+
+      await createNotification({
+        uid: user?.uid,
+        type: 'order',
+        title: status === 'paid' ? 'Order Confirmed' : 'Order Placed',
+        body:
+          status === 'paid'
+            ? `Your order #${docRef.id.slice(0, 8)} was placed and payment was received.`
+            : `Your order #${docRef.id.slice(0, 8)} was placed successfully.`,
+        link: '/buyer-dashboard',
+        orderId: docRef.id,
+      });
+
+ 
 
       toast({
         title: status === 'paid' ? 'Payment Successful' : 'Order Placed!',

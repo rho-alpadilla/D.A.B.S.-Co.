@@ -34,7 +34,7 @@ import {
   Eye, X as CloseIcon, Mail, Hash, Box, ReceiptText,
   MapPin, Phone, Wallet
 } from "lucide-react";
-
+import { createNotification } from '@/lib/notifications';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 const AdminPanel = () => {
@@ -142,54 +142,73 @@ const AdminPanel = () => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
+  const order = orders.find((o) => o.id === orderId);
+  if (!order) return;
 
-    const currentStatus = order.status || "pending";
+  const currentStatus = order.status || "pending";
 
-    if (isSubAdmin && !subAdminAllowedStatuses.includes(newStatus)) {
-      alert("Permission blocked. Contact Main admin for this action.");
-      return;
-    }
+  if (isSubAdmin && !subAdminAllowedStatuses.includes(newStatus)) {
+    alert("Permission blocked. Contact Main admin for this action.");
+    return;
+  }
 
-    try {
-      if (newStatus === "completed" && currentStatus !== "completed") {
-        const promises = (order.items || []).map(async (item) => {
-          const productRef = doc(db, "pricelists", item.id);
-          const productSnap = await getDoc(productRef);
+  try {
+    if (newStatus === "completed" && currentStatus !== "completed") {
+      const promises = (order.items || []).map(async (item) => {
+        const productRef = doc(db, "pricelists", item.id);
+        const productSnap = await getDoc(productRef);
 
-          if (productSnap.exists()) {
-            const data = productSnap.data();
-            const currentStock = data.stockQuantity || 0;
-            const newStock = currentStock - item.quantity;
+        if (productSnap.exists()) {
+          const data = productSnap.data();
+          const currentStock = data.stockQuantity || 0;
+          const newStock = currentStock - item.quantity;
 
-            if (newStock < 0) {
-              throw new Error(`Not enough stock for "${item.name}"`);
-            }
-
-            await updateDoc(productRef, {
-              stockQuantity: newStock,
-              inStock: newStock > 0,
-              totalSold: increment(item.quantity)
-            });
+          if (newStock < 0) {
+            throw new Error(`Not enough stock for "${item.name}"`);
           }
-        });
 
-        await Promise.all(promises);
-      }
-
-      await updateDoc(doc(db, "orders", orderId), {
-        status: newStatus,
-        updatedAt: new Date()
+          await updateDoc(productRef, {
+            stockQuantity: newStock,
+            inStock: newStock > 0,
+            totalSold: increment(item.quantity)
+          });
+        }
       });
 
-      alert(`Order marked as ${newStatus.replace(/_/g, " ")}!`);
-    } catch (err) {
-      alert(err.message || "Failed to update order");
-      console.error(err);
+      await Promise.all(promises);
     }
-  };
 
+    await updateDoc(doc(db, "orders", orderId), {
+      status: newStatus,
+      updatedAt: new Date()
+    });
+
+    if (order.buyerId) {
+      const statusTitles = {
+        pending: "Order Pending",
+        payment_confirmed: "Payment Confirmed",
+        processing: "Order Processing",
+        shipping: "Order Shipped",
+        completed: "Order Completed",
+        cancelled: "Order Cancelled",
+      };
+
+      await createNotification({
+        uid: order.buyerId,
+        type: "order",
+        title: statusTitles[newStatus] || "Order Updated",
+        body: `Your order #${order.id.slice(0, 8)} is now ${newStatus.replace(/_/g, " ")}.`,
+        link: "/buyer-dashboard",
+        orderId: order.id,
+      });
+    }
+
+    alert(`Order marked as ${newStatus.replace(/_/g, " ")}!`);
+  } catch (err) {
+    alert(err.message || "Failed to update order");
+    console.error(err);
+  }
+};
   const getStatusBadge = (status) => {
     const map = {
       "pending": {

@@ -35,6 +35,7 @@ import { useAuth } from '@/lib/firebase';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { faqs, findBestFaqMatch } from '@/data/faqs';
+import { createNotification } from '@/lib/notifications';
 
 const FAQ_WELCOME_MESSAGE = {
   role: 'assistant',
@@ -718,6 +719,7 @@ const ChatWidget = () => {
           grouped[key] = {
             key,
             subject,
+            buyerId: msg.buyerId || null,
             buyerEmail: msg.buyerEmail,
             buyerName: msg.buyerName || buyerKey.split('@')[0],
             latestMillis: createdMillis,
@@ -824,6 +826,9 @@ const ChatWidget = () => {
       }
 
       await addDoc(collection(db, 'messages'), {
+        buyerId: isAdminLike
+          ? selectedConvo?.buyerId || null
+          : user?.uid || null,
         buyerEmail,
         buyerName: selectedConvo.buyerName || user?.email?.split('@')[0],
         subject: selectedConvo.subject || 'General Support',
@@ -838,11 +843,26 @@ const ChatWidget = () => {
         ...(attachmentData || {}),
       });
 
+      if (isAdminLike && selectedConvo?.buyerId) {
+        try {
+          await createNotification({
+            uid: selectedConvo.buyerId,
+            type: 'message',
+            title: 'New Support Reply',
+            body: `Admin replied to your "${selectedConvo.subject || 'General Support'}" conversation.`,
+            link: '/message-center',
+            subject: selectedConvo.subject || 'General Support',
+          });
+        } catch (notifErr) {
+          console.error('buyer support notification failed:', notifErr);
+        }
+      }
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     } catch (err) {
-      console.error(err);
+      console.error('sendSupportReply failed:', err);
       setSupportMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       toast({
         title: 'Error',
@@ -874,6 +894,7 @@ const ChatWidget = () => {
     if ((!buyerMessage.trim() && !file) || buyerSending) return;
 
     setBuyerSending(true);
+
     try {
       const subject = (buyerSubject || 'General Support').trim();
       let attachmentData = null;
@@ -883,6 +904,7 @@ const ChatWidget = () => {
       }
 
       await addDoc(collection(db, 'messages'), {
+        buyerId: user?.uid || null,
         buyerEmail: user.email,
         buyerName: user.displayName || user.email.split('@')[0],
         subject,
@@ -896,6 +918,7 @@ const ChatWidget = () => {
       setSelectedConvo({
         key: subject,
         subject,
+        buyerId: user?.uid || null,
         buyerEmail: user.email,
         buyerName: user.displayName || user.email.split('@')[0],
       });
@@ -908,7 +931,7 @@ const ChatWidget = () => {
         newChatFileInputRef.current.value = '';
       }
     } catch (err) {
-      console.error(err);
+      console.error('startBuyerChat failed:', err);
       toast({
         title: 'Error',
         description: 'Failed to start chat.',
@@ -1573,7 +1596,7 @@ const ChatWidget = () => {
                                 size="sm"
                                 className="bg-[#118C8C] hover:bg-[#0d7070] rounded-xl"
                                 onClick={() => startBuyerChat()}
-                                disabled={buyerSending || !buyerMessage.trim()}
+                                disabled={buyerSending || (!buyerMessage.trim() && !newChatFileInputRef.current?.files?.[0])}
                               >
                                 {buyerSending ? 'Sending…' : 'Start Chat'}
                               </Button>
@@ -1597,29 +1620,28 @@ const ChatWidget = () => {
                         </p>
                       </div>
 
-                    
-<>
-  {isAdminLike && (
-    <input
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      placeholder="Search by name, email, subject, or message..."
-      className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
-    />
-  )}
+                      <>
+                        {isAdminLike && (
+                          <input
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search by name, email, subject, or message..."
+                            className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                          />
+                        )}
 
-  <Button
-    variant="outline"
-    className="w-full rounded-2xl"
-    onClick={() => {
-      setIsOpen(false);
-      navigate('/message-center');
-    }}
-  >
-    <Expand size={16} className="mr-2" />
-    View in Message Center
-  </Button>
-</>
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-2xl"
+                          onClick={() => {
+                            setIsOpen(false);
+                            navigate('/message-center');
+                          }}
+                        >
+                          <Expand size={16} className="mr-2" />
+                          View in Message Center
+                        </Button>
+                      </>
                     </div>
 
                     <div className="flex-1 min-h-0 p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-white space-y-2">
@@ -1741,24 +1763,23 @@ const ChatWidget = () => {
                           </p>
                         )}
 
-                        {id="w_user_msg_center_02"}
-<div className="mt-1 flex items-center gap-2 flex-wrap">
-  {isAdminLike && (
-    <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2 py-0.5 text-[11px] font-medium">
-      {selectedConvo.subject}
-    </span>
-  )}
+                        <div className="mt-1 flex items-center gap-2 flex-wrap">
+                          {isAdminLike && (
+                            <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2 py-0.5 text-[11px] font-medium">
+                              {selectedConvo.subject}
+                            </span>
+                          )}
 
-  <button
-    onClick={() => {
-      setIsOpen(false);
-      navigate('/message-center');
-    }}
-    className="text-[11px] font-medium text-[#118C8C] hover:underline"
-  >
-    View in Message Center
-  </button>
-</div>
+                          <button
+                            onClick={() => {
+                              setIsOpen(false);
+                              navigate('/message-center');
+                            }}
+                            className="text-[11px] font-medium text-[#118C8C] hover:underline"
+                          >
+                            View in Message Center
+                          </button>
+                        </div>
                       </div>
                     </div>
 

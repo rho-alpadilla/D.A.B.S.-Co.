@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu,
@@ -10,6 +10,10 @@ import {
   Search,
   User,
   ChevronDown,
+  Bell,
+  CheckCheck,
+  Package,
+  MessageSquareText,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
@@ -17,7 +21,14 @@ import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import {
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  orderBy,
+  updateDoc,
+} from 'firebase/firestore';
 import CircularText from '@/components/ui-bits/CircularText';
 
 const Header = () => {
@@ -25,10 +36,17 @@ const Header = () => {
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHighlightsOpen, setIsHighlightsOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [photoURL, setPhotoURL] = useState('');
   const [scrollPct, setScrollPct] = useState(0);
+  const [adminNotifSeenAt, setAdminNotifSeenAt] = useState(null);
+
+  const [buyerNotifications, setBuyerNotifications] = useState([]);
+  const [adminAlerts, setAdminAlerts] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,6 +66,19 @@ const Header = () => {
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const toMillis = (value) => {
+    try {
+      if (!value) return 0;
+      if (typeof value?.toMillis === 'function') return value.toMillis();
+      if (typeof value?.toDate === 'function') return value.toDate().getTime();
+      if (typeof value === 'number') return value;
+      const parsed = new Date(value).getTime();
+      return Number.isNaN(parsed) ? 0 : parsed;
+    } catch {
+      return 0;
+    }
+  };
 
   useEffect(() => {
     const onScroll = () => {
@@ -70,6 +101,7 @@ const Header = () => {
     if (!user) {
       setPhotoURL('');
       setIsAdmin(false);
+      setAdminNotifSeenAt(null);
       return;
     }
 
@@ -78,11 +110,234 @@ const Header = () => {
         const d = snap.data();
         setPhotoURL(d.photoURL || '');
         setIsAdmin(d.role === 'admin' || d.role === 'sub-admin');
+        setAdminNotifSeenAt(d.adminNotifSeenAt || null);
       }
     });
 
     return unsub;
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.uid || isAdmin) {
+      setBuyerNotifications([]);
+      return;
+    }
+
+    setNotifLoading(true);
+
+    const notifQuery = query(
+      collection(db, 'users', user.uid, 'notifications'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsub = onSnapshot(
+      notifQuery,
+      (snap) => {
+        setBuyerNotifications(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setNotifLoading(false);
+      },
+      (err) => {
+        console.error('Buyer notification listener failed:', err);
+        setNotifLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [user?.uid, isAdmin]);
+
+  useEffect(() => {
+    if (!user?.uid || !isAdmin) {
+      setAdminAlerts([]);
+      return;
+    }
+
+    setNotifLoading(true);
+    const seenMs = toMillis(adminNotifSeenAt);
+
+    const unsubOrders = onSnapshot(
+      query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
+      (orderSnap) => {
+        const pendingOrders = orderSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter(
+            (order) =>
+              order.status === 'pending' && toMillis(order.createdAt) > seenMs
+          )
+          .slice(0, 20);
+
+        setAdminAlerts((prev) => {
+          const nonOrderAlerts = prev.filter((item) => item.alertType !== 'order');
+
+          const orderAlerts = pendingOrders.map((order) => ({
+            id: `order-${order.id}`,
+            alertType: 'order',
+            title: 'New Order Received',
+            body: `Order #${order.id.slice(0, 8)} from ${
+              order.buyerEmail || order.buyerName || 'a buyer'
+            }.`,
+            createdAt: order.createdAt,
+            link: '/admin-panel',
+            read: false,
+          }));
+
+          return [...orderAlerts, ...nonOrderAlerts]
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+            .slice(0, 20);
+        });
+
+        setNotifLoading(false);
+      },
+      (err) => {
+        console.error('Admin order alert listener failed:', err);
+        setNotifLoading(false);
+      }
+    );
+
+    const unsubMessages = onSnapshot(
+      query(collection(db, 'messages'), orderBy('createdAt', 'desc')),
+      (msgSnap) => {
+        const unreadBuyerMessages = msgSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter(
+            (msg) =>
+              msg.status === 'unread' &&
+              msg.isAdminReply === false &&
+              toMillis(msg.createdAt) > seenMs
+          )
+          .slice(0, 20);
+
+        setAdminAlerts((prev) => {
+          const nonMessageAlerts = prev.filter(
+            (item) => item.alertType !== 'message'
+          );
+
+          const messageAlerts = unreadBuyerMessages.map((msg) => ({
+            id: `message-${msg.id}`,
+            alertType: 'message',
+            title: 'New Customer Message',
+            body: `${msg.buyerName || msg.buyerEmail || 'A customer'} sent a message in "${
+              msg.subject || 'General Support'
+            }".`,
+            createdAt: msg.createdAt,
+            link: '/message-center',
+            read: false,
+          }));
+
+          return [...messageAlerts, ...nonMessageAlerts]
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+            .slice(0, 20);
+        });
+
+        setNotifLoading(false);
+      },
+      (err) => {
+        console.error('Admin message alert listener failed:', err);
+        setNotifLoading(false);
+      }
+    );
+
+    return () => {
+      unsubOrders();
+      unsubMessages();
+    };
+  }, [user?.uid, isAdmin, adminNotifSeenAt]);
+
+  const visibleNotifications = useMemo(
+    () => (isAdmin ? adminAlerts : buyerNotifications),
+    [isAdmin, adminAlerts, buyerNotifications]
+  );
+
+  const unreadNotifCount = useMemo(() => {
+    if (isAdmin) return visibleNotifications.length;
+    return visibleNotifications.filter((n) => !n.read).length;
+  }, [isAdmin, visibleNotifications]);
+
+  const formatNotifTime = (ts) => {
+    const ms = toMillis(ts);
+    if (!ms) return '';
+
+    const d = new Date(ms);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMs / 3600000);
+    const diffDay = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHr < 24) return `${diffHr}h ago`;
+    if (diffDay < 7) return `${diffDay}d ago`;
+
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
+  const getNotifMeta = (notif) => {
+    const type = notif.alertType || notif.type;
+
+    if (type === 'order') {
+      return {
+        icon: <Package size={16} />,
+        chip: 'Order',
+        iconWrap: 'bg-amber-100 text-amber-700',
+        chipWrap: 'bg-amber-50 text-amber-700',
+      };
+    }
+
+    if (type === 'message') {
+      return {
+        icon: <MessageSquareText size={16} />,
+        chip: 'Message',
+        iconWrap: 'bg-[#118C8C]/10 text-[#118C8C]',
+        chipWrap: 'bg-[#118C8C]/10 text-[#118C8C]',
+      };
+    }
+
+    return {
+      icon: <Bell size={16} />,
+      chip: 'Update',
+      iconWrap: 'bg-gray-100 text-gray-600',
+      chipWrap: 'bg-gray-100 text-gray-600',
+    };
+  };
+
+  const handleNotifClick = async (notif) => {
+    try {
+      if (!isAdmin && !notif.read && user?.uid) {
+        await updateDoc(doc(db, 'users', user.uid, 'notifications', notif.id), {
+          read: true,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
+
+    setIsNotifOpen(false);
+    navigate(notif.link || '/');
+  };
+
+  const markAllNotifsRead = async () => {
+    if (!user?.uid) return;
+
+    try {
+      if (isAdmin) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          adminNotifSeenAt: new Date(),
+        });
+        return;
+      }
+
+      const unread = buyerNotifications.filter((n) => !n.read);
+      await Promise.all(
+        unread.map((notif) =>
+          updateDoc(doc(db, 'users', user.uid, 'notifications', notif.id), {
+            read: true,
+          })
+        )
+      );
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -90,15 +345,16 @@ const Header = () => {
     setIsUserMenuOpen(false);
     setIsMenuOpen(false);
     setIsHighlightsOpen(false);
+    setIsNotifOpen(false);
     navigate('/');
   };
 
-  // Navigates to highlight sections and closes open menus first
   const goToHighlight = (section) => {
     setIsHighlightsOpen(false);
     setIsMenuOpen(false);
     setIsCurrencyOpen(false);
     setIsUserMenuOpen(false);
+    setIsNotifOpen(false);
 
     const smoothScrollToSection = () => {
       const el = document.getElementById(section);
@@ -129,7 +385,6 @@ const Header = () => {
   const p = scrollPct;
   const lerp = (a, b, t) => a + (b - a) * t;
 
-  // Header glass effect values based on scroll
   const hdrBgA = lerp(1, 0.5, p);
   const hdrBg = `rgba(250,248,241,${hdrBgA.toFixed(3)})`;
   const hdrBlur = p > 0.05 ? `blur(${(p * 18).toFixed(1)}px)` : 'none';
@@ -142,14 +397,13 @@ const Header = () => {
   const linkShadow = 'none';
   const iconColor = '#374151';
 
-  // Made currency button more visible and clearly clickable
-  const currBg = p < 0.45
-    ? 'linear-gradient(135deg, rgba(17,140,140,0.14), rgba(17,140,140,0.08))'
-    : 'linear-gradient(135deg, rgba(17,140,140,0.18), rgba(17,140,140,0.1))';
+  const currBg =
+    p < 0.45
+      ? 'linear-gradient(135deg, rgba(17,140,140,0.14), rgba(17,140,140,0.08))'
+      : 'linear-gradient(135deg, rgba(17,140,140,0.18), rgba(17,140,140,0.1))';
   const currBorder = 'rgba(17,140,140,0.45)';
   const currColor = '#0f5f5f';
 
-  // Made login button stronger so it no longer looks disabled
   const loginBg = 'linear-gradient(135deg, #118C8C, #0d7070)';
   const loginBorder = 'rgba(17,140,140,0.85)';
   const loginColor = '#ffffff';
@@ -171,6 +425,81 @@ const Header = () => {
           { type: 'link', path: '/contact', label: 'Contact' },
         ]),
   ];
+
+  const renderNotificationList = (mobile = false) => (
+    <div className={mobile ? 'max-h-80 overflow-y-auto' : 'max-h-96 overflow-y-auto'}>
+      {notifLoading ? (
+        <div className="p-8 text-sm text-gray-500 text-center">Loading notifications...</div>
+      ) : visibleNotifications.length === 0 ? (
+        <div className="p-8 text-center">
+          <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-3">
+            <Bell size={20} />
+          </div>
+          <p className="text-sm font-medium text-gray-700">All caught up</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {isAdmin ? 'No new admin alerts right now.' : 'No notifications yet.'}
+          </p>
+        </div>
+      ) : (
+        <div className="p-2 space-y-2">
+          {visibleNotifications.slice(0, mobile ? 10 : 12).map((notif) => {
+            const meta = getNotifMeta(notif);
+            const isUnreadBuyerNotif = !isAdmin && !notif.read;
+
+            return (
+              <button
+                key={notif.id}
+                onClick={() => handleNotifClick(notif)}
+                className={`w-full text-left rounded-2xl border px-3 py-3 transition ${
+                  isUnreadBuyerNotif
+                    ? 'bg-[#118C8C]/6 border-[#118C8C]/12 hover:bg-[#118C8C]/8'
+                    : 'bg-white border-gray-100 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconWrap}`}
+                  >
+                    {meta.icon}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {notif.title || 'Notification'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.chipWrap}`}
+                          >
+                            {meta.chip}
+                          </span>
+                          {isUnreadBuyerNotif && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-[#F2BB16]/20 text-[#9a6c00]">
+                              New
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-gray-400 shrink-0 pt-0.5">
+                        {formatNotifTime(notif.createdAt)}
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mt-2 break-words leading-relaxed">
+                      {notif.body || ''}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -252,12 +581,15 @@ const Header = () => {
           position: relative;
           display: flex;
           align-items: center;
-          transition: color 0.3s ease, transform 0.2s ease;
+          justify-content: center;
+          transition: color 0.3s ease, transform 0.2s ease, background 0.25s ease;
           cursor: pointer;
+          border-radius: 999px;
         }
 
         .hdr-cart:hover {
-          transform: scale(1.1);
+          transform: scale(1.08);
+          background: rgba(17,140,140,0.08);
         }
 
         .hdr-login {
@@ -454,6 +786,7 @@ const Header = () => {
                   setIsCurrencyOpen((v) => !v);
                   setIsUserMenuOpen(false);
                   setIsHighlightsOpen(false);
+                  setIsNotifOpen(false);
                 }}
                 style={{
                   background: currBg,
@@ -549,8 +882,72 @@ const Header = () => {
               </AnimatePresence>
             </div>
 
+            {user && (
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setIsNotifOpen((v) => !v);
+                    setIsCurrencyOpen(false);
+                    setIsUserMenuOpen(false);
+                    setIsHighlightsOpen(false);
+                  }}
+                  className="hdr-cart p-2.5"
+                  style={{ color: iconColor }}
+                >
+                  <Bell size={20} strokeWidth={1.75} />
+                  {unreadNotifCount > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 bg-[#F2BB16] text-[10px] font-bold text-gray-900 rounded-full flex items-center justify-center"
+                      style={{ minWidth: 18, minHeight: 18, padding: '0 3px' }}
+                    >
+                      {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                    </span>
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {isNotifOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                      transition={{ duration: 0.18 }}
+                      className="hdr-dropdown absolute right-0 top-full mt-2.5 w-[26rem] z-[9999]"
+                    >
+                      <div className="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-[#118C8C]/6 via-white to-[#F2BB16]/10">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900">
+                              {isAdmin ? 'Admin Alerts' : 'Notifications'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {isAdmin
+                                ? `${visibleNotifications.length} active alerts`
+                                : `${unreadNotifCount} unread`}
+                            </p>
+                          </div>
+
+                          {visibleNotifications.length > 0 && (
+                            <button
+                              onClick={markAllNotifsRead}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#118C8C] hover:underline shrink-0"
+                            >
+                              <CheckCheck size={14} />
+                              Mark all as read
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {renderNotificationList(false)}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
             {!isAdmin && (
-              <Link to="/cart" className="hdr-cart p-2" style={{ color: iconColor }}>
+              <Link to="/cart" className="hdr-cart p-2.5" style={{ color: iconColor }}>
                 <ShoppingCart size={20} strokeWidth={1.75} />
                 {cartCount > 0 && (
                   <span
@@ -570,6 +967,7 @@ const Header = () => {
                     setIsUserMenuOpen((v) => !v);
                     setIsCurrencyOpen(false);
                     setIsHighlightsOpen(false);
+                    setIsNotifOpen(false);
                   }}
                   className="flex items-center gap-2 rounded-full px-1 py-1 transition"
                   style={{ background: isUserMenuOpen ? 'rgba(17,140,140,0.08)' : 'transparent' }}
@@ -660,18 +1058,36 @@ const Header = () => {
             )}
           </div>
 
-          <button
-            onClick={() => {
-              setIsMenuOpen((v) => !v);
-              setIsHighlightsOpen(false);
-              setIsCurrencyOpen(false);
-              setIsUserMenuOpen(false);
-            }}
+          <div
             className="md:hidden flex items-center gap-3"
             style={{ color: iconColor, transition: 'color 0.35s ease', zIndex: 2 }}
           >
+            {user && (
+              <button
+                onClick={() => {
+                  setIsNotifOpen((v) => !v);
+                  setIsCurrencyOpen(false);
+                  setIsUserMenuOpen(false);
+                  setIsHighlightsOpen(false);
+                  setIsMenuOpen(false);
+                }}
+                className="relative rounded-full p-1"
+                style={{ color: iconColor }}
+              >
+                <Bell size={22} strokeWidth={1.75} />
+                {unreadNotifCount > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 bg-[#F2BB16] text-[10px] font-bold text-gray-900 rounded-full flex items-center justify-center"
+                    style={{ minWidth: 17, minHeight: 17, padding: '0 2px' }}
+                  >
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             {!isAdmin && (
-              <Link to="/cart" onClick={(e) => e.stopPropagation()} className="relative">
+              <Link to="/cart" className="relative rounded-full p-1">
                 <ShoppingCart size={22} strokeWidth={1.75} />
                 {cartCount > 0 && (
                   <span
@@ -684,11 +1100,64 @@ const Header = () => {
               </Link>
             )}
 
-            <motion.div animate={{ rotate: isMenuOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
-              {isMenuOpen ? <X size={26} strokeWidth={1.75} /> : <Menu size={26} strokeWidth={1.75} />}
-            </motion.div>
-          </button>
+            <button
+              onClick={() => {
+                setIsMenuOpen((v) => !v);
+                setIsHighlightsOpen(false);
+                setIsCurrencyOpen(false);
+                setIsUserMenuOpen(false);
+                setIsNotifOpen(false);
+              }}
+            >
+              <motion.div animate={{ rotate: isMenuOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                {isMenuOpen ? <X size={26} strokeWidth={1.75} /> : <Menu size={26} strokeWidth={1.75} />}
+              </motion.div>
+            </button>
+          </div>
         </nav>
+
+        <AnimatePresence>
+          {isNotifOpen && user && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -8, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden overflow-hidden"
+            >
+              <div className="hdr-mobile px-4 pb-4 pt-2">
+                <div className="hdr-dropdown w-full">
+                  <div className="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-[#118C8C]/6 via-white to-[#F2BB16]/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900">
+                          {isAdmin ? 'Admin Alerts' : 'Notifications'}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {isAdmin
+                            ? `${visibleNotifications.length} active alerts`
+                            : `${unreadNotifCount} unread`}
+                        </p>
+                      </div>
+
+                      {visibleNotifications.length > 0 && (
+                        <button
+                          onClick={markAllNotifsRead}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#118C8C] hover:underline shrink-0"
+                        >
+                          <CheckCheck size={14} />
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {renderNotificationList(true)}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {isMenuOpen && (
