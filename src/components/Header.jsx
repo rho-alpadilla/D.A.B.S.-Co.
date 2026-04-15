@@ -57,7 +57,9 @@ const Header = () => {
         rafRef.current = null;
       });
     };
+
     window.addEventListener('scroll', onScroll, { passive: true });
+
     return () => {
       window.removeEventListener('scroll', onScroll);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -70,6 +72,7 @@ const Header = () => {
       setIsAdmin(false);
       return;
     }
+
     const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
       if (snap.exists()) {
         const d = snap.data();
@@ -77,6 +80,7 @@ const Header = () => {
         setIsAdmin(d.role === 'admin' || d.role === 'sub-admin');
       }
     });
+
     return unsub;
   }, [user]);
 
@@ -89,6 +93,7 @@ const Header = () => {
     navigate('/');
   };
 
+  // Navigates to highlight sections and closes open menus first
   const goToHighlight = (section) => {
     setIsHighlightsOpen(false);
     setIsMenuOpen(false);
@@ -124,6 +129,7 @@ const Header = () => {
   const p = scrollPct;
   const lerp = (a, b, t) => a + (b - a) * t;
 
+  // Header glass effect values based on scroll
   const hdrBgA = lerp(1, 0.5, p);
   const hdrBg = `rgba(250,248,241,${hdrBgA.toFixed(3)})`;
   const hdrBlur = p > 0.05 ? `blur(${(p * 18).toFixed(1)}px)` : 'none';
@@ -135,11 +141,19 @@ const Header = () => {
   const linkColor = (active) => (active ? '#118C8C' : '#374151');
   const linkShadow = 'none';
   const iconColor = '#374151';
-  const currBg = p < 0.45 ? 'rgba(17,140,140,0.07)' : 'rgba(17,140,140,0.1)';
-  const currBorder = p < 0.45 ? 'rgba(17,140,140,0.22)' : 'rgba(17,140,140,0.3)';
-  const currColor = '#374151';
-  const loginBorder = 'rgba(17,140,140,0.4)';
-  const loginColor = '#118C8C';
+
+  // Made currency button more visible and clearly clickable
+  const currBg = p < 0.45
+    ? 'linear-gradient(135deg, rgba(17,140,140,0.14), rgba(17,140,140,0.08))'
+    : 'linear-gradient(135deg, rgba(17,140,140,0.18), rgba(17,140,140,0.1))';
+  const currBorder = 'rgba(17,140,140,0.45)';
+  const currColor = '#0f5f5f';
+
+  // Made login button stronger so it no longer looks disabled
+  const loginBg = 'linear-gradient(135deg, #118C8C, #0d7070)';
+  const loginBorder = 'rgba(17,140,140,0.85)';
+  const loginColor = '#ffffff';
+
   const avatarBorder = 'rgba(17,140,140,0.3)';
 
   const isActive = (path) => location.pathname === path;
@@ -161,9 +175,13 @@ const Header = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
 
-        .hdr { position: sticky; top: 0; z-index: 50; }
+        .hdr {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+        }
 
         .hdr-nav-center {
           position: absolute;
@@ -193,7 +211,9 @@ const Header = () => {
         .hdr-link::after {
           content: '';
           position: absolute;
-          bottom: -3px; left: 0; right: 0;
+          bottom: -3px;
+          left: 0;
+          right: 0;
           height: 2px;
           background: linear-gradient(90deg, #F2BB16, #ffd84d);
           border-radius: 2px;
@@ -202,24 +222,31 @@ const Header = () => {
           transition: transform 0.3s cubic-bezier(.4,0,.2,1);
         }
 
-        .hdr-link:hover::after, .hdr-link.active::after { transform: scaleX(1); }
+        .hdr-link:hover::after,
+        .hdr-link.active::after {
+          transform: scaleX(1);
+        }
 
         .hdr-curr {
           font-family: 'DM Sans', sans-serif;
           font-size: 0.84rem;
-          font-weight: 500;
+          font-weight: 700;
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.45rem 0.9rem;
-          border-radius: 100px;
+          gap: 0.45rem;
+          padding: 0.58rem 1rem;
+          border-radius: 999px;
           border: 1px solid;
           cursor: pointer;
-          transition: background 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+          transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease, color 0.25s ease;
           white-space: nowrap;
+          box-shadow: 0 6px 18px rgba(17, 140, 140, 0.14);
         }
 
-        .hdr-curr:hover { filter: brightness(1.1); }
+        .hdr-curr:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 22px rgba(17, 140, 140, 0.2);
+        }
 
         .hdr-cart {
           position: relative;
@@ -229,22 +256,28 @@ const Header = () => {
           cursor: pointer;
         }
 
-        .hdr-cart:hover { transform: scale(1.1); }
+        .hdr-cart:hover {
+          transform: scale(1.1);
+        }
 
         .hdr-login {
           font-family: 'DM Sans', sans-serif;
           font-size: 0.875rem;
-          font-weight: 500;
-          padding: 0.45rem 1.2rem;
-          border-radius: 100px;
-          background: transparent;
+          font-weight: 700;
+          padding: 0.58rem 1.15rem;
+          border-radius: 999px;
           border: 1px solid;
           cursor: pointer;
           text-decoration: none;
-          transition: border-color 0.35s ease, color 0.35s ease, background 0.22s ease;
+          transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.25s ease;
+          box-shadow: 0 8px 20px rgba(17, 140, 140, 0.22);
         }
 
-        .hdr-login:hover { background: rgba(255,255,255,0.1); }
+        .hdr-login:hover {
+          transform: translateY(-1px);
+          filter: brightness(1.05);
+          box-shadow: 0 12px 24px rgba(17, 140, 140, 0.28);
+        }
 
         .hdr-join {
           font-family: 'DM Sans', sans-serif;
@@ -269,7 +302,8 @@ const Header = () => {
         }
 
         .hdr-avatar {
-          width: 2.25rem; height: 2.25rem;
+          width: 2.25rem;
+          height: 2.25rem;
           border-radius: 50%;
           overflow: hidden;
           cursor: pointer;
@@ -277,7 +311,9 @@ const Header = () => {
           transition: border-color 0.35s ease, box-shadow 0.22s ease;
         }
 
-        .hdr-avatar:hover { box-shadow: 0 0 0 3px rgba(242,187,22,0.4); }
+        .hdr-avatar:hover {
+          box-shadow: 0 0 0 3px rgba(242,187,22,0.4);
+        }
 
         .hdr-dropdown {
           background: rgba(255,255,255,0.98);
@@ -419,10 +455,16 @@ const Header = () => {
                   setIsUserMenuOpen(false);
                   setIsHighlightsOpen(false);
                 }}
-                style={{ background: currBg, borderColor: currBorder, color: currColor }}
+                style={{
+                  background: currBg,
+                  borderColor: currBorder,
+                  color: currColor,
+                }}
               >
-                <Globe size={14} strokeWidth={1.75} />
-                <span>{CURRENCIES.find((c) => c.code === currency)?.symbol} {currency}</span>
+                <Globe size={15} strokeWidth={2} />
+                <span>
+                  {CURRENCIES.find((c) => c.code === currency)?.symbol} {currency}
+                </span>
                 <motion.svg
                   animate={{ rotate: isCurrencyOpen ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
@@ -430,12 +472,12 @@ const Header = () => {
                   height="11"
                   viewBox="0 0 12 12"
                   fill="none"
-                  style={{ opacity: 0.6 }}
+                  style={{ opacity: 0.75 }}
                 >
                   <path
                     d="M2 4l4 4 4-4"
                     stroke="currentColor"
-                    strokeWidth="1.6"
+                    strokeWidth="1.8"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -453,7 +495,10 @@ const Header = () => {
                   >
                     <div className="p-4 border-b border-gray-100">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+                        <Search
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                          size={15}
+                        />
                         <input
                           type="text"
                           placeholder="Search currency..."
@@ -464,6 +509,7 @@ const Header = () => {
                         />
                       </div>
                     </div>
+
                     <div className="max-h-72 overflow-y-auto">
                       {filteredCurrencies.length === 0 ? (
                         <p className="p-6 text-center text-gray-400 text-sm">No currency found</p>
@@ -491,7 +537,9 @@ const Header = () => {
                                 <p className="text-xs text-gray-400">{curr.code}</p>
                               </div>
                             </div>
-                            {currency === curr.code && <div className="w-2 h-2 rounded-full bg-[#118C8C]" />}
+                            {currency === curr.code && (
+                              <div className="w-2 h-2 rounded-full bg-[#118C8C]" />
+                            )}
                           </button>
                         ))
                       )}
@@ -524,7 +572,7 @@ const Header = () => {
                     setIsHighlightsOpen(false);
                   }}
                   className="flex items-center gap-2 rounded-full px-1 py-1 transition"
-                  style={{ background: isUserMenuOpen ? currBg : 'transparent' }}
+                  style={{ background: isUserMenuOpen ? 'rgba(17,140,140,0.08)' : 'transparent' }}
                 >
                   <div className="hdr-avatar" style={{ borderColor: avatarBorder }}>
                     {photoURL ? (
@@ -535,6 +583,7 @@ const Header = () => {
                       </div>
                     )}
                   </div>
+
                   {isAdmin && (
                     <span className="hidden lg:block bg-gradient-to-r from-amber-400 to-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider shadow-sm">
                       Admin
@@ -577,6 +626,7 @@ const Header = () => {
                       >
                         <User size={15} strokeWidth={1.75} /> Profile
                       </Link>
+
                       <div className="border-t border-gray-100">
                         <button
                           onClick={handleLogout}
@@ -594,10 +644,15 @@ const Header = () => {
                 <Link
                   to="/login"
                   className="hdr-login"
-                  style={{ borderColor: loginBorder, color: loginColor }}
+                  style={{
+                    background: loginBg,
+                    borderColor: loginBorder,
+                    color: loginColor,
+                  }}
                 >
                   Login
                 </Link>
+
                 <Link to="/register" className="hdr-join">
                   Join
                 </Link>
@@ -628,6 +683,7 @@ const Header = () => {
                 )}
               </Link>
             )}
+
             <motion.div animate={{ rotate: isMenuOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
               {isMenuOpen ? <X size={26} strokeWidth={1.75} /> : <Menu size={26} strokeWidth={1.75} />}
             </motion.div>
@@ -801,6 +857,7 @@ const Header = () => {
                     >
                       <User size={15} /> Profile
                     </Link>
+
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 font-medium hover:bg-red-50 rounded-xl transition text-left"
@@ -813,10 +870,11 @@ const Header = () => {
                     <Link
                       to="/login"
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex-1 text-center py-2.5 rounded-xl border border-[#118C8C] text-[#118C8C] text-sm font-medium hover:bg-[#118C8C]/5 transition"
+                      className="flex-1 text-center py-2.5 rounded-xl bg-[#118C8C] text-white text-sm font-bold shadow-md hover:bg-[#0d7070] transition"
                     >
                       Login
                     </Link>
+
                     <Link
                       to="/register"
                       onClick={() => setIsMenuOpen(false)}
