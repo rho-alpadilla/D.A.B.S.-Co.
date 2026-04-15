@@ -161,11 +161,91 @@ const HomePage = () => {
             </div>
 
             <div className="pt-10">
-              <p className="text-xs md:text-sm tracking-[0.25em] uppercase text-white/80">
-              
-              </p>
+              <p className="text-xs md:text-sm tracking-[0.25em] uppercase text-white/80"></p>
             </div>
           </div>
+        </section>
+
+                {/* Who We Are */}
+        <section className="relative z-10 px-4 pb-8 md:pb-10">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.45 }}
+            className="max-w-6xl mx-auto relative overflow-hidden rounded-[2rem] border border-white/40 bg-gradient-to-br from-white/85 via-white/70 to-[#f7fffe]/75 backdrop-blur-md shadow-[0_20px_60px_rgba(17,140,140,0.12)]"
+          >
+            {/* Soft decorative background */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute -top-16 -left-16 h-52 w-52 rounded-full bg-[#118C8C]/12 blur-3xl" />
+              <div className="absolute -bottom-20 -right-10 h-60 w-60 rounded-full bg-[#F2BB16]/16 blur-3xl" />
+              <div className="absolute top-0 left-1/2 h-full w-px bg-gradient-to-b from-transparent via-[#118C8C]/10 to-transparent hidden md:block" />
+            </div>
+
+            <div className="relative z-10 grid md:grid-cols-[1.05fr_0.95fr] items-center gap-10 p-8 md:p-12 lg:p-14">
+              {/* Left content */}
+              <div className="text-center md:text-left">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-1.5 mb-5">
+                  <span className="h-2 w-2 rounded-full bg-[#F2BB16]" />
+                  <span className="text-xs md:text-sm font-semibold tracking-[0.18em] uppercase text-[#118C8C]">
+                    Our Story
+                  </span>
+                </div>
+
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#118C8C] leading-tight mb-5">
+                  Who We Are
+                </h2>
+
+                <p className="text-gray-700 text-base md:text-lg leading-relaxed max-w-2xl">
+                  We support needlepoint designers in expanding their businesses through our
+                  outsourced canvas painting services. Whether you're a startup or an established
+                  brand, we are here to collaborate with you as your dedicated partner in growth.
+                </p>
+
+                <div className="pt-7">
+                  <Link to="/about">
+                    <Button
+                      size="lg"
+                      className="bg-[#118C8C] hover:bg-[#0d7070] text-white font-semibold px-8 py-6 rounded-2xl shadow-lg shadow-[#118C8C]/25 transition-all duration-300 hover:scale-[1.03]"
+                    >
+                      Learn More About Us
+                      <ArrowRight className="ml-2" size={18} />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right visual card */}
+              <div className="relative">
+                <div className="relative rounded-[1.75rem] border border-white/50 bg-white/80 backdrop-blur-sm p-6 md:p-7 shadow-[0_14px_40px_rgba(0,0,0,0.08)]">
+                  <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#118C8C]/30 to-transparent" />
+
+                  <div className="grid gap-4">
+                    <div className="rounded-2xl bg-[#118C8C]/8 border border-[#118C8C]/10 p-4">
+                      <p className="text-sm font-semibold text-[#118C8C] mb-1">Dedicated Partnership</p>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        We work with designers as a reliable extension of their creative business.
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F2BB16]/10 border border-[#F2BB16]/20 p-4">
+                      <p className="text-sm font-semibold text-[#9a7400] mb-1">Scalable Support</p>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        From growing startups to established brands, we help support production needs.
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
+                      <p className="text-sm font-semibold text-gray-800 mb-1">Craft + Collaboration</p>
+                      <p className="text-sm text-gray-600 leading-relaxed">
+                        Our goal is to turn great designs into beautifully prepared stitch-ready canvases.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </section>
 
         {/* Creative Process */}

@@ -38,11 +38,12 @@ const PricelistsPage = () => {
     if (el) sectionRefs.current[id] = el;
   };
 
+  // Scroll to section while accounting for header + sticky quick nav
   const scrollToSection = useCallback((sectionId) => {
     const el = sectionRefs.current[sectionId];
     if (!el) return;
 
-    const NAV_OFFSET = 156;
+    const NAV_OFFSET = 165;
     const top = el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
 
     window.scrollTo({ top, behavior: 'smooth' });
@@ -50,7 +51,7 @@ const PricelistsPage = () => {
   }, []);
 
   useEffect(() => {
-    const NAV_OFFSET = 170;
+    const NAV_OFFSET = 185;
 
     const handleScroll = () => {
       const ids = ['needlepoint', 'crochet', 'portraiture', 'canvas', 'custom-orders'];
@@ -69,6 +70,8 @@ const PricelistsPage = () => {
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -255,7 +258,7 @@ const PricelistsPage = () => {
         <title>Pricelists - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen bg-[#daf0ee]">
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
             color1="#118c8c"
@@ -300,40 +303,8 @@ const PricelistsPage = () => {
         </div>
 
         <div className="relative z-10">
-          <div className="fixed top-20 left-0 right-0 z-40 px-4">
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="mx-auto max-w-5xl"
-            >
-              <div className="bg-white/90 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl px-3 py-2">
-                <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar justify-start md:justify-center">
-                  {quickNavItems.map((item) => {
-                    const isActive = activeSection === item.id;
-                    return (
-                      <motion.button
-                        key={item.id}
-                        type="button"
-                        whileHover={{ y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => scrollToSection(item.id)}
-                        className={`shrink-0 px-4 py-2 rounded-full transition text-sm font-medium ${
-                          isActive
-                            ? 'bg-[#118C8C] text-white shadow'
-                            : 'bg-white/85 text-gray-700 hover:bg-[#118C8C]/10 hover:text-[#118C8C]'
-                        }`}
-                      >
-                        {item.label}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          <div className="container mx-auto px-4 pt-40 pb-5 md:pt-44 md:pb-10">
+          <div className="container mx-auto px-4 pt-8 pb-5 md:pt-10 md:pb-10">
+            {/* Hero */}
             <motion.section
               variants={fadeUp}
               initial="hidden"
@@ -344,6 +315,7 @@ const PricelistsPage = () => {
                 <div className="absolute -top-10 right-0 w-48 h-48 bg-white rounded-full blur-3xl" />
                 <div className="absolute -bottom-16 -left-6 w-64 h-64 bg-[#F2BB16] rounded-full blur-3xl" />
               </div>
+
               <div className="relative z-10 max-w-3xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold mb-4">
                   <Sparkles size={16} />
@@ -351,10 +323,45 @@ const PricelistsPage = () => {
                 </div>
                 <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-3">Our Pricelists</h1>
                 <p className="text-sm md:text-base text-white/90 max-w-2xl leading-relaxed">
-                  Explore current pricing for custom needlepoint, crochet, portraiture, and canvas work.
+                  Explore current pricing for custom needlepoint, crochet, portraiture, and canvas
+                  work.
                 </p>
               </div>
             </motion.section>
+
+            {/* Quick nav stays in normal place first, then sticks on scroll */}
+            <div className="sticky top-20 z-40 mb-8">
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                className="mx-auto max-w-5xl"
+              >
+                <div className="bg-white/90 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl px-3 py-2">
+                  <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar justify-start md:justify-center">
+                    {quickNavItems.map((item) => {
+                      const isActive = activeSection === item.id;
+                      return (
+                        <motion.button
+                          key={item.id}
+                          type="button"
+                          whileHover={{ y: -1 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => scrollToSection(item.id)}
+                          className={`shrink-0 px-4 py-2 rounded-full transition text-sm font-medium ${
+                            isActive
+                              ? 'bg-[#118C8C] text-white shadow'
+                              : 'bg-white/85 text-gray-700 hover:bg-[#118C8C]/10 hover:text-[#118C8C]'
+                          }`}
+                        >
+                          {item.label}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
 
             <motion.section
               variants={fadeUp}
@@ -371,15 +378,24 @@ const PricelistsPage = () => {
                   <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600">
                     <div className="rounded-2xl bg-gray-50 p-4">
                       <p className="font-semibold text-gray-800 mb-1">Starting estimates</p>
-                      <p>Prices listed here are starting points for standard requests and common sizes.</p>
+                      <p>
+                        Prices listed here are starting points for standard requests and common
+                        sizes.
+                      </p>
                     </div>
                     <div className="rounded-2xl bg-gray-50 p-4">
                       <p className="font-semibold text-gray-800 mb-1">Custom adjustments</p>
-                      <p>Final cost may change depending on detail level, materials, framing, and requested revisions.</p>
+                      <p>
+                        Final cost may change depending on detail level, materials, framing, and
+                        requested revisions.
+                      </p>
                     </div>
                     <div className="rounded-2xl bg-gray-50 p-4">
                       <p className="font-semibold text-gray-800 mb-1">Need something unique?</p>
-                      <p>Use the Contact page for a personalized quote and tell us exactly what you have in mind.</p>
+                      <p>
+                        Use the Contact page for a personalized quote and tell us exactly what you
+                        have in mind.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -428,10 +444,20 @@ const PricelistsPage = () => {
                         <tr key={i} className={i % 2 === 0 ? 'bg-gray-50/90' : 'bg-white/90'}>
                           <td className="px-6 py-4 font-medium text-gray-900">{item.size}</td>
                           <td className="px-6 py-4 text-gray-700">
-                            <EditablePrice section="needlepoint" index={i} field="mesh13" value={item.mesh13} />
+                            <EditablePrice
+                              section="needlepoint"
+                              index={i}
+                              field="mesh13"
+                              value={item.mesh13}
+                            />
                           </td>
                           <td className="px-6 py-4 text-gray-700">
-                            <EditablePrice section="needlepoint" index={i} field="mesh18" value={item.mesh18} />
+                            <EditablePrice
+                              section="needlepoint"
+                              index={i}
+                              field="mesh18"
+                              value={item.mesh18}
+                            />
                           </td>
                           <td className="px-6 py-4 text-gray-600">{item.complexity}</td>
                         </tr>
@@ -443,19 +469,33 @@ const PricelistsPage = () => {
 
               <div className="grid md:hidden gap-4">
                 {pricing.needlepoint.map((item, i) => (
-                  <div key={i} className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-5">
+                  <div
+                    key={i}
+                    className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-5"
+                  >
                     <h3 className="text-lg font-semibold text-[#118C8C] mb-3">{item.size}</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">13-Mesh</span>
-                        <EditablePrice section="needlepoint" index={i} field="mesh13" value={item.mesh13} />
+                        <EditablePrice
+                          section="needlepoint"
+                          index={i}
+                          field="mesh13"
+                          value={item.mesh13}
+                        />
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">18-Mesh</span>
-                        <EditablePrice section="needlepoint" index={i} field="mesh18" value={item.mesh18} />
+                        <EditablePrice
+                          section="needlepoint"
+                          index={i}
+                          field="mesh18"
+                          value={item.mesh18}
+                        />
                       </div>
                       <div className="pt-2 border-t text-gray-600">
-                        <span className="font-medium text-gray-800">Complexity:</span> {item.complexity}
+                        <span className="font-medium text-gray-800">Complexity:</span>{' '}
+                        {item.complexity}
                       </div>
                     </div>
                   </div>
@@ -531,13 +571,29 @@ const PricelistsPage = () => {
                         <tr key={i} className={i % 2 === 0 ? 'bg-gray-50/90' : 'bg-white/90'}>
                           <td className="px-6 py-4 font-medium text-gray-900">{item.subjects}</td>
                           <td className="px-6 py-4 text-gray-700">
-                            <EditablePrice section="portraiture" index={i} field="paper" value={item.paper} />
+                            <EditablePrice
+                              section="portraiture"
+                              index={i}
+                              field="paper"
+                              value={item.paper}
+                            />
                           </td>
                           <td className="px-6 py-4 text-gray-700">
-                            <EditablePrice section="portraiture" index={i} field="canvas" value={item.canvas} />
+                            <EditablePrice
+                              section="portraiture"
+                              index={i}
+                              field="canvas"
+                              value={item.canvas}
+                            />
                           </td>
                           <td className="px-6 py-4 text-gray-700">
-                            <EditablePrice section="portraiture" index={i} field="framed" value={item.framed} prefix="+" />
+                            <EditablePrice
+                              section="portraiture"
+                              index={i}
+                              field="framed"
+                              value={item.framed}
+                              prefix="+"
+                            />
                           </td>
                         </tr>
                       ))}
@@ -548,20 +604,39 @@ const PricelistsPage = () => {
 
               <div className="grid md:hidden gap-4">
                 {pricing.portraiture.map((item, i) => (
-                  <div key={i} className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-5">
+                  <div
+                    key={i}
+                    className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-5"
+                  >
                     <h3 className="text-lg font-semibold text-[#118C8C] mb-3">{item.subjects}</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">Paper</span>
-                        <EditablePrice section="portraiture" index={i} field="paper" value={item.paper} />
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="paper"
+                          value={item.paper}
+                        />
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">Canvas</span>
-                        <EditablePrice section="portraiture" index={i} field="canvas" value={item.canvas} />
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="canvas"
+                          value={item.canvas}
+                        />
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">Framed Option</span>
-                        <EditablePrice section="portraiture" index={i} field="framed" value={item.framed} prefix="+" />
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="framed"
+                          value={item.framed}
+                          prefix="+"
+                        />
                       </div>
                     </div>
                   </div>
@@ -625,7 +700,8 @@ const PricelistsPage = () => {
                   </h2>
                   <p className="text-gray-600 leading-relaxed">
                     Browse our gallery to get a better feel for styles, detail levels, and the kind
-                    of handmade work we create. It's the best place to explore ideas before ordering.
+                    of handmade work we create. It's the best place to explore ideas before
+                    ordering.
                   </p>
                 </div>
 
