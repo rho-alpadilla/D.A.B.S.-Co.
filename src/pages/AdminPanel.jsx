@@ -501,9 +501,6 @@ const AdminPanel = () => {
               </div>
               <h1 className="text-3xl font-bold">Store Management</h1>
             </div>
-            <Button variant="outline" onClick={() => signOut(auth).then(() => navigate("/"))} className="text-red-600">
-              <LogOut className="mr-2" /> Logout
-            </Button>
           </motion.div>
 
           <Tabs value={tab} onValueChange={setTab}>
@@ -821,6 +818,9 @@ const AdminPanel = () => {
                         <Button variant="outline" onClick={() => setTab("analytics")}>
                           View Analytics
                         </Button>
+                        <Button variant="outline" onClick={() => navigate('/message-center')}>
+  Open Message Center
+</Button>
                         <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
                           Back to Top
                         </Button>

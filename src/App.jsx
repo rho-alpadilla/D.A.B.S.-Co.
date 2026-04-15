@@ -29,6 +29,7 @@ import BuyerDashboard from '@/pages/BuyerDashboard';
 import ProfilePage from '@/pages/ProfilePage';
 import AdminPanel from '@/pages/AdminPanel';
 import PendingOrdersPage from '@/pages/PendingOrdersPage';
+import MessageCenterPage from '@/pages/MessageCenterPage';
 
 const ScrollToHash = () => {
   const location = useLocation();
@@ -260,6 +261,15 @@ function AppContent() {
               </ProtectedAdminRoute>
             }
           />
+
+<Route
+  path="/message-center"
+  element={
+    <ProtectedRoute>
+      <MessageCenterPage />
+    </ProtectedRoute>
+  }
+/>
 
           <Route path="/admin" element={<Navigate to="/admin-panel" replace />} />
           <Route path="*" element={<HomePage />} />

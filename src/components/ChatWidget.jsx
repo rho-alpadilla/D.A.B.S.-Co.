@@ -1,4 +1,3 @@
-// src/components/ChatWidget.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   MessageCircle,
@@ -11,6 +10,11 @@ import {
   LogIn,
   Bot,
   ArrowLeft,
+  Paperclip,
+  Image as ImageIcon,
+  FileText,
+  Download,
+  Expand,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -25,7 +29,8 @@ import {
   doc,
   where,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -49,7 +54,6 @@ const ADMIN_AI_WELCOME_MESSAGE = {
     'Admin Assistant is ready. You can ask about products, orders, stock, best sellers, revenue, and order status counts.',
 };
 
-// Returns a random set of FAQ questions from the full FAQ pool
 const getRandomFaqQuestions = (faqPool, count = 4, exclude = []) => {
   const excluded = new Set(exclude);
   const available = faqPool
@@ -73,10 +77,8 @@ const ChatWidget = () => {
   const isSubAdmin = role === 'sub-admin';
   const isAdminLike = isAdmin || isSubAdmin;
 
-  // Ask Questions mode
-  const [askMode, setAskMode] = useState('faq'); // faq | ai
+  const [askMode, setAskMode] = useState('faq');
 
-  // Ask Questions
   const [faqMessages, setFaqMessages] = useState([FAQ_WELCOME_MESSAGE]);
   const [faqInput, setFaqInput] = useState('');
   const [suggestedFaqs, setSuggestedFaqs] = useState(() =>
@@ -84,43 +86,40 @@ const ChatWidget = () => {
   );
   const faqEndRef = useRef(null);
 
-  // User AI inside Ask Questions
   const [aiMessages, setAiMessages] = useState([USER_AI_WELCOME_MESSAGE]);
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const aiEndRef = useRef(null);
 
-  // Admin Assistant
   const [adminMessages, setAdminMessages] = useState([ADMIN_AI_WELCOME_MESSAGE]);
   const [adminInput, setAdminInput] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
   const adminEndRef = useRef(null);
 
-  // Support
   const [conversations, setConversations] = useState([]);
   const [selectedConvo, setSelectedConvo] = useState(null);
   const [supportMessages, setSupportMessages] = useState([]);
   const [replyInput, setReplyInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Buyer: start new chat
   const [buyerNewChatOpen, setBuyerNewChatOpen] = useState(false);
   const [buyerSubject, setBuyerSubject] = useState('General Support');
   const [buyerMessage, setBuyerMessage] = useState('');
   const [buyerSending, setBuyerSending] = useState(false);
 
-  // Admin assistant live data
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminOrders, setAdminOrders] = useState([]);
 
-  // Support scroll behavior
   const supportScrollRef = useRef(null);
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const newChatFileInputRef = useRef(null);
+
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [showJump, setShowJump] = useState(false);
 
-  // ---------- role ----------
   useEffect(() => {
     if (!user?.uid) {
       setRole(null);
@@ -138,7 +137,6 @@ const ChatWidget = () => {
     return () => unsub();
   }, [user?.uid]);
 
-  // ---------- reset chat state when auth changes ----------
   useEffect(() => {
     setFaqMessages([FAQ_WELCOME_MESSAGE]);
     setFaqInput('');
@@ -158,6 +156,8 @@ const ChatWidget = () => {
     setBuyerNewChatOpen(false);
     setBuyerSubject('General Support');
     setBuyerMessage('');
+    setSending(false);
+    setUploading(false);
 
     setAskMode('faq');
 
@@ -169,10 +169,11 @@ const ChatWidget = () => {
   }, [user?.uid, role, isAdminLike]);
 
   const refreshSuggestedFaqs = (excludeQuestion = '') => {
-    setSuggestedFaqs(getRandomFaqQuestions(faqs, 4, excludeQuestion ? [excludeQuestion] : []));
+    setSuggestedFaqs(
+      getRandomFaqQuestions(faqs, 4, excludeQuestion ? [excludeQuestion] : [])
+    );
   };
 
-  // ---------- helpers ----------
   const toMillis = (ts) => {
     try {
       if (!ts) return 0;
@@ -389,7 +390,20 @@ const ChatWidget = () => {
       .map((product, index) => `${index + 1}. ${getProductName(product)}`);
   };
 
-  // ---------- admin assistant live data ----------
+  const uploadAttachment = async (file) => {
+    const safeName = `${Date.now()}-${file.name}`;
+    const fileRef = ref(storage, `support-attachments/${safeName}`);
+    await uploadBytes(fileRef, file);
+    const downloadURL = await getDownloadURL(fileRef);
+
+    return {
+      attachmentUrl: downloadURL,
+      attachmentName: file.name,
+      attachmentType: file.type || 'application/octet-stream',
+      attachmentSize: file.size || 0,
+    };
+  };
+
   useEffect(() => {
     if (!isOpen || !isAdminLike) return;
 
@@ -610,7 +624,6 @@ const ChatWidget = () => {
     return 'I can help with general store questions and approved FAQ information. For factual questions, you can also use Ask Questions. For order-specific concerns, please use Support Chat.';
   };
 
-  // ---------- filtered conversations ----------
   const filteredConversations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -631,7 +644,6 @@ const ChatWidget = () => {
     });
   }, [conversations, searchTerm]);
 
-  // ---------- auto-scroll ----------
   useEffect(() => {
     if (!isOpen || activeTab !== 'ask' || askMode !== 'faq') return;
     faqEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -647,7 +659,6 @@ const ChatWidget = () => {
     adminEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [adminMessages, isOpen, activeTab]);
 
-  // Reset jump state
   useEffect(() => {
     if (!isOpen || activeTab !== 'support' || !selectedConvo) {
       setShowJump(false);
@@ -677,7 +688,6 @@ const ChatWidget = () => {
     if (isNearBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [supportMessages, isNearBottom, isOpen, activeTab, selectedConvo]);
 
-  // ---------- support: load conversations ----------
   useEffect(() => {
     if (!user?.email || activeTab !== 'support' || !isOpen) return;
 
@@ -699,6 +709,10 @@ const ChatWidget = () => {
         const key = isAdminLike ? `${buyerKey}-${subject}` : subject;
 
         const createdMillis = msg.createdAt?.toMillis?.() || 0;
+        const previewText =
+          msg.message ||
+          msg.attachmentName ||
+          (msg.attachmentUrl ? 'Attachment sent' : '');
 
         if (!grouped[key]) {
           grouped[key] = {
@@ -707,7 +721,7 @@ const ChatWidget = () => {
             buyerEmail: msg.buyerEmail,
             buyerName: msg.buyerName || buyerKey.split('@')[0],
             latestMillis: createdMillis,
-            lastPreview: msg.message || '',
+            lastPreview: previewText,
             lastSenderLabel: msg.isAdminReply ? 'Admin' : 'Buyer',
             hasUnread: false,
           };
@@ -715,7 +729,7 @@ const ChatWidget = () => {
 
         if (createdMillis >= (grouped[key].latestMillis || 0)) {
           grouped[key].latestMillis = createdMillis;
-          grouped[key].lastPreview = msg.message || '';
+          grouped[key].lastPreview = previewText;
           grouped[key].lastSenderLabel = msg.isAdminReply ? 'Admin' : 'Buyer';
         }
 
@@ -737,7 +751,6 @@ const ChatWidget = () => {
     return () => unsubscribe();
   }, [user?.email, activeTab, isOpen, isAdminLike]);
 
-  // ---------- support: load selected conversation messages ----------
   useEffect(() => {
     if (!selectedConvo || !isOpen || activeTab !== 'support') return;
 
@@ -772,15 +785,22 @@ const ChatWidget = () => {
     return () => unsubscribe();
   }, [selectedConvo, isOpen, activeTab, isAdminLike, user?.email]);
 
-  // ---------- send support reply ----------
-  const sendSupportReply = async () => {
-    if (!replyInput.trim() || !selectedConvo || sending) return;
+  const sendSupportReply = async ({ file = null } = {}) => {
+    if ((!replyInput.trim() && !file) || !selectedConvo || sending || uploading) return;
 
     const text = replyInput.trim();
     setReplyInput('');
     setSending(true);
 
     const optimisticId = `local-${Date.now()}`;
+    const optimisticAttachment = file
+      ? {
+          attachmentName: file.name,
+          attachmentType: file.type || 'application/octet-stream',
+          _uploading: true,
+        }
+      : {};
+
     setSupportMessages((prev) => [
       ...prev,
       {
@@ -790,11 +810,18 @@ const ChatWidget = () => {
         status: 'unread',
         createdAt: { toDate: () => new Date(), toMillis: () => Date.now() },
         _optimistic: true,
+        ...optimisticAttachment,
       },
     ]);
 
     try {
       const buyerEmail = isAdminLike ? selectedConvo.buyerEmail : user?.email;
+      let attachmentData = null;
+
+      if (file) {
+        setUploading(true);
+        attachmentData = await uploadAttachment(file);
+      }
 
       await addDoc(collection(db, 'messages'), {
         buyerEmail,
@@ -808,7 +835,12 @@ const ChatWidget = () => {
           adminEmail: user.email,
           adminName: user.displayName || 'Admin',
         }),
+        ...(attachmentData || {}),
       });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err) {
       console.error(err);
       setSupportMessages((prev) => prev.filter((m) => m.id !== optimisticId));
@@ -819,11 +851,17 @@ const ChatWidget = () => {
       });
     } finally {
       setSending(false);
+      setUploading(false);
     }
   };
 
-  // ---------- buyer: start new chat ----------
-  const startBuyerChat = async () => {
+  const handleSupportAttachmentPick = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await sendSupportReply({ file });
+  };
+
+  const startBuyerChat = async (file = null) => {
     if (!user?.email) {
       toast({
         title: 'Login required',
@@ -833,11 +871,16 @@ const ChatWidget = () => {
       return;
     }
 
-    if (!buyerMessage.trim() || buyerSending) return;
+    if ((!buyerMessage.trim() && !file) || buyerSending) return;
 
     setBuyerSending(true);
     try {
       const subject = (buyerSubject || 'General Support').trim();
+      let attachmentData = null;
+
+      if (file) {
+        attachmentData = await uploadAttachment(file);
+      }
 
       await addDoc(collection(db, 'messages'), {
         buyerEmail: user.email,
@@ -847,6 +890,7 @@ const ChatWidget = () => {
         status: 'unread',
         createdAt: serverTimestamp(),
         isAdminReply: false,
+        ...(attachmentData || {}),
       });
 
       setSelectedConvo({
@@ -859,6 +903,10 @@ const ChatWidget = () => {
       setBuyerMessage('');
       setBuyerSubject('General Support');
       setBuyerNewChatOpen(false);
+
+      if (newChatFileInputRef.current) {
+        newChatFileInputRef.current.value = '';
+      }
     } catch (err) {
       console.error(err);
       toast({
@@ -871,7 +919,12 @@ const ChatWidget = () => {
     }
   };
 
-  // ---------- Ask Questions ----------
+  const handleNewChatAttachmentPick = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await startBuyerChat(file);
+  };
+
   const sendFaqMessage = () => {
     if (!faqInput.trim()) return;
 
@@ -922,7 +975,6 @@ const ChatWidget = () => {
     refreshSuggestedFaqs(question);
   };
 
-  // ---------- User AI ----------
   const sendAiMessage = async () => {
     if (!aiInput.trim() || aiLoading) return;
 
@@ -957,7 +1009,6 @@ const ChatWidget = () => {
     }
   };
 
-  // ---------- Admin Assistant ----------
   const sendAdminMessage = async () => {
     if (!adminInput.trim() || adminLoading) return;
 
@@ -993,13 +1044,22 @@ const ChatWidget = () => {
     }
   };
 
-  // ---------- bubble ----------
-  const Bubble = ({ isMine, label, text, time }) => {
+  const Bubble = ({
+    isMine,
+    label,
+    text,
+    time,
+    attachmentUrl,
+    attachmentName,
+    attachmentType,
+    isUploading = false,
+  }) => {
     const base =
       'max-w-[86%] rounded-2xl px-4 py-3 shadow-sm border text-sm leading-relaxed';
     const mineStyle =
       'bg-[#118C8C] text-white border-[#118C8C]/20 rounded-br-md ml-auto';
     const otherStyle = 'bg-white text-gray-800 border-gray-200 rounded-bl-md';
+    const isImage = attachmentType?.startsWith('image/');
 
     return (
       <div
@@ -1007,14 +1067,84 @@ const ChatWidget = () => {
       >
         <div className={`${base} ${isMine ? mineStyle : otherStyle}`}>
           <div className="text-[11px] opacity-80 mb-1">{label}</div>
-          <div className="whitespace-pre-wrap break-words">{text}</div>
+
+          {text ? <div className="whitespace-pre-wrap break-words">{text}</div> : null}
+
+          {attachmentName || attachmentUrl || isUploading ? (
+            <div className={text ? 'mt-3' : ''}>
+              {isUploading ? (
+                <div
+                  className={`flex items-center gap-3 rounded-2xl px-3 py-3 border ${
+                    isMine
+                      ? 'border-white/20 bg-white/10'
+                      : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      isMine ? 'bg-white/15' : 'bg-white border border-gray-200'
+                    }`}
+                  >
+                    <Paperclip size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {attachmentName || 'Uploading attachment'}
+                    </p>
+                    <p className="text-xs opacity-75">Uploading...</p>
+                  </div>
+                </div>
+              ) : isImage && attachmentUrl ? (
+                <a
+                  href={attachmentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block"
+                >
+                  <img
+                    src={attachmentUrl}
+                    alt={attachmentName || 'Attachment'}
+                    className="max-h-56 w-auto rounded-2xl border border-black/10"
+                  />
+                </a>
+              ) : attachmentUrl ? (
+                <a
+                  href={attachmentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center gap-3 rounded-2xl px-3 py-3 border ${
+                    isMine
+                      ? 'border-white/20 bg-white/10 hover:bg-white/15'
+                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                  } transition`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      isMine ? 'bg-white/15' : 'bg-white border border-gray-200'
+                    }`}
+                  >
+                    <FileText size={18} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {attachmentName || 'Attachment'}
+                    </p>
+                    <p className="text-xs opacity-75">Tap to open or download</p>
+                  </div>
+
+                  <Download size={16} />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
           {time && <div className="text-[11px] opacity-70 mt-2">{time}</div>}
         </div>
       </div>
     );
   };
 
-  // ---------- render support ----------
   const renderedSupportStream = useMemo(() => {
     if (!supportMessages?.length) return [];
 
@@ -1050,6 +1180,10 @@ const ChatWidget = () => {
         label,
         text: msg.message,
         time,
+        attachmentUrl: msg.attachmentUrl,
+        attachmentName: msg.attachmentName,
+        attachmentType: msg.attachmentType,
+        isUploading: !!msg._uploading,
       });
 
       prevMillis = millis;
@@ -1071,7 +1205,6 @@ const ChatWidget = () => {
             exit={{ opacity: 0, scale: 0.94, y: 14 }}
             className="w-[390px] h-[580px] rounded-[28px] overflow-hidden shadow-2xl border border-gray-200 bg-white flex flex-col min-h-0"
           >
-            {/* Header */}
             <div className="bg-[#118C8C] px-4 py-3.5 flex items-center justify-between text-white shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 {activeTab === 'support' && selectedConvo && (
@@ -1119,7 +1252,6 @@ const ChatWidget = () => {
               </button>
             </div>
 
-            {/* Top nav */}
             <div
               className={`grid ${isAdminLike ? 'grid-cols-2' : 'grid-cols-2'} gap-1 bg-gray-50 p-1.5 border-b shrink-0`}
             >
@@ -1167,10 +1299,8 @@ const ChatWidget = () => {
               )}
             </div>
 
-            {/* Ask Questions */}
             {!isAdminLike && activeTab === 'ask' && (
               <div className="flex-1 min-h-0 flex flex-col bg-white">
-                {/* FAQ mode */}
                 {askMode === 'faq' && (
                   <>
                     <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
@@ -1198,7 +1328,6 @@ const ChatWidget = () => {
                           </div>
                         </div>
 
-                        {/* Random suggested questions at the top */}
                         <div className="flex flex-wrap gap-2">
                           {suggestedFaqs.map((question) => (
                             <button
@@ -1211,7 +1340,6 @@ const ChatWidget = () => {
                           ))}
                         </div>
 
-                        {/* Actual chat messages */}
                         {faqMessages.map((msg, i) => (
                           <Bubble
                             key={i}
@@ -1221,7 +1349,6 @@ const ChatWidget = () => {
                           />
                         ))}
 
-                        {/* Random FAQ quick questions again after the chat */}
                         <div className="flex flex-wrap gap-2 pt-1">
                           {suggestedFaqs.map((question) => (
                             <button
@@ -1260,7 +1387,6 @@ const ChatWidget = () => {
                   </>
                 )}
 
-                {/* AI mode inside Ask Questions */}
                 {askMode === 'ai' && (
                   <>
                     {aiLockedForGuest ? (
@@ -1362,7 +1488,6 @@ const ChatWidget = () => {
               </div>
             )}
 
-            {/* Support */}
             {activeTab === 'support' && (
               <>
                 {supportLockedForGuest ? (
@@ -1415,7 +1540,15 @@ const ChatWidget = () => {
                               placeholder="Write your message…"
                               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
                             />
-                            <div className="flex gap-2 justify-end">
+
+                            <input
+                              ref={newChatFileInputRef}
+                              type="file"
+                              className="hidden"
+                              onChange={handleNewChatAttachmentPick}
+                            />
+
+                            <div className="flex gap-2 justify-end flex-wrap">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1424,10 +1557,22 @@ const ChatWidget = () => {
                               >
                                 Cancel
                               </Button>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => newChatFileInputRef.current?.click()}
+                                disabled={buyerSending}
+                              >
+                                <Paperclip size={15} className="mr-2" />
+                                Attach
+                              </Button>
+
                               <Button
                                 size="sm"
                                 className="bg-[#118C8C] hover:bg-[#0d7070] rounded-xl"
-                                onClick={startBuyerChat}
+                                onClick={() => startBuyerChat()}
                                 disabled={buyerSending || !buyerMessage.trim()}
                               >
                                 {buyerSending ? 'Sending…' : 'Start Chat'}
@@ -1452,14 +1597,29 @@ const ChatWidget = () => {
                         </p>
                       </div>
 
-                      {isAdminLike && (
-                        <input
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          placeholder="Search by name, email, subject, or message..."
-                          className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
-                        />
-                      )}
+                    
+<>
+  {isAdminLike && (
+    <input
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      placeholder="Search by name, email, subject, or message..."
+      className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+    />
+  )}
+
+  <Button
+    variant="outline"
+    className="w-full rounded-2xl"
+    onClick={() => {
+      setIsOpen(false);
+      navigate('/message-center');
+    }}
+  >
+    <Expand size={16} className="mr-2" />
+    View in Message Center
+  </Button>
+</>
                     </div>
 
                     <div className="flex-1 min-h-0 p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-white space-y-2">
@@ -1581,13 +1741,24 @@ const ChatWidget = () => {
                           </p>
                         )}
 
-                        {isAdminLike && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2 py-0.5 text-[11px] font-medium">
-                              {selectedConvo.subject}
-                            </span>
-                          </div>
-                        )}
+                        {id="w_user_msg_center_02"}
+<div className="mt-1 flex items-center gap-2 flex-wrap">
+  {isAdminLike && (
+    <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2 py-0.5 text-[11px] font-medium">
+      {selectedConvo.subject}
+    </span>
+  )}
+
+  <button
+    onClick={() => {
+      setIsOpen(false);
+      navigate('/message-center');
+    }}
+    className="text-[11px] font-medium text-[#118C8C] hover:underline"
+  >
+    View in Message Center
+  </button>
+</div>
                       </div>
                     </div>
 
@@ -1617,6 +1788,10 @@ const ChatWidget = () => {
                             label={item.label}
                             text={item.text}
                             time={item.time}
+                            attachmentUrl={item.attachmentUrl}
+                            attachmentName={item.attachmentName}
+                            attachmentType={item.attachmentType}
+                            isUploading={item.isUploading}
                           />
                         );
                       })}
@@ -1626,7 +1801,7 @@ const ChatWidget = () => {
                     </div>
 
                     {showJump && (
-                      <div className="absolute bottom-[86px] right-4">
+                      <div className="absolute bottom-[108px] right-4">
                         <button
                           onClick={() =>
                             bottomRef.current?.scrollIntoView({
@@ -1641,25 +1816,66 @@ const ChatWidget = () => {
                     )}
 
                     <div className="p-3 border-t bg-white shrink-0">
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={replyInput}
-                          onChange={(e) => setReplyInput(e.target.value)}
-                          placeholder="Type your message…"
-                          onKeyDown={(e) =>
-                            e.key === 'Enter' && !sending && sendSupportReply()
-                          }
-                          className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
-                          disabled={sending}
-                        />
-                        <Button
-                          size="icon"
-                          onClick={sendSupportReply}
-                          disabled={sending || !replyInput.trim()}
-                          className="rounded-2xl bg-[#118C8C] hover:bg-[#0d7070]"
-                        >
-                          <Send size={16} />
-                        </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={handleSupportAttachmentPick}
+                      />
+
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={replyInput}
+                            onChange={(e) => setReplyInput(e.target.value)}
+                            placeholder="Type your message…"
+                            onKeyDown={(e) =>
+                              e.key === 'Enter' &&
+                              !sending &&
+                              !uploading &&
+                              sendSupportReply()
+                            }
+                            className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                            disabled={sending || uploading}
+                          />
+
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={sending || uploading}
+                            className="rounded-2xl"
+                            title="Attach image or file"
+                          >
+                            <Paperclip size={16} />
+                          </Button>
+
+                          <Button
+                            size="icon"
+                            onClick={() => sendSupportReply()}
+                            disabled={sending || uploading || !replyInput.trim()}
+                            className="rounded-2xl bg-[#118C8C] hover:bg-[#0d7070]"
+                          >
+                            <Send size={16} />
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-[11px] text-gray-500 px-1">
+                          <div className="flex items-center gap-1">
+                            <ImageIcon size={13} />
+                            Images
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <FileText size={13} />
+                            Files
+                          </div>
+                          {(sending || uploading) && (
+                            <span className="text-[#118C8C] font-medium">
+                              {uploading ? 'Uploading attachment...' : 'Sending...'}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1667,7 +1883,6 @@ const ChatWidget = () => {
               </>
             )}
 
-            {/* Admin AI */}
             {activeTab === 'admin-ai' && isAdminLike && (
               <div className="flex-1 min-h-0 flex flex-col">
                 <div className="px-4 pt-4 pb-3 border-b bg-white shrink-0">
