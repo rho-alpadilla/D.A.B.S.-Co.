@@ -34,31 +34,48 @@ import MessageCenterPage from '@/pages/MessageCenterPage';
 const ScrollToHash = () => {
   const location = useLocation();
 
+  // stop browser from restoring the previous scroll position on refresh/back
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+  }, []);
+
   useEffect(() => {
     const hash = location.hash.replace('#', '');
-    if (!hash) return;
 
-    const scrollToElement = (attempt = 0) => {
-      const el = document.getElementById(hash);
+    // if there is a hash, scroll to that section
+    if (hash) {
+      const scrollToElement = (attempt = 0) => {
+        const el = document.getElementById(hash);
 
-      if (el) {
-        const headerOffset = 110;
-        const elementTop = el.getBoundingClientRect().top + window.pageYOffset;
-        const targetTop = Math.max(elementTop - headerOffset, 0);
+        if (el) {
+          const headerOffset = 110;
+          const elementTop = el.getBoundingClientRect().top + window.pageYOffset;
+          const targetTop = Math.max(elementTop - headerOffset, 0);
 
-        window.scrollTo({
-          top: targetTop,
-          behavior: 'smooth',
-        });
-        return;
-      }
+          window.scrollTo({
+            top: targetTop,
+            behavior: 'smooth',
+          });
+          return;
+        }
 
-      if (attempt < 15) {
-        setTimeout(() => scrollToElement(attempt + 1), 120);
-      }
-    };
+        if (attempt < 15) {
+          setTimeout(() => scrollToElement(attempt + 1), 120);
+        }
+      };
 
-    setTimeout(() => scrollToElement(), 100);
+      setTimeout(() => scrollToElement(), 100);
+      return;
+    }
+
+    // no hash = normal page navigation, always go to top
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'auto',
+    });
   }, [location.pathname, location.hash]);
 
   return null;
