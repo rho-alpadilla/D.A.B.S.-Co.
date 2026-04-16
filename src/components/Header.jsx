@@ -349,6 +349,24 @@ const Header = () => {
     navigate('/');
   };
 
+const goToHighlightsHome = () => {
+  setIsHighlightsOpen(false);
+  setIsMenuOpen(false);
+  setIsCurrencyOpen(false);
+  setIsUserMenuOpen(false);
+  setIsNotifOpen(false);
+
+  if (location.pathname === '/highlights') {
+    window.history.replaceState(null, '', '/highlights');
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  } else {
+    navigate('/highlights');
+  }
+};
+
   const goToHighlight = (section) => {
     setIsHighlightsOpen(false);
     setIsMenuOpen(false);
@@ -704,22 +722,23 @@ const Header = () => {
                     onMouseEnter={() => setIsHighlightsOpen(true)}
                     onMouseLeave={() => setIsHighlightsOpen(false)}
                   >
-                    <button
-                      className={`hdr-link flex items-center gap-1${isHighlightsPage ? ' active' : ''}`}
-                      style={{
-                        color: linkColor(isHighlightsPage),
-                        fontWeight: isHighlightsPage ? 500 : 400,
-                        textShadow: linkShadow,
-                      }}
-                    >
-                      {item.label}
-                      <ChevronDown
-                        size={14}
-                        className={`transition-transform duration-200 ${
-                          isHighlightsOpen ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
+                   <button
+  onClick={goToHighlightsHome}
+  className={`hdr-link flex items-center gap-1${isHighlightsPage ? ' active' : ''}`}
+  style={{
+    color: linkColor(isHighlightsPage),
+    fontWeight: isHighlightsPage ? 500 : 400,
+    textShadow: linkShadow,
+  }}
+>
+  {item.label}
+  <ChevronDown
+    size={14}
+    className={`transition-transform duration-200 ${
+      isHighlightsOpen ? 'rotate-180' : ''
+    }`}
+  />
+</button>
 
                     <AnimatePresence>
                       {isHighlightsOpen && (
@@ -1200,7 +1219,19 @@ const Header = () => {
                   {homeLabel}
                   {isActive('/') && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />}
                 </Link>
-
+<button
+  onClick={goToHighlightsHome}
+  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
+  style={{
+    background: isHighlightsPage ? '#118C8C' : 'transparent',
+    color: isHighlightsPage ? '#fff' : '#374151',
+  }}
+>
+  Highlights
+  {isHighlightsPage && (
+    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />
+  )}
+</button>
                 <div className="mx-1 rounded-xl bg-[#118C8C]/5 border border-[#118C8C]/10 p-2">
                   <p className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-[#118C8C]">
                     Highlights
