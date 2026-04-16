@@ -6,12 +6,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
-import { auth, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import {
-  collection, onSnapshot, query, orderBy, doc, updateDoc,
-  getDoc, increment
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+  getDoc,
+  increment
 } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bar, Line } from 'react-chartjs-2';
@@ -27,15 +32,42 @@ import {
   Legend
 } from 'chart.js';
 import {
-  Package, ShoppingCart, TrendingUp, DollarSign,
-  LogOut, CheckCircle, X,
-  AlertCircle, Truck, Clock, Award,
-  ArrowRight, User, CalendarDays, CreditCard, Search, Filter,
-  Eye, X as CloseIcon, Mail, Hash, Box, ReceiptText,
-  MapPin, Phone, Wallet
+  Package,
+  ShoppingCart,
+  TrendingUp,
+  DollarSign,
+  CheckCircle,
+  X,
+  AlertCircle,
+  Truck,
+  Clock,
+  Award,
+  ArrowRight,
+  User,
+  CalendarDays,
+  CreditCard,
+  Search,
+  Filter,
+  Eye,
+  X as CloseIcon,
+  Mail,
+  Hash,
+  Box,
+  ReceiptText,
+  MapPin,
+  Phone,
+  Wallet
 } from "lucide-react";
 import { createNotification } from '@/lib/notifications';
+
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
+
+const REVIEW_ENTRY_STATUSES = ["pending", "pending_review"];
+const POST_REVIEW_WORKFLOW_STATUSES = ["on_review", "payment_confirmed", "processing", "shipping", "completed", "cancelled"];
+
+const isAwaitingReview = (status) => REVIEW_ENTRY_STATUSES.includes(status || "pending");
+const isPostReviewWorkflow = (status) => POST_REVIEW_WORKFLOW_STATUSES.includes(status || "");
+const isDeclinedOrder = (status) => status === "declined";
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -47,7 +79,7 @@ const AdminPanel = () => {
   const isSubAdmin = role === "sub-admin";
 
   const subAdminAllowedStatuses = [
-    "pending",
+    "on_review",
     "payment_confirmed",
     "processing",
     "shipping"
@@ -57,21 +89,14 @@ const AdminPanel = () => {
   const [orders, setOrders] = useState([]);
 
   const [rangeDays, setRangeDays] = useState(30);
+  const [customStartDate, setCustomStartDate] = useState('');
+const [customEndDate, setCustomEndDate] = useState('');
   const [tab, setTab] = useState("dashboard");
   const [productStats, setProductStats] = useState([]);
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
-
-  const orderWorkflowStatuses = [
-    "pending",
-    "payment_confirmed",
-    "processing",
-    "shipping",
-    "completed",
-    "cancelled"
-  ];
 
   useEffect(() => {
     if (!user) return;
@@ -99,6 +124,30 @@ const AdminPanel = () => {
       unsubOrders();
     };
   }, [user]);
+
+  const notifyBuyerStatusChange = async (order, newStatus) => {
+    if (!order?.buyerId) return;
+
+    const statusTitles = {
+      pending_review: "Order Awaiting Review",
+      on_review: "Order On Review",
+      declined: "Order Declined",
+      payment_confirmed: "Payment Confirmed",
+      processing: "Order Processing",
+      shipping: "Order Shipped",
+      completed: "Order Completed",
+      cancelled: "Order Cancelled",
+    };
+
+    await createNotification({
+      uid: order.buyerId,
+      type: "order",
+      title: statusTitles[newStatus] || "Order Updated",
+      body: `Your order #${order.id.slice(0, 8)} is now ${newStatus.replace(/_/g, " ")}.`,
+      link: "/buyer-dashboard",
+      orderId: order.id,
+    });
+  };
 
   const handleCancellation = async (orderId, action) => {
     if (!isAdmin) {
@@ -141,100 +190,148 @@ const AdminPanel = () => {
     }
   };
 
+  const handleReviewOrder = async (order, openDrawer = false) => {
+    if (!order) return;
+
+    try {
+      await updateDoc(doc(db, "orders", order.id), {
+        status: "on_review",
+        reviewedAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      await notifyBuyerStatusChange(order, "on_review");
+
+      if (openDrawer) {
+        setTab("orders");
+        setSelectedOrder({ ...order, status: "on_review" });
+      }
+
+      alert("Order is now on review.");
+    } catch (err) {
+      alert("Failed to mark order as on review.");
+      console.error(err);
+    }
+  };
+
+  const handleDeclineOrder = async (order, closeDrawer = false) => {
+    if (!order) return;
+
+    const confirmed = window.confirm(`Decline order #${order.id.slice(0, 8)}?`);
+    if (!confirmed) return;
+
+    try {
+      await updateDoc(doc(db, "orders", order.id), {
+        status: "declined",
+        declinedAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      await notifyBuyerStatusChange(order, "declined");
+
+      if (closeDrawer) {
+        setSelectedOrder(null);
+      }
+
+      alert("Order declined.");
+    } catch (err) {
+      alert("Failed to decline order.");
+      console.error(err);
+    }
+  };
+
   const updateOrderStatus = async (orderId, newStatus) => {
-  const order = orders.find((o) => o.id === orderId);
-  if (!order) return;
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
 
-  const currentStatus = order.status || "pending";
+    const currentStatus = order.status || "pending";
 
-  if (isSubAdmin && !subAdminAllowedStatuses.includes(newStatus)) {
-    alert("Permission blocked. Contact Main admin for this action.");
-    return;
-  }
+    if (isSubAdmin && !subAdminAllowedStatuses.includes(newStatus)) {
+      alert("Permission blocked. Contact Main admin for this action.");
+      return;
+    }
 
-  try {
-    if (newStatus === "completed" && currentStatus !== "completed") {
-      const promises = (order.items || []).map(async (item) => {
-        const productRef = doc(db, "pricelists", item.id);
-        const productSnap = await getDoc(productRef);
+    try {
+      if (newStatus === "completed" && currentStatus !== "completed") {
+        const promises = (order.items || []).map(async (item) => {
+          const productRef = doc(db, "pricelists", item.id);
+          const productSnap = await getDoc(productRef);
 
-        if (productSnap.exists()) {
-          const data = productSnap.data();
-          const currentStock = data.stockQuantity || 0;
-          const newStock = currentStock - item.quantity;
+          if (productSnap.exists()) {
+            const data = productSnap.data();
+            const currentStock = data.stockQuantity || 0;
+            const nextStock = currentStock - item.quantity;
 
-          if (newStock < 0) {
-            throw new Error(`Not enough stock for "${item.name}"`);
+            if (nextStock < 0) {
+              throw new Error(`Not enough stock for "${item.name}"`);
+            }
+
+            await updateDoc(productRef, {
+              stockQuantity: nextStock,
+              inStock: nextStock > 0,
+              totalSold: increment(item.quantity)
+            });
           }
+        });
 
-          await updateDoc(productRef, {
-            stockQuantity: newStock,
-            inStock: newStock > 0,
-            totalSold: increment(item.quantity)
-          });
-        }
+        await Promise.all(promises);
+      }
+
+      await updateDoc(doc(db, "orders", orderId), {
+        status: newStatus,
+        updatedAt: new Date()
       });
 
-      await Promise.all(promises);
+      await notifyBuyerStatusChange(order, newStatus);
+
+      alert(`Order marked as ${newStatus.replace(/_/g, " ")}!`);
+    } catch (err) {
+      alert(err.message || "Failed to update order");
+      console.error(err);
     }
+  };
 
-    await updateDoc(doc(db, "orders", orderId), {
-      status: newStatus,
-      updatedAt: new Date()
-    });
-
-    if (order.buyerId) {
-      const statusTitles = {
-        pending: "Order Pending",
-        payment_confirmed: "Payment Confirmed",
-        processing: "Order Processing",
-        shipping: "Order Shipped",
-        completed: "Order Completed",
-        cancelled: "Order Cancelled",
-      };
-
-      await createNotification({
-        uid: order.buyerId,
-        type: "order",
-        title: statusTitles[newStatus] || "Order Updated",
-        body: `Your order #${order.id.slice(0, 8)} is now ${newStatus.replace(/_/g, " ")}.`,
-        link: "/buyer-dashboard",
-        orderId: order.id,
-      });
-    }
-
-    alert(`Order marked as ${newStatus.replace(/_/g, " ")}!`);
-  } catch (err) {
-    alert(err.message || "Failed to update order");
-    console.error(err);
-  }
-};
   const getStatusBadge = (status) => {
     const map = {
-      "pending": {
-        text: "Pending",
+      pending: {
+        text: "Awaiting Review",
         color: "bg-yellow-100 text-yellow-700",
         icon: <Clock size={16} />
       },
-      "payment_confirmed": {
+      pending_review: {
+        text: "Awaiting Review",
+        color: "bg-yellow-100 text-yellow-700",
+        icon: <Clock size={16} />
+      },
+      on_review: {
+        text: "On Review",
+        color: "bg-blue-100 text-blue-700",
+        icon: <Eye size={16} />
+      },
+      payment_confirmed: {
         text: "Payment Confirmed",
         color: "bg-emerald-100 text-emerald-700",
         icon: <CheckCircle size={16} />
       },
-      "processing": {
+      processing: {
         text: "Processing",
-        color: "bg-blue-100 text-blue-700",
+        color: "bg-sky-100 text-sky-700",
         icon: <Package size={16} />
       },
-      "shipping": {
+      shipping: {
         text: "Shipping",
         color: "bg-cyan-100 text-cyan-700",
         icon: <Truck size={16} />
       },
-      "completed": {
+      completed: {
         text: "Completed",
         color: "bg-green-100 text-green-700",
         icon: <CheckCircle size={16} />
+      },
+      declined: {
+        text: "Declined",
+        color: "bg-red-100 text-red-700",
+        icon: <X size={16} />
       },
       "Cancellation Requested": {
         text: "Cancellation Requested",
@@ -246,12 +343,12 @@ const AdminPanel = () => {
         color: "bg-red-100 text-red-700",
         icon: <AlertCircle size={16} />
       },
-      "Refunded": {
+      Refunded: {
         text: "Refunded",
         color: "bg-purple-100 text-purple-700",
         icon: <CheckCircle size={16} />
       },
-      "cancelled": {
+      cancelled: {
         text: "Cancelled",
         color: "bg-gray-100 text-gray-700",
         icon: <X size={16} />
@@ -267,19 +364,43 @@ const AdminPanel = () => {
     );
   };
 
+  const formatStatusOptionLabel = (status) => {
+    const labels = {
+      all: "All statuses",
+      awaiting_review: "Awaiting Review",
+      on_review: "On Review",
+      payment_confirmed: "Payment Confirmed",
+      processing: "Processing",
+      shipping: "Shipping",
+      completed: "Completed",
+      declined: "Declined",
+      cancelled: "Cancelled",
+      "Cancellation Requested": "Cancellation Requested",
+      "Cancelled – Pending Refund": "Pending Refund",
+      Refunded: "Refunded"
+    };
+
+    return labels[status] || status;
+  };
+
   const completedOrders = useMemo(
     () => orders.filter(o => o.status === "completed"),
     [orders]
   );
 
-  const filteredCompletedOrders = useMemo(() => {
-    if (rangeDays === "all") return completedOrders;
-    const cutoff = Date.now() - Number(rangeDays) * 24 * 60 * 60 * 1000;
-    return completedOrders.filter(o => {
-      const d = o.createdAt?.toDate?.();
-      return d && d.getTime() >= cutoff;
-    });
-  }, [completedOrders, rangeDays]);
+const filteredCompletedOrders = useMemo(() => {
+  if (!customStartDate || !customEndDate) {
+    return [];
+  }
+
+  const start = new Date(`${customStartDate}T00:00:00`);
+  const end = new Date(`${customEndDate}T23:59:59`);
+
+  return completedOrders.filter((o) => {
+    const d = o.createdAt?.toDate?.();
+    return d && d >= start && d <= end;
+  });
+}, [completedOrders, customStartDate, customEndDate]);
 
   const totalIncome = useMemo(() => {
     return filteredCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -361,28 +482,32 @@ const AdminPanel = () => {
   }, [filteredCompletedOrders]);
 
   const forecast = useMemo(() => {
-    const days = rangeDays === "all" ? 30 : Number(rangeDays);
-
-    const baselineOrders = rangeDays === "all"
-      ? completedOrders.filter(o => {
-          const d = o.createdAt?.toDate?.();
-          return d && d.getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000;
-        })
-      : filteredCompletedOrders;
-
-    const baseRevenue = baselineOrders.reduce((s, o) => s + (o.total || 0), 0);
-    const avgDaily = days > 0 ? baseRevenue / days : 0;
-
-    const growth = 0.15;
-    const nextMonth = avgDaily * 30 * (1 + growth);
-
+  if (!customStartDate || !customEndDate) {
     return {
-      avgDaily,
-      nextMonth,
-      growthPct: growth * 100,
-      baseDays: days
+      avgDaily: 0,
+      nextMonth: 0,
+      growthPct: 0,
+      baseDays: 0
     };
-  }, [rangeDays, filteredCompletedOrders, completedOrders]);
+  }
+
+  const start = new Date(`${customStartDate}T00:00:00`);
+  const end = new Date(`${customEndDate}T23:59:59`);
+  const diffDays = Math.max(
+    1,
+    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  );
+
+  const baseRevenue = filteredCompletedOrders.reduce((s, o) => s + (o.total || 0), 0);
+  const avgDaily = diffDays > 0 ? baseRevenue / diffDays : 0;
+
+  return {
+    avgDaily,
+    nextMonth: avgDaily * 30,
+    growthPct: 0,
+    baseDays: diffDays
+  };
+}, [filteredCompletedOrders, customStartDate, customEndDate]);
 
   const formatDateTime = (ts) => {
     const d = ts?.toDate?.();
@@ -434,10 +559,12 @@ const AdminPanel = () => {
   };
 
   const completedCountAll = completedOrders.length;
-  const pendingCount = orders.filter(o => o.status === "pending").length;
+  const awaitingReviewCount = orders.filter(o => isAwaitingReview(o.status)).length;
+  const onReviewCount = orders.filter(o => o.status === "on_review").length;
   const paymentConfirmedCount = orders.filter(o => o.status === "payment_confirmed").length;
   const processingCount = orders.filter(o => o.status === "processing").length;
   const shippingCount = orders.filter(o => o.status === "shipping").length;
+  const declinedCount = orders.filter(o => o.status === "declined").length;
   const cancelledCount = orders.filter(o =>
     ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status)
   ).length;
@@ -458,7 +585,11 @@ const AdminPanel = () => {
 
     return orders.filter((order) => {
       const matchesStatus =
-        orderStatusFilter === 'all' ? true : (order.status || '') === orderStatusFilter;
+        orderStatusFilter === 'all'
+          ? true
+          : orderStatusFilter === 'awaiting_review'
+          ? isAwaitingReview(order.status)
+          : (order.status || '') === orderStatusFilter;
 
       if (!matchesStatus) return false;
       if (!term) return true;
@@ -482,11 +613,13 @@ const AdminPanel = () => {
 
   const orderStatusOptions = [
     'all',
-    'pending',
+    'awaiting_review',
+    'on_review',
     'payment_confirmed',
     'processing',
     'shipping',
     'completed',
+    'declined',
     'cancelled',
     'Cancellation Requested',
     'Cancelled – Pending Refund',
@@ -522,6 +655,29 @@ const AdminPanel = () => {
             </div>
           </motion.div>
 
+          {/* Orders banner */}
+          <div className="mb-8 rounded-2xl border border-yellow-200 bg-yellow-50 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-yellow-700">Orders Banner</p>
+              <h2 className="text-xl font-bold text-gray-900 mt-1">
+                Orders awaiting review: {awaitingReviewCount}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                New orders must be reviewed first before normal admin actions appear.
+              </p>
+            </div>
+
+            <Button
+              onClick={() => {
+                setTab("orders");
+                setOrderStatusFilter("awaiting_review");
+              }}
+              className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
+            >
+              Review Orders
+            </Button>
+          </div>
+
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -550,15 +706,25 @@ const AdminPanel = () => {
                     <p className="text-gray-600">Completed Orders</p>
                   </div>
 
-                  <div className="bg-white p-8 rounded-xl shadow text-center">
-                    <DollarSign className="mx-auto text-yellow-500 mb-4" size={48} />
-                    <p className="text-5xl font-bold">
-                      {formatPrice(
-                        completedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
-                      )}
-                    </p>
-                    <p className="text-gray-600">Total Income (All-Time)</p>
-                  </div>
+               <div className="bg-white p-8 rounded-xl shadow text-center">
+  <Wallet className="mx-auto text-yellow-500 mb-4" size={48} />
+  {isSubAdmin ? (
+    <>
+      <p className="text-2xl font-bold text-red-600">Blocked</p>
+      <p className="text-gray-600">Total Income</p>
+      <p className="text-sm text-gray-500 mt-2">Permission blocked for sub-admin</p>
+    </>
+  ) : (
+    <>
+      <p className="text-5xl font-bold">
+        {formatPrice(
+          completedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+        )}
+      </p>
+      <p className="text-gray-600">Total Income (All-Time)</p>
+    </>
+  )}
+</div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -572,7 +738,7 @@ const AdminPanel = () => {
                           </div>
                           <h2 className="text-2xl font-bold text-gray-900">Recent Orders</h2>
                           <p className="text-gray-600 text-sm mt-1">
-                            Latest customer activity with quick actions for fast admin work.
+                            Latest customer activity with quick review and admin actions.
                           </p>
                         </div>
 
@@ -594,15 +760,15 @@ const AdminPanel = () => {
                         </div>
 
                         <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pending</p>
-                          <p className="text-2xl font-bold text-yellow-600 mt-1">{pendingCount}</p>
-                          <p className="text-sm text-gray-500 mt-1">Orders waiting for action</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Awaiting Review</p>
+                          <p className="text-2xl font-bold text-yellow-600 mt-1">{awaitingReviewCount}</p>
+                          <p className="text-sm text-gray-500 mt-1">Needs review first</p>
                         </div>
 
                         <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Paid</p>
-                          <p className="text-2xl font-bold text-emerald-600 mt-1">{paymentConfirmedCount}</p>
-                          <p className="text-sm text-gray-500 mt-1">Payments confirmed</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">On Review</p>
+                          <p className="text-2xl font-bold text-blue-600 mt-1">{onReviewCount}</p>
+                          <p className="text-sm text-gray-500 mt-1">Currently being reviewed</p>
                         </div>
 
                         <div className="rounded-2xl bg-white border border-gray-100 p-4">
@@ -709,51 +875,88 @@ const AdminPanel = () => {
 
                               <div className="lg:w-[220px] shrink-0">
                                 <div className="flex flex-col gap-2">
-                                  {orderWorkflowStatuses.includes(order.status || "pending") && (
-                                    isAdmin ? (
-                                      <select
-                                        value={order.status || "pending"}
-                                        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#118C8C]/20"
+                                  {isAwaitingReview(order.status) ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleReviewOrder(order, true)}
+                                        className="w-full rounded-xl bg-[#118C8C] hover:bg-[#0d7070] text-white"
                                       >
-                                        <option value="pending">Pending</option>
-                                        <option value="payment_confirmed">Payment Confirmed</option>
-                                        <option value="processing">Processing</option>
-                                        <option value="shipping">Shipping</option>
-                                        <option value="completed">Completed</option>
-                                        <option value="cancelled">Cancelled</option>
-                                      </select>
-                                    ) : (
-                                      subAdminAllowedStatuses.includes(order.status || "pending") ? (
+                                        Review
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDeclineOrder(order)}
+                                        className="w-full rounded-xl border-red-300 text-red-600 hover:bg-red-50"
+                                      >
+                                        Decline
+                                      </Button>
+                                    </>
+                                  ) : isPostReviewWorkflow(order.status) ? (
+                                    <>
+                                      {isAdmin ? (
                                         <select
-                                          value={order.status || "pending"}
+                                          value={order.status || "on_review"}
                                           onChange={(e) => updateOrderStatus(order.id, e.target.value)}
                                           className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#118C8C]/20"
                                         >
-                                          <option value="pending">Pending</option>
+                                          <option value="on_review">On Review</option>
                                           <option value="payment_confirmed">Payment Confirmed</option>
                                           <option value="processing">Processing</option>
                                           <option value="shipping">Shipping</option>
+                                          <option value="completed">Completed</option>
+                                          <option value="cancelled">Cancelled</option>
                                         </select>
                                       ) : (
-                                        <div className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-500">
-                                          Status locked for sub-admin
-                                        </div>
-                                      )
-                                    )
-                                  )}
+                                        subAdminAllowedStatuses.includes(order.status || "on_review") ? (
+                                          <select
+                                            value={order.status || "on_review"}
+                                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#118C8C]/20"
+                                          >
+                                            <option value="on_review">On Review</option>
+                                            <option value="payment_confirmed">Payment Confirmed</option>
+                                            <option value="processing">Processing</option>
+                                            <option value="shipping">Shipping</option>
+                                          </select>
+                                        ) : (
+                                          <div className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-500">
+                                            Status locked for sub-admin
+                                          </div>
+                                        )
+                                      )}
 
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setTab("orders");
-                                      setSelectedOrder(order);
-                                    }}
-                                    className="w-full rounded-xl"
-                                  >
-                                    Open Full Order
-                                  </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setTab("orders");
+                                          setSelectedOrder(order);
+                                        }}
+                                        className="w-full rounded-xl"
+                                      >
+                                        Open Full Order
+                                      </Button>
+                                    </>
+                                  ) : isDeclinedOrder(order.status) ? (
+                                    <div className="w-full px-3 py-2 border border-red-200 rounded-xl text-sm bg-red-50 text-red-600 font-medium text-center">
+                                      Order declined
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setTab("orders");
+                                        setSelectedOrder(order);
+                                      }}
+                                      className="w-full rounded-xl"
+                                    >
+                                      Open Full Order
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -777,13 +980,16 @@ const AdminPanel = () => {
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-2 text-sm">
                             <Clock className="text-yellow-600" size={18} />
-                            <span>Pending orders</span>
+                            <span>Orders awaiting review</span>
                           </div>
                           <button
                             className="text-sm font-bold text-[#118C8C] hover:underline"
-                            onClick={() => setTab("orders")}
+                            onClick={() => {
+                              setTab("orders");
+                              setOrderStatusFilter("awaiting_review");
+                            }}
                           >
-                            {pendingCount}
+                            {awaitingReviewCount}
                           </button>
                         </div>
 
@@ -838,8 +1044,8 @@ const AdminPanel = () => {
                           View Analytics
                         </Button>
                         <Button variant="outline" onClick={() => navigate('/message-center')}>
-  Open Message Center
-</Button>
+                          Open Message Center
+                        </Button>
                         <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
                           Back to Top
                         </Button>
@@ -854,11 +1060,13 @@ const AdminPanel = () => {
 
                       <div className="space-y-3 text-sm">
                         {[
-                          { label: "Pending", value: pendingCount, bar: "bg-yellow-400" },
+                          { label: "Awaiting Review", value: awaitingReviewCount, bar: "bg-yellow-400" },
+                          { label: "On Review", value: onReviewCount, bar: "bg-blue-400" },
                           { label: "Payment Confirmed", value: paymentConfirmedCount, bar: "bg-emerald-400" },
-                          { label: "Processing", value: processingCount, bar: "bg-blue-400" },
+                          { label: "Processing", value: processingCount, bar: "bg-sky-400" },
                           { label: "Shipping", value: shippingCount, bar: "bg-cyan-400" },
                           { label: "Completed", value: completedCountAll, bar: "bg-green-500" },
+                          { label: "Declined", value: declinedCount, bar: "bg-red-400" },
                           { label: "Cancelled/Refund", value: cancelledCount, bar: "bg-gray-500" },
                         ].map(row => (
                           <div key={row.label}>
@@ -884,7 +1092,7 @@ const AdminPanel = () => {
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <h2 className="text-2xl font-bold text-[#118C8C]">Customer Orders</h2>
-                      <p className="text-gray-600">Manage orders, cancellations, and status updates</p>
+                      <p className="text-gray-600">Manage reviews, declines, cancellations, and status updates</p>
                     </div>
 
                     <div className="flex flex-wrap gap-3">
@@ -925,11 +1133,7 @@ const AdminPanel = () => {
                       >
                         {orderStatusOptions.map((status) => (
                           <option key={status} value={status}>
-                            {status === 'all'
-                              ? 'All statuses'
-                              : status === 'payment_confirmed'
-                              ? 'Payment Confirmed'
-                              : status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
+                            {formatStatusOptionLabel(status)}
                           </option>
                         ))}
                       </select>
@@ -956,7 +1160,7 @@ const AdminPanel = () => {
                         <tr
                           key={order.id}
                           className="border-t hover:bg-gray-50 cursor-pointer"
-                          onClick={() => setSelectedOrder(order)}
+                          onClick={() => !isAwaitingReview(order.status) && setSelectedOrder(order)}
                         >
                           <td className="p-4 text-sm text-gray-700">
                             {order.createdAt?.toDate?.().toLocaleDateString() || "N/A"}
@@ -978,47 +1182,70 @@ const AdminPanel = () => {
                               className="flex flex-wrap gap-2"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setSelectedOrder(order)}
-                              >
-                                <Eye className="mr-2" size={14} />
-                                View Details
-                              </Button>
-
-                              {orderWorkflowStatuses.includes(order.status || "pending") && (
-                                isAdmin ? (
-                                  <select
-                                    value={order.status || "pending"}
-                                    onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                    className="px-3 py-1 border rounded text-sm bg-white"
+                              {isAwaitingReview(order.status) ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleReviewOrder(order, true)}
+                                    className="bg-[#118C8C] hover:bg-[#0d7070] text-white"
                                   >
-                                    <option value="pending">Pending</option>
-                                    <option value="payment_confirmed">Payment Confirmed</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="shipping">Shipping</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="cancelled">Cancelled</option>
-                                  </select>
-                                ) : (
-                                  subAdminAllowedStatuses.includes(order.status || "pending") ? (
-                                    <select
-                                      value={order.status || "pending"}
-                                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                      className="px-3 py-1 border rounded text-sm bg-white"
-                                    >
-                                      <option value="pending">Pending</option>
-                                      <option value="payment_confirmed">Payment Confirmed</option>
-                                      <option value="processing">Processing</option>
-                                      <option value="shipping">Shipping</option>
-                                    </select>
-                                  ) : (
-                                    <span className="px-3 py-1 border rounded text-sm bg-gray-50 text-gray-500 inline-block">
-                                      Locked
-                                    </span>
-                                  )
-                                )
+                                    Review
+                                  </Button>
+
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDeclineOrder(order)}
+                                    className="border-red-300 text-red-600 hover:bg-red-50"
+                                  >
+                                    Decline
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setSelectedOrder(order)}
+                                  >
+                                    <Eye className="mr-2" size={14} />
+                                    View Details
+                                  </Button>
+
+                                  {isPostReviewWorkflow(order.status) && (
+                                    isAdmin ? (
+                                      <select
+                                        value={order.status || "on_review"}
+                                        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                        className="px-3 py-1 border rounded text-sm bg-white"
+                                      >
+                                        <option value="on_review">On Review</option>
+                                        <option value="payment_confirmed">Payment Confirmed</option>
+                                        <option value="processing">Processing</option>
+                                        <option value="shipping">Shipping</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                      </select>
+                                    ) : (
+                                      subAdminAllowedStatuses.includes(order.status || "on_review") ? (
+                                        <select
+                                          value={order.status || "on_review"}
+                                          onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                                          className="px-3 py-1 border rounded text-sm bg-white"
+                                        >
+                                          <option value="on_review">On Review</option>
+                                          <option value="payment_confirmed">Payment Confirmed</option>
+                                          <option value="processing">Processing</option>
+                                          <option value="shipping">Shipping</option>
+                                        </select>
+                                      ) : (
+                                        <span className="px-3 py-1 border rounded text-sm bg-gray-50 text-gray-500 inline-block">
+                                          Locked
+                                        </span>
+                                      )
+                                    )
+                                  )}
+                                </>
                               )}
 
                               {isAdmin && order.status === "Cancellation Requested" && (
@@ -1082,30 +1309,53 @@ const AdminPanel = () => {
                     <div>
                       <h2 className="text-2xl font-bold text-[#118C8C]">Analytics</h2>
                       <p className="text-gray-600 text-sm">
-                        Showing <span className="font-bold">{rangeDays === "all" ? "All Time" : `Last ${rangeDays} Days`}</span> (completed orders)
-                      </p>
+  Showing <span className="font-bold">
+    {customStartDate && customEndDate
+      ? `${customStartDate} to ${customEndDate}`
+      : "Select a date range"}
+  </span> (completed orders)
+</p>
                     </div>
 
-                    <div className="flex gap-2 flex-wrap">
-                      {[
-                        { label: "7D", value: 7 },
-                        { label: "30D", value: 30 },
-                        { label: "90D", value: 90 },
-                        { label: "All", value: "all" },
-                      ].map(btn => (
-                        <button
-                          key={btn.label}
-                          onClick={() => setRangeDays(btn.value)}
-                          className={`px-4 py-2 rounded-full text-sm font-bold transition ${
-                            rangeDays === btn.value
-                              ? "bg-[#118C8C] text-white"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                        >
-                          {btn.label}
-                        </button>
-                      ))}
-                    </div>
+                    <div className="flex flex-wrap items-end gap-3">
+  <div className="flex flex-col gap-1">
+    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      From
+    </label>
+    <input
+      type="date"
+      value={customStartDate}
+      onChange={(e) => setCustomStartDate(e.target.value)}
+      max={customEndDate || undefined}
+      className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+    />
+  </div>
+
+  <div className="flex flex-col gap-1">
+    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      To
+    </label>
+    <input
+      type="date"
+      value={customEndDate}
+      onChange={(e) => setCustomEndDate(e.target.value)}
+      min={customStartDate || undefined}
+      className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+    />
+  </div>
+
+  <Button
+    type="button"
+    variant="outline"
+ onClick={() => {
+  setCustomStartDate('');
+  setCustomEndDate('');
+}}
+    className="h-11 rounded-2xl"
+  >
+    Clear
+  </Button>
+</div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1469,14 +1719,31 @@ const AdminPanel = () => {
                   <h4 className="text-lg font-bold text-[#118C8C] mb-4">Admin Actions</h4>
 
                   <div className="flex flex-wrap gap-3">
-                    {orderWorkflowStatuses.includes(selectedOrderLive.status || "pending") && (
+                    {isAwaitingReview(selectedOrderLive.status) ? (
+                      <>
+                        <Button
+                          onClick={() => handleReviewOrder(selectedOrderLive, false)}
+                          className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
+                        >
+                          Review Order
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDeclineOrder(selectedOrderLive, true)}
+                          className="rounded-xl border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          Decline
+                        </Button>
+                      </>
+                    ) : isPostReviewWorkflow(selectedOrderLive.status) ? (
                       isAdmin ? (
                         <select
-                          value={selectedOrderLive.status || "pending"}
+                          value={selectedOrderLive.status || "on_review"}
                           onChange={(e) => updateOrderStatus(selectedOrderLive.id, e.target.value)}
                           className="px-4 py-2 border rounded-xl text-sm bg-white"
                         >
-                          <option value="pending">Pending</option>
+                          <option value="on_review">On Review</option>
                           <option value="payment_confirmed">Payment Confirmed</option>
                           <option value="processing">Processing</option>
                           <option value="shipping">Shipping</option>
@@ -1484,13 +1751,13 @@ const AdminPanel = () => {
                           <option value="cancelled">Cancelled</option>
                         </select>
                       ) : (
-                        subAdminAllowedStatuses.includes(selectedOrderLive.status || "pending") ? (
+                        subAdminAllowedStatuses.includes(selectedOrderLive.status || "on_review") ? (
                           <select
-                            value={selectedOrderLive.status || "pending"}
+                            value={selectedOrderLive.status || "on_review"}
                             onChange={(e) => updateOrderStatus(selectedOrderLive.id, e.target.value)}
                             className="px-4 py-2 border rounded-xl text-sm bg-white"
                           >
-                            <option value="pending">Pending</option>
+                            <option value="on_review">On Review</option>
                             <option value="payment_confirmed">Payment Confirmed</option>
                             <option value="processing">Processing</option>
                             <option value="shipping">Shipping</option>
@@ -1501,7 +1768,11 @@ const AdminPanel = () => {
                           </div>
                         )
                       )
-                    )}
+                    ) : isDeclinedOrder(selectedOrderLive.status) ? (
+                      <div className="px-4 py-2 border rounded-xl text-sm bg-red-50 text-red-600">
+                        This order has been declined.
+                      </div>
+                    ) : null}
 
                     {isAdmin && selectedOrderLive.status === "Cancellation Requested" && (
                       <Button

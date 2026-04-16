@@ -25,37 +25,90 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  Eye
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrency } from '@/context/CurrencyContext';
 import Grainient from '@/components/ui-bits/Grainient';
 import Particles from '@/components/ui-bits/Particles';
 
+const ACTIVE_ORDER_STATUSES = [
+  'pending',
+  'pending_review',
+  'on_review',
+  'payment_confirmed',
+  'Paid / Processing',
+  'processing',
+  'shipping',
+  'Cancellation Requested',
+];
+
+const COMPLETED_ORDER_STATUSES = ['completed'];
+
+const CANCELLED_ORDER_STATUSES = [
+  'declined',
+  'cancelled',
+  'Cancelled – Pending Refund',
+  'Refunded',
+];
+
+const formatStatusText = (status) => {
+  const map = {
+    pending: 'Awaiting Review',
+    pending_review: 'Awaiting Review',
+    on_review: 'On Review',
+    payment_confirmed: 'Payment Confirmed',
+    'Paid / Processing': 'Paid / Processing',
+    processing: 'Processing',
+    shipping: 'Shipping',
+    completed: 'Completed',
+    declined: 'Declined',
+    cancelled: 'Cancelled',
+    'Cancellation Requested': 'Cancellation Requested',
+    'Cancelled – Pending Refund': 'Cancelled – Pending Refund',
+    Refunded: 'Refunded',
+  };
+
+  return map[status] || 'Awaiting Review';
+};
+
 // STATUS BADGE
 const getStatusBadge = (status) => {
   const styles = {
+    pending: 'bg-yellow-100 text-yellow-700',
+    pending_review: 'bg-yellow-100 text-yellow-700',
+    on_review: 'bg-blue-100 text-blue-700',
+    payment_confirmed: 'bg-emerald-100 text-emerald-700',
     'Paid / Processing': 'bg-blue-100 text-blue-700',
+    processing: 'bg-sky-100 text-sky-700',
+    shipping: 'bg-cyan-100 text-cyan-700',
+    completed: 'bg-green-100 text-green-700',
+    declined: 'bg-red-100 text-red-700',
+    cancelled: 'bg-gray-100 text-gray-700',
     'Cancellation Requested': 'bg-orange-100 text-orange-700',
     'Cancelled – Pending Refund': 'bg-red-100 text-red-700',
     Refunded: 'bg-purple-100 text-purple-700',
-    completed: 'bg-green-100 text-green-700',
-    processing: 'bg-blue-100 text-blue-700',
-    pending: 'bg-yellow-100 text-yellow-700',
-    cancelled: 'bg-gray-100 text-gray-700',
   };
 
   const icons = {
-    'Paid / Processing': <Clock className="text-blue-600" size={18} />,
+    pending: <Clock className="text-yellow-600" size={18} />,
+    pending_review: <Clock className="text-yellow-600" size={18} />,
+    on_review: <Eye className="text-blue-600" size={18} />,
+    payment_confirmed: <CheckCircle className="text-emerald-600" size={18} />,
+    'Paid / Processing': <CheckCircle className="text-blue-600" size={18} />,
+    processing: <Package className="text-sky-600" size={18} />,
+    shipping: <Truck className="text-cyan-600" size={18} />,
+    completed: <CheckCircle className="text-green-600" size={18} />,
+    declined: <X className="text-red-600" size={18} />,
+    cancelled: <X className="text-gray-600" size={18} />,
     'Cancellation Requested': <AlertCircle className="text-orange-600" size={18} />,
     'Cancelled – Pending Refund': <AlertCircle className="text-red-600" size={18} />,
     Refunded: <CheckCircle className="text-purple-600" size={18} />,
-    completed: <CheckCircle className="text-green-600" size={18} />,
-    processing: <Truck className="text-blue-600" size={18} />,
-    pending: <Clock className="text-yellow-600" size={18} />,
   };
 
-  const key = status || 'pending';
+  const key = status || 'pending_review';
+
   return (
     <span
       className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
@@ -63,7 +116,7 @@ const getStatusBadge = (status) => {
       }`}
     >
       {icons[key] || <Clock size={18} />}
-      {key}
+      {formatStatusText(key)}
     </span>
   );
 };
@@ -163,18 +216,14 @@ const PendingOrdersPage = () => {
 
   const canCancel = (order) => {
     return (
-      ['pending', 'Paid / Processing', 'processing'].includes(order.status) &&
+      ['pending', 'pending_review', 'on_review', 'Paid / Processing'].includes(order.status) &&
       !order.cancellationRequestedAt
     );
   };
 
-  const pendingOrders = orders.filter((o) =>
-    ['pending', 'Paid / Processing', 'processing', 'Cancellation Requested'].includes(o.status)
-  );
-  const completedOrders = orders.filter((o) => o.status === 'completed');
-  const cancelledOrders = orders.filter((o) =>
-    ['cancelled', 'Cancelled – Pending Refund', 'Refunded'].includes(o.status)
-  );
+  const pendingOrders = orders.filter((o) => ACTIVE_ORDER_STATUSES.includes(o.status || 'pending_review'));
+  const completedOrders = orders.filter((o) => COMPLETED_ORDER_STATUSES.includes(o.status));
+  const cancelledOrders = orders.filter((o) => CANCELLED_ORDER_STATUSES.includes(o.status));
   const allOrders = orders;
 
   const loadMore = (tab) => {
@@ -302,7 +351,7 @@ const PendingOrdersPage = () => {
               <Tabs defaultValue="all">
                 <TabsList className="grid w-full grid-cols-4 rounded-none bg-white/70 border-b border-gray-100">
                   <TabsTrigger value="all">All ({allOrders.length})</TabsTrigger>
-                  <TabsTrigger value="pending">Pending ({pendingOrders.length})</TabsTrigger>
+                  <TabsTrigger value="pending">Active ({pendingOrders.length})</TabsTrigger>
                   <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
                   <TabsTrigger value="cancelled">Cancelled ({cancelledOrders.length})</TabsTrigger>
                 </TabsList>
