@@ -15,7 +15,9 @@ import {
   doc,
   updateDoc,
   getDoc,
-  increment
+  increment,
+  getDocs,
+  serverTimestamp
 } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -90,13 +92,17 @@ const AdminPanel = () => {
 
   const [rangeDays, setRangeDays] = useState(30);
   const [customStartDate, setCustomStartDate] = useState('');
-const [customEndDate, setCustomEndDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [tab, setTab] = useState("dashboard");
   const [productStats, setProductStats] = useState([]);
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -388,19 +394,19 @@ const [customEndDate, setCustomEndDate] = useState('');
     [orders]
   );
 
-const filteredCompletedOrders = useMemo(() => {
-  if (!customStartDate || !customEndDate) {
-    return [];
-  }
+  const filteredCompletedOrders = useMemo(() => {
+    if (!customStartDate || !customEndDate) {
+      return [];
+    }
 
-  const start = new Date(`${customStartDate}T00:00:00`);
-  const end = new Date(`${customEndDate}T23:59:59`);
+    const start = new Date(`${customStartDate}T00:00:00`);
+    const end = new Date(`${customEndDate}T23:59:59`);
 
-  return completedOrders.filter((o) => {
-    const d = o.createdAt?.toDate?.();
-    return d && d >= start && d <= end;
-  });
-}, [completedOrders, customStartDate, customEndDate]);
+    return completedOrders.filter((o) => {
+      const d = o.createdAt?.toDate?.();
+      return d && d >= start && d <= end;
+    });
+  }, [completedOrders, customStartDate, customEndDate]);
 
   const totalIncome = useMemo(() => {
     return filteredCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -482,32 +488,134 @@ const filteredCompletedOrders = useMemo(() => {
   }, [filteredCompletedOrders]);
 
   const forecast = useMemo(() => {
-  if (!customStartDate || !customEndDate) {
+    if (!customStartDate || !customEndDate) {
+      return {
+        avgDaily: 0,
+        nextMonth: 0,
+        growthPct: 0,
+        baseDays: 0
+      };
+    }
+
+    const start = new Date(`${customStartDate}T00:00:00`);
+    const end = new Date(`${customEndDate}T23:59:59`);
+    const diffDays = Math.max(
+      1,
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    );
+
+    const baseRevenue = filteredCompletedOrders.reduce((s, o) => s + (o.total || 0), 0);
+    const avgDaily = diffDays > 0 ? baseRevenue / diffDays : 0;
+
     return {
-      avgDaily: 0,
-      nextMonth: 0,
+      avgDaily,
+      nextMonth: avgDaily * 30,
       growthPct: 0,
-      baseDays: 0
+      baseDays: diffDays
     };
-  }
+  }, [filteredCompletedOrders, customStartDate, customEndDate]);
 
-  const start = new Date(`${customStartDate}T00:00:00`);
-  const end = new Date(`${customEndDate}T23:59:59`);
-  const diffDays = Math.max(
-    1,
-    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  );
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
 
-  const baseRevenue = filteredCompletedOrders.reduce((s, o) => s + (o.total || 0), 0);
-  const avgDaily = diffDays > 0 ? baseRevenue / diffDays : 0;
+    try {
+      const usersSnapshot = await getDocs(collection(db, "users"));
 
-  return {
-    avgDaily,
-    nextMonth: avgDaily * 30,
-    growthPct: 0,
-    baseDays: diffDays
+      const usersList = usersSnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+
+      console.log("Loaded users:", usersList);
+      setUsers(usersList);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      alert(`Failed to load users: ${error.message}`);
+    } finally {
+      setLoadingUsers(false);
+    }
   };
-}, [filteredCompletedOrders, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    if (tab === "users") {
+      fetchUsers();
+    }
+  }, [tab]);
+
+  const makeSubAdmin = async (userId) => {
+    if (!isAdmin) {
+      alert("Permission blocked. Only the main admin can manage Sub-admin accounts.");
+      return;
+    }
+
+    if (userId === user?.uid) {
+      alert("You cannot change your own admin role here.");
+      return;
+    }
+
+    const confirmed = window.confirm("Make this user a Sub-admin / Artisan?");
+    if (!confirmed) return;
+
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        role: "sub-admin",
+        promotedBy: user.uid,
+        promotedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      alert("User is now a Sub-admin.");
+      fetchUsers();
+    } catch (error) {
+      console.error("Error making sub-admin:", error);
+      alert("Failed to make user a Sub-admin.");
+    }
+  };
+
+  const removeSubAdmin = async (userId) => {
+    if (!isAdmin) {
+      alert("Permission blocked. Only the main admin can manage Sub-admin accounts.");
+      return;
+    }
+
+    if (userId === user?.uid) {
+      alert("You cannot change your own admin role here.");
+      return;
+    }
+
+    const confirmed = window.confirm("Remove this user's Sub-admin access?");
+    if (!confirmed) return;
+
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        role: "buyer",
+        removedBy: user.uid,
+        removedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      alert("Sub-admin access removed.");
+      fetchUsers();
+    } catch (error) {
+      console.error("Error removing sub-admin:", error);
+      alert("Failed to remove Sub-admin access.");
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    const search = userSearch.trim().toLowerCase();
+
+    return users.filter((u) => {
+      if (!search) return true;
+
+      return (
+        u.name?.toLowerCase().includes(search) ||
+        u.displayName?.toLowerCase().includes(search) ||
+        u.email?.toLowerCase().includes(search) ||
+        u.role?.toLowerCase().includes(search)
+      );
+    });
+  }, [users, userSearch]);
 
   const formatDateTime = (ts) => {
     const d = ts?.toDate?.();
@@ -588,8 +696,8 @@ const filteredCompletedOrders = useMemo(() => {
         orderStatusFilter === 'all'
           ? true
           : orderStatusFilter === 'awaiting_review'
-          ? isAwaitingReview(order.status)
-          : (order.status || '') === orderStatusFilter;
+            ? isAwaitingReview(order.status)
+            : (order.status || '') === orderStatusFilter;
 
       if (!matchesStatus) return false;
       if (!term) return true;
@@ -655,7 +763,6 @@ const filteredCompletedOrders = useMemo(() => {
             </div>
           </motion.div>
 
-          {/* Orders banner */}
           <div className="mb-8 rounded-2xl border border-yellow-200 bg-yellow-50 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-yellow-700">Orders Banner</p>
@@ -679,9 +786,10 @@ const filteredCompletedOrders = useMemo(() => {
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
+              <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
@@ -706,25 +814,25 @@ const filteredCompletedOrders = useMemo(() => {
                     <p className="text-gray-600">Completed Orders</p>
                   </div>
 
-               <div className="bg-white p-8 rounded-xl shadow text-center">
-  <Wallet className="mx-auto text-yellow-500 mb-4" size={48} />
-  {isSubAdmin ? (
-    <>
-      <p className="text-2xl font-bold text-red-600">Blocked</p>
-      <p className="text-gray-600">Total Income</p>
-      <p className="text-sm text-gray-500 mt-2">Permission blocked for sub-admin</p>
-    </>
-  ) : (
-    <>
-      <p className="text-5xl font-bold">
-        {formatPrice(
-          completedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
-        )}
-      </p>
-      <p className="text-gray-600">Total Income (All-Time)</p>
-    </>
-  )}
-</div>
+                  <div className="bg-white p-8 rounded-xl shadow text-center">
+                    <Wallet className="mx-auto text-yellow-500 mb-4" size={48} />
+                    {isSubAdmin ? (
+                      <>
+                        <p className="text-2xl font-bold text-red-600">Blocked</p>
+                        <p className="text-gray-600">Total Income</p>
+                        <p className="text-sm text-gray-500 mt-2">Permission blocked for sub-admin</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-5xl font-bold">
+                          {formatPrice(
+                            completedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+                          )}
+                        </p>
+                        <p className="text-gray-600">Total Income (All-Time)</p>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1043,6 +1151,9 @@ const filteredCompletedOrders = useMemo(() => {
                         <Button variant="outline" onClick={() => setTab("analytics")}>
                           View Analytics
                         </Button>
+                        <Button variant="outline" onClick={() => setTab("users")}>
+                          Manage Users
+                        </Button>
                         <Button variant="outline" onClick={() => navigate('/message-center')}>
                           Open Message Center
                         </Button>
@@ -1294,6 +1405,154 @@ const filteredCompletedOrders = useMemo(() => {
               </div>
             </TabsContent>
 
+            <TabsContent value="users">
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+                <div className="p-6 border-b bg-gradient-to-r from-[#118C8C]/10 via-white to-[#F2BB16]/10">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-[#118C8C]">Sub-admin Management</h2>
+                      <p className="text-gray-600 text-sm mt-1">
+                        Search users and promote trusted buyer accounts to Sub-admin / Artisan.
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={fetchUsers}
+                      className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
+                    >
+                      Reload Users
+                    </Button>
+                  </div>
+
+                  {!isAdmin && (
+                    <div className="mt-5 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                      You can view users, but only the main admin can promote or remove Sub-admin accounts.
+                    </div>
+                  )}
+
+                  <div className="relative mt-5">
+                    <Search
+                      size={18}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      type="text"
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      placeholder="Search by name, email, or role..."
+                      className="w-full border border-gray-200 rounded-2xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {loadingUsers ? (
+                    <div className="p-16 text-center text-gray-500">
+                      Loading users...
+                    </div>
+                  ) : (
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="p-4 text-left">Name</th>
+                          <th className="p-4 text-left">Email</th>
+                          <th className="p-4 text-left">Current Role</th>
+                          <th className="p-4 text-left">Actions</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {filteredUsers.map((u) => {
+                          const userRole = u.role || "buyer";
+                          const displayName = u.name || u.displayName || "No name";
+                          const isCurrentUser = u.id === user?.uid;
+
+                          return (
+                            <tr key={u.id} className="border-t hover:bg-gray-50">
+                              <td className="p-4 font-medium text-gray-900">
+                                <div className="flex flex-col">
+                                  <span>{displayName}</span>
+                                  {isCurrentUser && (
+                                    <span className="text-xs text-[#118C8C] font-semibold mt-1">
+                                      Current user
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="p-4 text-gray-700">
+                                {u.email || "No email"}
+                              </td>
+
+                              <td className="p-4">
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                    userRole === "admin"
+                                      ? "bg-purple-100 text-purple-700"
+                                      : userRole === "sub-admin"
+                                        ? "bg-[#118C8C]/10 text-[#118C8C]"
+                                        : "bg-gray-100 text-gray-700"
+                                  }`}
+                                >
+                                  {userRole}
+                                </span>
+                              </td>
+
+                              <td className="p-4">
+                                {userRole === "admin" ? (
+                                  <span className="text-sm text-gray-400 font-semibold">
+                                    Protected
+                                  </span>
+                                ) : !isAdmin ? (
+                                  <span className="text-sm text-gray-400 font-semibold">
+                                    View only
+                                  </span>
+                                ) : userRole === "sub-admin" ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => removeSubAdmin(u.id)}
+                                    disabled={isCurrentUser}
+                                    className="bg-red-600 hover:bg-red-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Remove Sub-admin
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => makeSubAdmin(u.id)}
+                                    disabled={isCurrentUser}
+                                    className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Make Sub-admin
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {!loadingUsers && users.length === 0 && (
+                    <div className="p-16 text-center text-gray-500">
+                      <User size={56} className="mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-semibold text-gray-700">No users loaded yet</p>
+                      <p className="text-sm mt-1">Users auto-load when you open this tab. If it still fails, check the alert message and Firestore rules.</p>
+                    </div>
+                  )}
+
+                  {!loadingUsers && users.length > 0 && filteredUsers.length === 0 && (
+                    <div className="p-16 text-center text-gray-500">
+                      <Search size={56} className="mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-semibold text-gray-700">No matching users</p>
+                      <p className="text-sm mt-1">Try searching a different name, email, or role.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
             <TabsContent value="analytics">
               {isSubAdmin ? (
                 <div className="bg-white rounded-2xl shadow-lg p-10 border border-red-100 text-center">
@@ -1309,53 +1568,53 @@ const filteredCompletedOrders = useMemo(() => {
                     <div>
                       <h2 className="text-2xl font-bold text-[#118C8C]">Analytics</h2>
                       <p className="text-gray-600 text-sm">
-  Showing <span className="font-bold">
-    {customStartDate && customEndDate
-      ? `${customStartDate} to ${customEndDate}`
-      : "Select a date range"}
-  </span> (completed orders)
-</p>
+                        Showing <span className="font-bold">
+                          {customStartDate && customEndDate
+                            ? `${customStartDate} to ${customEndDate}`
+                            : "Select a date range"}
+                        </span> (completed orders)
+                      </p>
                     </div>
 
                     <div className="flex flex-wrap items-end gap-3">
-  <div className="flex flex-col gap-1">
-    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-      From
-    </label>
-    <input
-      type="date"
-      value={customStartDate}
-      onChange={(e) => setCustomStartDate(e.target.value)}
-      max={customEndDate || undefined}
-      className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
-    />
-  </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          From
+                        </label>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          max={customEndDate || undefined}
+                          className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                        />
+                      </div>
 
-  <div className="flex flex-col gap-1">
-    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-      To
-    </label>
-    <input
-      type="date"
-      value={customEndDate}
-      onChange={(e) => setCustomEndDate(e.target.value)}
-      min={customStartDate || undefined}
-      className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
-    />
-  </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          To
+                        </label>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          min={customStartDate || undefined}
+                          className="h-11 rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                        />
+                      </div>
 
-  <Button
-    type="button"
-    variant="outline"
- onClick={() => {
-  setCustomStartDate('');
-  setCustomEndDate('');
-}}
-    className="h-11 rounded-2xl"
-  >
-    Clear
-  </Button>
-</div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setCustomStartDate('');
+                          setCustomEndDate('');
+                        }}
+                        className="h-11 rounded-2xl"
+                      >
+                        Clear
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
