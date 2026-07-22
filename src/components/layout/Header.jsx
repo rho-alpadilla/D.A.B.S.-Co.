@@ -544,7 +544,6 @@ const goToHighlightsHome = () => {
           position: absolute;
           left: 50%;
           transform: translateX(-50%);
-          display: flex;
           align-items: center;
           gap: 2.25rem;
           z-index: 2;
@@ -620,15 +619,24 @@ const goToHighlightsHome = () => {
           background: rgba(17,140,140,0.08);
         }
 
-        .hdr-login {
+        .hdr-login,
+        .hdr-join {
           font-family: 'DM Sans', sans-serif;
           font-size: 0.875rem;
           font-weight: 700;
-          padding: 0.58rem 1.15rem;
+          min-height: 2.75rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           border-radius: 999px;
-          border: 1px solid;
           cursor: pointer;
           text-decoration: none;
+          white-space: nowrap;
+        }
+
+        .hdr-login {
+          padding: 0 1.15rem;
+          border: 1px solid;
           transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.25s ease;
           box-shadow: 0 8px 20px rgba(17, 140, 140, 0.22);
         }
@@ -640,10 +648,7 @@ const goToHighlightsHome = () => {
         }
 
         .hdr-join {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 0.875rem;
-          font-weight: 700;
-          padding: 0.45rem 1.35rem;
+          padding: 0 1.35rem;
           border-radius: 100px;
           border: none;
           background: linear-gradient(135deg, #F2BB16, #e8ac0e);
@@ -652,7 +657,6 @@ const goToHighlightsHome = () => {
           text-decoration: none;
           box-shadow: 0 2px 14px rgba(242,187,22,0.42);
           transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
-          white-space: nowrap;
         }
 
         .hdr-join:hover {
@@ -709,7 +713,7 @@ const goToHighlightsHome = () => {
       >
         {/* Problem #4 fix: was px-6, now px-4 to match Footer.jsx and PageContainer
             so the header's left/right edges line up with every page's content. */}
-        <nav className="container mx-auto px-4 py-3.5 relative flex items-center justify-between">
+        <nav className="container mx-auto relative flex items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
           <Link
             to={homePath}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}

@@ -105,7 +105,7 @@ const CartPage = () => {
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-12 min-h-[60vh]">
+        <div className="relative z-10 container mx-auto min-h-[60vh] px-4 py-12 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -128,8 +128,8 @@ const CartPage = () => {
                 </p>
               </div>
 
-              <Link to="/pending-orders">
-                <Button className="bg-[#118C8C] hover:bg-[#0d7070] rounded-2xl">
+              <Link to="/pending-orders" className="w-full sm:w-auto">
+                <Button className="h-12 w-full rounded-2xl bg-[#118C8C] px-5 py-0 text-white hover:bg-[#0d7070]">
                   View My Orders
                 </Button>
               </Link>
@@ -149,7 +149,7 @@ const CartPage = () => {
               <p className="text-gray-600 text-lg mb-6">Your cart is empty.</p>
 
               <Link to="/gallery">
-                <Button className="bg-[#118C8C] hover:bg-[#0d7070] rounded-2xl">
+                <Button className="rounded-2xl bg-[#118C8C] text-white hover:bg-[#0d7070]">
                   Start Shopping
                 </Button>
               </Link>
@@ -183,7 +183,7 @@ const CartPage = () => {
                     <motion.div
                       layout
                       key={item.id}
-                      className="flex gap-4 bg-white/90 backdrop-blur-md p-4 rounded-3xl shadow-sm border border-white/30 items-start"
+                      className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-4 rounded-3xl border border-white/30 bg-white/90 p-4 shadow-sm backdrop-blur-md sm:flex"
                     >
                       <button onClick={() => toggleSelect(item.id)}>
                         {isSelected ? (
@@ -207,7 +207,7 @@ const CartPage = () => {
                         )}
                       </div>
 
-                      <div className="flex-grow flex flex-col justify-between">
+                      <div className="flex min-w-0 flex-1 flex-col justify-between">
                         <div className="flex justify-between items-start gap-3">
                           <h3 className="font-semibold text-gray-900">{item.name}</h3>
                           <button
@@ -268,7 +268,7 @@ const CartPage = () => {
 
                 <Button
                   onClick={handleProceedToCheckout}
-                  className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-3 h-auto rounded-2xl"
+                  className="h-14 w-full rounded-2xl bg-[#F2BB16] px-5 py-0 font-bold text-gray-900 hover:bg-[#d9a614]"
                   disabled={selectedIds.length === 0}
                 >
                   Proceed to Checkout

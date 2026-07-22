@@ -769,10 +769,10 @@ const PricelistsPage = () => {
                   for your custom order.
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div className="mx-auto grid w-full max-w-[520px] grid-cols-1 gap-4 sm:grid-cols-2">
                   <Button
                     onClick={() => navigate('/contact')}
-                    className="bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold px-8 py-6 rounded-2xl text-base shadow-lg"
+                    className="h-14 w-full rounded-2xl bg-[#F2BB16] px-6 py-0 text-base font-bold text-gray-900 shadow-lg hover:bg-[#d9a614]"
                   >
                     <MessageCircle className="mr-2" size={18} />
                     Contact Us
@@ -781,7 +781,7 @@ const PricelistsPage = () => {
                   <Button
                     variant="outline"
                     onClick={() => navigate('/gallery')}
-                    className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white px-8 py-6 rounded-2xl text-base"
+                    className="h-14 w-full rounded-2xl border-white/30 bg-white/10 px-6 py-0 text-base text-white hover:bg-white/20 hover:text-white"
                   >
                     Browse Gallery
                     <ArrowRight className="ml-2" size={18} />

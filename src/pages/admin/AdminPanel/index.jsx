@@ -836,8 +836,8 @@ const AdminPanel = () => {
       <Helmet><title>Admin Panel - D.A.B.S. Co.</title></Helmet>
 
       <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto px-4 max-w-7xl">
-          <motion.div className="bg-white p-8 rounded-2xl shadow-lg mb-8 border-l-4 border-[#118C8C] flex justify-between items-center">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <motion.div className="mb-8 flex flex-col gap-4 rounded-2xl border-l-4 border-[#118C8C] bg-white p-5 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-8">
             <div>
               <div className="flex items-center gap-2 text-[#118C8C] font-bold">
                 {isAdmin ? "ADMIN PANEL" : "SUB-ADMIN PANEL"}
@@ -862,14 +862,14 @@ const AdminPanel = () => {
                 setTab("orders");
                 setOrderStatusFilter("awaiting_review");
               }}
-              className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
+              className="h-12 w-full rounded-xl bg-[#118C8C] px-5 py-0 text-white hover:bg-[#0d7070] md:w-auto"
             >
               Review Orders
             </Button>
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsList className="mb-8 grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 sm:grid-cols-4">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>

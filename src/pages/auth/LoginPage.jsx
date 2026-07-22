@@ -167,13 +167,13 @@ const LoginPage = () => {
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-20 min-h-[80vh] flex items-center justify-center">
+        <div className="relative z-10 container mx-auto flex min-h-[80vh] items-center justify-center px-4 py-12 sm:px-6 sm:py-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-md bg-white/90 backdrop-blur-md rounded-3xl shadow-xl overflow-hidden border border-white/30"
           >
-            <div className="bg-[#118C8C]/95 p-8 text-center text-white relative overflow-hidden">
+            <div className="relative overflow-hidden bg-[#118C8C]/95 p-6 text-center text-white sm:p-8">
               <div className="absolute inset-0 opacity-10">
                 <div className="absolute -top-10 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
                 <div className="absolute -bottom-10 left-0 w-40 h-40 bg-[#F2BB16] rounded-full blur-3xl" />
@@ -190,7 +190,7 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <div className="p-8">
+            <div className="p-6 sm:p-8">
               {error && (
                 <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-600 text-sm text-center">
                   {error}
@@ -241,7 +241,7 @@ const LoginPage = () => {
 
                 <Button
                   type="submit"
-                  className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-6 rounded-2xl text-base"
+                  className="h-14 w-full rounded-2xl bg-[#F2BB16] px-5 py-0 text-base font-bold text-gray-900 hover:bg-[#d9a614]"
                   disabled={loading}
                 >
                   {loading ? 'Logging in...' : 'Log In'}

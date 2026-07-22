@@ -198,18 +198,18 @@ const RegisterPage = () => {
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-12 min-h-screen">
+        <div className="relative z-10 container mx-auto min-h-screen px-4 py-8 sm:px-6 sm:py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden"
           >
-            <div className="bg-[#118C8C] p-12 text-center">
-              <h1 className="text-5xl font-bold text-white mb-4">Join D.A.B.S. Co.</h1>
-              <p className="text-2xl text-[#bcecec]">Create your account and start shopping</p>
+            <div className="bg-[#118C8C] p-6 text-center sm:p-8 md:p-12">
+              <h1 className="mb-4 text-3xl font-bold text-white sm:text-4xl md:text-5xl">Join D.A.B.S. Co.</h1>
+              <p className="text-lg text-[#bcecec] sm:text-xl md:text-2xl">Create your account and start shopping</p>
             </div>
 
-            <div className="p-12">
+            <div className="p-6 sm:p-8 md:p-12">
               {error && (
                 <div className="mb-8 p-6 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center text-lg">
                   {error}
@@ -493,7 +493,7 @@ const RegisterPage = () => {
 
                 <Button
                   type="submit"
-                  className="w-full bg-[#F2BB16] hover:bg-[#d9a614] text-gray-900 font-bold py-5 text-2xl"
+                  className="h-14 w-full bg-[#F2BB16] px-5 py-0 text-lg font-bold text-gray-900 hover:bg-[#d9a614] sm:text-xl"
                   disabled={loading}
                 >
                   {loading ? 'Creating Account...' : 'Create Account'}

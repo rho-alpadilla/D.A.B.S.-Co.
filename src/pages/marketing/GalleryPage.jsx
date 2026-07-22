@@ -324,7 +324,7 @@ const GalleryPage = () => {
                                 state: { ids: getNavIdsForTab(cat.id), fromTab: cat.id },
                               })
                             }
-                            className="group cursor-pointer overflow-hidden rounded-3xl border border-white/30 bg-white/90 backdrop-blur-md shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                            className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-white/30 bg-white/90 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                           >
                             <div className="relative">
                               {showBadge && (
@@ -381,9 +381,9 @@ const GalleryPage = () => {
                               </div>
                             </div>
 
-                            <div className="p-5">
+                            <div className="flex flex-1 flex-col p-5">
                               <div className="flex items-start justify-between gap-3 mb-2">
-                                <h3 className="text-lg md:text-xl font-semibold text-gray-900 line-clamp-2 leading-snug">
+                                <h3 className="min-h-[3.5rem] text-lg font-semibold leading-snug text-gray-900 line-clamp-2 md:text-xl">
                                   {item.name}
                                 </h3>
 
@@ -392,11 +392,11 @@ const GalleryPage = () => {
                                 </span>
                               </div>
 
-                              <p className="text-sm text-gray-500 mb-3 line-clamp-1">
+                              <p className="mb-3 min-h-5 text-sm text-gray-500 line-clamp-1">
                                 {item.category || 'Handmade Product'}
                               </p>
 
-                              <div className="flex items-center justify-between gap-3 mb-3">
+                              <div className="mb-3 flex min-h-10 items-center justify-between gap-3">
                                 {item.reviewCount > 0 ? (
                                   <div className="flex items-center gap-2 min-w-0">
                                     {renderStars(item.averageRating)}
@@ -413,11 +413,11 @@ const GalleryPage = () => {
                                 </div>
                               </div>
 
-                              <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-4 min-h-[40px]">
+                              <p className="mb-4 min-h-12 text-sm leading-relaxed text-gray-600 line-clamp-2">
                                 {item.description || 'Beautifully made handcrafted item.'}
                               </p>
 
-                              <Button className="w-full h-11 rounded-2xl bg-[#118C8C] hover:bg-[#0d7070] text-white font-semibold shadow-sm">
+                              <Button className="mt-auto h-12 w-full rounded-2xl bg-[#118C8C] font-semibold text-white shadow-sm hover:bg-[#0d7070]">
                                 View Product
                               </Button>
                             </div>

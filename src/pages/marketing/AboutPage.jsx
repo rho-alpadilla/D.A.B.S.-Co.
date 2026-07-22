@@ -140,17 +140,17 @@ const AboutPage = () => {
               Ready to start your project?
             </h2>
 
-            <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-              <Link to="/contact">
-                <Button className="w-full sm:w-auto bg-[#118C8C] hover:bg-[#0d7070] text-white px-8 py-6 rounded-2xl text-md font-semibold transition-colors shadow-sm">
+            <div className="mx-auto mt-6 grid w-full max-w-[520px] grid-cols-1 gap-4 sm:grid-cols-2">
+              <Link to="/contact" className="w-full">
+                <Button className="h-14 w-full rounded-2xl bg-[#118C8C] px-6 py-0 text-md font-semibold text-white shadow-sm transition-colors hover:bg-[#0d7070]">
                   Contact Us
                 </Button>
               </Link>
 
-              <Link to="/gallery">
+              <Link to="/gallery" className="w-full">
                 <Button
                   variant="outline"
-                  className="w-full sm:w-auto border-2 border-[#118C8C] text-[#118C8C] hover:bg-[#e0f2f2] px-8 py-6 rounded-2xl text-md font-semibold transition-colors flex items-center gap-2 group"
+                  className="group h-14 w-full rounded-2xl border-2 border-[#118C8C] px-6 py-0 text-md font-semibold text-[#118C8C] transition-colors hover:bg-[#e0f2f2]"
                 >
                   View Gallery
                   <ArrowRight

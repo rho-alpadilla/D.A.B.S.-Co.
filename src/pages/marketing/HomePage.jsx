@@ -143,10 +143,10 @@ const HomePage = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-8">
-              <Link to="/gallery">
+              <Link to="/gallery" className="w-full max-w-[310px] self-center sm:w-[310px]">
                 <Button
                   size="lg"
-                  className="bg-[#0d7070] hover:bg-[#f2bb16] text-white font-semibold text-base px-9 py-6 rounded-2xl shadow-xl shadow-[#0d7070]/40 hover:shadow-[#f2bb16]/50 transition-all duration-300 hover:scale-[1.03]"
+                  className="h-14 w-full rounded-2xl bg-[#0d7070] px-6 py-0 text-base font-semibold text-white shadow-xl shadow-[#0d7070]/40 transition-all duration-300 hover:scale-[1.03] hover:bg-[#f2bb16] hover:shadow-[#f2bb16]/50"
                 >
                   <Palette className="mr-2" size={20} />
                   Explore Gallery
@@ -154,11 +154,11 @@ const HomePage = () => {
                 </Button>
               </Link>
 
-              <Link to="/pricelists">
+              <Link to="/pricelists" className="w-full max-w-[310px] self-center sm:w-[310px]">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-2 border-white/40 text-white bg-white/15 hover:bg-[#f2bb16] hover:border-[#f2bb16] hover:text-white font-semibold text-base px-9 py-6 rounded-2xl backdrop-blur-sm transition-all duration-300 hover:scale-[1.03]"
+                  className="h-14 w-full rounded-2xl border-2 border-white/40 bg-white/15 px-6 py-0 text-base font-semibold text-white backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] hover:border-[#f2bb16] hover:bg-[#f2bb16] hover:text-white"
                 >
                   <Brush className="mr-2" size={20} />
                   View Pricing

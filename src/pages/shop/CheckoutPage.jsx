@@ -500,7 +500,7 @@ const CheckoutPage = () => {
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-12 max-w-6xl">
+        <div className="relative z-10 container mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -718,7 +718,7 @@ const CheckoutPage = () => {
                 ) : (
                   <div className="space-y-6">
                     {cartItems.map((item) => (
-                      <div key={item.id} className="flex gap-4 border-b pb-4">
+                      <div key={item.id} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-4 border-b pb-4 sm:flex">
                         <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
                           {item.imageUrl ? (
                             <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
@@ -729,12 +729,12 @@ const CheckoutPage = () => {
                           )}
                         </div>
 
-                        <div className="flex-grow">
+                        <div className="min-w-0 flex-grow">
                           <h3 className="font-semibold">{item.name}</h3>
                           <p className="text-sm text-gray-600">Price: {formatPrice(item.price)}</p>
                         </div>
 
-                        <div className="flex items-center gap-4 flex-wrap justify-end">
+                        <div className="col-span-2 flex flex-wrap items-center justify-between gap-4 sm:col-auto sm:justify-end">
                           <div className="flex items-center border rounded-xl">
                             <button
                               onClick={() => updateQuantity(item.id, item.quantity - 1)}

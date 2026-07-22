@@ -85,8 +85,8 @@ const HighlightsPage = () => {
   );
 
   const ProductCard = ({ item, badge }) => (
-    <Link to={`/product/${item.id}`} className="group block">
-      <div className="bg-white backdrop-blur-md rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-white/20 hover:border-[#118C8C]/35 hover:-translate-y-2">
+    <Link to={`/product/${item.id}`} className="group block h-full">
+      <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/20 bg-white shadow-lg backdrop-blur-md transition-all duration-500 hover:-translate-y-2 hover:border-[#118C8C]/35 hover:shadow-2xl">
         <div className="aspect-square relative overflow-hidden bg-white/35">
           {item.imageUrl ? (
             <img
@@ -107,22 +107,24 @@ const HighlightsPage = () => {
           )}
         </div>
 
-        <div className="p-6">
+        <div className="flex flex-1 flex-col p-6">
           <h3
-            className="text-xl font-bold text-slate-900 mb-3 line-clamp-2 group-hover:text-[#0b5f5f] transition-colors"
+            className="mb-3 min-h-[3.5rem] text-xl font-bold text-slate-900 line-clamp-2 transition-colors group-hover:text-[#0b5f5f]"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             {item.name}
           </h3>
 
-          {item.averageRating > 0 && (
-            <div className="flex items-center gap-2 mb-4">
+          <div className="mb-4 flex min-h-5 items-center gap-2">
+            {item.averageRating > 0 && (
+              <>
               {renderStars(item.averageRating)}
               <span className="text-xs text-slate-700/80">({item.reviewCount || 0})</span>
-            </div>
-          )}
+              </>
+            )}
+          </div>
 
-          <div className="flex items-center justify-between">
+          <div className="mt-auto flex items-center justify-between">
             <span className="text-2xl font-bold text-[#0b5f5f]">{formatPrice(item.price)}</span>
             <div className="w-10 h-10 rounded-full bg-[#118C8C] flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
               <ArrowRight size={20} className="text-white" />
@@ -305,21 +307,21 @@ const HighlightsPage = () => {
                     Work directly with our artists for portraits, stitch-ready designs, and handmade custom pieces.
                   </p>
 
-                  <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-                    <Link to="/pricelists">
+                  <div className="mx-auto mt-8 grid w-full max-w-[520px] grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Link to="/pricelists" className="w-full">
                       <Button
                         size="lg"
-                        className="bg-[#F2BB16] hover:bg-[#e0ab13] text-white rounded-2xl px-8 py-6 font-semibold"
+                        className="h-14 w-full rounded-2xl bg-[#F2BB16] px-6 py-0 font-semibold text-white hover:bg-[#e0ab13]"
                       >
                         Start Commission
                       </Button>
                     </Link>
 
-                    <Link to="/gallery">
+                    <Link to="/gallery" className="w-full">
                       <Button
                         size="lg"
                         variant="outline"
-                        className="border-2 border-white/40 text-white bg-transparent hover:bg-white/10 rounded-2xl px-8 py-6 font-semibold"
+                        className="h-14 w-full rounded-2xl border-2 border-white/40 bg-transparent px-6 py-0 font-semibold text-white hover:bg-white/10"
                       >
                         View Gallery
                       </Button>

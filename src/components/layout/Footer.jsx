@@ -14,7 +14,7 @@ const Footer = () => {
   if (loading) {
     return (
       <footer className="bg-[#118C8C] text-white py-12 mt-auto">
-        <div className="container mx-auto px-4 text-center">
+        <div className="container mx-auto px-4 text-center sm:px-6 lg:px-8">
           <div className="h-6 bg-white/20 rounded w-48 mx-auto animate-pulse" />
         </div>
       </footer>
@@ -26,7 +26,7 @@ const Footer = () => {
   // so left/right edges now line up across header, content, and footer.
   return (
     <footer className="bg-[#118C8C] text-white py-12 mt-auto">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left min-w-0">
           {/* Brand */}
           <div className="min-w-[180px]">

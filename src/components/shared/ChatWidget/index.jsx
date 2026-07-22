@@ -1334,14 +1334,14 @@ const ChatWidget = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[390px]">
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, scale: 0.94, y: 14 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 14 }}
-            className="w-[390px] h-[580px] rounded-[28px] overflow-hidden shadow-2xl border border-gray-200 bg-white flex flex-col min-h-0"
+            className="flex h-[min(580px,calc(100dvh-7rem))] w-full max-w-[390px] min-h-0 flex-col overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-2xl"
           >
             <div className="bg-[#118C8C] px-4 py-3.5 flex items-center justify-between text-white shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -1448,7 +1448,8 @@ const ChatWidget = () => {
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-[#F2BB16] text-gray-900 p-5 rounded-full shadow-2xl hover:shadow-xl"
+        aria-label={isOpen ? 'Close chat' : 'Open chat'}
+        className="ml-auto flex min-h-12 min-w-12 items-center justify-center rounded-full bg-[#F2BB16] p-4 text-gray-900 shadow-2xl hover:shadow-xl sm:min-h-14 sm:min-w-14 sm:p-5"
       >
         {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
       </motion.button>
