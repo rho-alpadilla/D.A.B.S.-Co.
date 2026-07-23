@@ -1,6 +1,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  isAwaitingReview,
+  isDeclinedOrder,
+  isPostReviewWorkflow,
+} from './orderStatus';
+import {
   Package,
   ShoppingCart,
   TrendingUp,
@@ -108,6 +113,11 @@ const AdminOverviewTab = (props) => {
     userSearch,
     users,
   } = props;
+
+  const percentageOfOrders = (value) => {
+    const safeTotal = Math.max(Number(totalAllOrders) || 0, 1);
+    return Math.round(((Number(value) || 0) / safeTotal) * 100);
+  };
 
   return (
               <div className="space-y-6">
@@ -499,10 +509,10 @@ const AdminOverviewTab = (props) => {
                           <div key={row.label}>
                             <div className="flex justify-between mb-1">
                               <span className="text-gray-700">{row.label}</span>
-                              <span className="font-bold">{row.value} ({pct(row.value)}%)</span>
+                              <span className="font-bold">{row.value} ({percentageOfOrders(row.value)}%)</span>
                             </div>
                             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                              <div className={`h-full ${row.bar}`} style={{ width: `${pct(row.value)}%` }} />
+                              <div className={`h-full ${row.bar}`} style={{ width: `${percentageOfOrders(row.value)}%` }} />
                             </div>
                           </div>
                         ))}

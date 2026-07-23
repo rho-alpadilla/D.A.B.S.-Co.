@@ -229,12 +229,12 @@ const PricelistsPage = () => {
 
   const SectionHeader = ({ icon: Icon, title, subtitle }) => (
     <div className="flex items-start gap-4 mb-6">
-      <div className="w-12 h-12 rounded-2xl bg-[#118C8C]/10 text-[#118C8C] flex items-center justify-center shrink-0">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/12 text-artisan-primary-pale backdrop-blur-sm">
         <Icon size={22} />
       </div>
       <div>
-        <h2 className="text-3xl font-bold text-[#FAF8F1]">{title}</h2>
-        <p className="text-white/85 mt-1">{subtitle}</p>
+        <h2 className="font-artisan-display text-3xl font-bold text-white">{title}</h2>
+        <p className="mt-1 text-white/90">{subtitle}</p>
       </div>
     </div>
   );
@@ -258,12 +258,12 @@ const PricelistsPage = () => {
         <title>Pricelists - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee]">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -287,15 +287,15 @@ const PricelistsPage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
@@ -309,7 +309,7 @@ const PricelistsPage = () => {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#118C8C] via-[#0f7a7a] to-[#0b5f5f] text-white px-6 py-8 md:px-8 md:py-10 shadow-2xl mb-8"
+              className="relative mb-8 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#2D0E5A] via-[#5C2D91] to-[#7B3FA0] px-6 py-9 text-white shadow-2xl shadow-[#2D0E5A]/35 md:px-10 md:py-12"
             >
               <div className="absolute inset-0 opacity-15">
                 <div className="absolute -top-10 right-0 w-48 h-48 bg-white rounded-full blur-3xl" />
@@ -321,7 +321,7 @@ const PricelistsPage = () => {
                   <Sparkles size={16} />
                   Handmade Pricing Guide
                 </div>
-                <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-3">Our Pricelists</h1>
+                <h1 className="mb-3 font-artisan-display text-4xl font-bold leading-tight md:text-6xl">Our Pricelists</h1>
                 <p className="text-sm md:text-base text-white/90 max-w-2xl leading-relaxed">
                   Explore current pricing for custom needlepoint, crochet, portraiture, and canvas
                   work.
@@ -337,7 +337,7 @@ const PricelistsPage = () => {
                 transition={{ duration: 0.25 }}
                 className="mx-auto max-w-5xl"
               >
-                <div className="bg-white/90 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl px-3 py-2">
+                <div className="rounded-2xl border border-white/45 bg-white/95 px-3 py-2 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md">
                   <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar justify-start md:justify-center">
                     {quickNavItems.map((item) => {
                       const isActive = activeSection === item.id;
@@ -350,8 +350,8 @@ const PricelistsPage = () => {
                           onClick={() => scrollToSection(item.id)}
                           className={`shrink-0 px-4 py-2 rounded-full transition text-sm font-medium ${
                             isActive
-                              ? 'bg-[#118C8C] text-white shadow'
-                              : 'bg-white/85 text-gray-700 hover:bg-[#118C8C]/10 hover:text-[#118C8C]'
+                              ? 'bg-[#5C2D91] text-white shadow'
+                              : 'bg-white/85 text-[#3B2947] hover:bg-[#F0E6F7] hover:text-[#5C2D91]'
                           }`}
                         >
                           {item.label}
@@ -367,31 +367,31 @@ const PricelistsPage = () => {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="mb-12 rounded-3xl border border-white/30 bg-white/90 backdrop-blur-md shadow-lg p-6 md:p-8"
+              className="mb-12 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#118C8C]/10 text-[#118C8C] flex items-center justify-center shrink-0">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F0E6F7] text-[#5C2D91]">
                   <Info size={22} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">How pricing works</h2>
-                  <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600">
-                    <div className="rounded-2xl bg-gray-50 p-4">
-                      <p className="font-semibold text-gray-800 mb-1">Starting estimates</p>
+                  <h2 className="mb-2 font-artisan-display text-3xl font-bold text-[#2A1739]">How pricing works</h2>
+                  <div className="grid gap-4 text-sm text-[#5B4C66] md:grid-cols-3">
+                    <div className="rounded-2xl bg-[#FAF6FC] p-4">
+                      <p className="mb-1 font-semibold text-[#342342]">Starting estimates</p>
                       <p>
                         Prices listed here are starting points for standard requests and common
                         sizes.
                       </p>
                     </div>
-                    <div className="rounded-2xl bg-gray-50 p-4">
-                      <p className="font-semibold text-gray-800 mb-1">Custom adjustments</p>
+                    <div className="rounded-2xl bg-[#FAF6FC] p-4">
+                      <p className="mb-1 font-semibold text-[#342342]">Custom adjustments</p>
                       <p>
                         Final cost may change depending on detail level, materials, framing, and
                         requested revisions.
                       </p>
                     </div>
-                    <div className="rounded-2xl bg-gray-50 p-4">
-                      <p className="font-semibold text-gray-800 mb-1">Need something unique?</p>
+                    <div className="rounded-2xl bg-[#FAF6FC] p-4">
+                      <p className="mb-1 font-semibold text-[#342342]">Need something unique?</p>
                       <p>
                         Use the Contact page for a personalized quote and tell us exactly what you
                         have in mind.
@@ -406,7 +406,7 @@ const PricelistsPage = () => {
               <div className="text-center mb-12">
                 <Button
                   onClick={savePricing}
-                  className="bg-green-600 hover:bg-green-700 text-white text-lg px-8 py-4 rounded-2xl"
+                  className="rounded-2xl bg-[#5C2D91] px-8 py-4 text-lg text-white hover:bg-[#4A2578]"
                 >
                   <Save className="mr-2" /> Save All Price Changes
                 </Button>
@@ -428,10 +428,10 @@ const PricelistsPage = () => {
                 subtitle="Choose by size, mesh count, and design detail."
               />
 
-              <div className="hidden md:block bg-white/90 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden border border-white/30">
+              <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-[#118C8C] text-white">
+                    <thead className="bg-[#5C2D91] text-white">
                       <tr>
                         <th className="px-6 py-4 text-left">Canvas Size</th>
                         <th className="px-6 py-4 text-left">13-Mesh</th>
@@ -471,9 +471,9 @@ const PricelistsPage = () => {
                 {pricing.needlepoint.map((item, i) => (
                   <div
                     key={i}
-                    className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-5"
+                  className="rounded-2xl border border-white/45 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
-                    <h3 className="text-lg font-semibold text-[#118C8C] mb-3">{item.size}</h3>
+                    <h3 className="mb-3 text-lg font-semibold text-[#5C2D91]">{item.size}</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">13-Mesh</span>
@@ -523,10 +523,10 @@ const PricelistsPage = () => {
                   <motion.div
                     key={i}
                     whileHover={{ y: -5, scale: 1.01 }}
-                    className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-6"
+                    className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <h3 className="text-xl font-semibold text-[#118C8C]">{item.item}</h3>
+                      <h3 className="text-xl font-semibold text-[#5C2D91]">{item.item}</h3>
                       <div className="text-[#F2BB16] shrink-0">
                         <Sparkles size={18} />
                       </div>
@@ -555,10 +555,10 @@ const PricelistsPage = () => {
                 subtitle="Portrait options for paper, canvas, and framed commissions."
               />
 
-              <div className="hidden md:block bg-white/90 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden border border-white/30">
+              <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-[#118C8C] text-white">
+                    <thead className="bg-[#5C2D91] text-white">
                       <tr>
                         <th className="px-6 py-4 text-left">Number of Subjects</th>
                         <th className="px-6 py-4 text-left">Paper</th>
@@ -606,9 +606,9 @@ const PricelistsPage = () => {
                 {pricing.portraiture.map((item, i) => (
                   <div
                     key={i}
-                    className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-5"
+                  className="rounded-2xl border border-white/45 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
-                    <h3 className="text-lg font-semibold text-[#118C8C] mb-3">{item.subjects}</h3>
+                    <h3 className="mb-3 text-lg font-semibold text-[#5C2D91]">{item.subjects}</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">Paper</span>
@@ -664,9 +664,9 @@ const PricelistsPage = () => {
                   <motion.div
                     key={i}
                     whileHover={{ y: -5, scale: 1.01 }}
-                    className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-6"
+                    className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
-                    <h3 className="text-xl font-semibold text-[#118C8C] mb-2">{item.size}</h3>
+                    <h3 className="mb-2 text-xl font-semibold text-[#5C2D91]">{item.size}</h3>
                     <div className="text-2xl font-bold text-[#F2BB16] mb-3">
                       <EditablePrice
                         section="canvas"
@@ -687,18 +687,18 @@ const PricelistsPage = () => {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-80px' }}
-              className="mb-16 rounded-3xl border border-white/30 bg-white/90 backdrop-blur-md shadow-xl p-6 md:p-8"
+              className="mb-16 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
             >
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div className="max-w-2xl">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-[#118C8C]/10 text-[#118C8C] px-4 py-2 text-sm font-semibold mb-4">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#F0E6F7] px-4 py-2 text-sm font-semibold text-[#5C2D91]">
                     <Sparkles size={16} />
                     Need inspiration first?
                   </div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+                  <h2 className="mb-3 font-artisan-display text-3xl font-bold text-[#2A1739] md:text-4xl">
                     See finished works before you request a quote
                   </h2>
-                  <p className="text-gray-600 leading-relaxed">
+                  <p className="leading-relaxed text-[#5B4C66]">
                     Browse our gallery to get a better feel for styles, detail levels, and the kind
                     of handmade work we create. It's the best place to explore ideas before
                     ordering.
@@ -718,7 +718,7 @@ const PricelistsPage = () => {
               <div className="mt-6">
                 <Button
                   onClick={() => navigate('/gallery')}
-                  className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-2xl px-8 py-6"
+                  className="rounded-2xl bg-[#5C2D91] px-8 py-6 text-white hover:bg-[#4A2578]"
                 >
                   Browse Gallery
                   <ChevronRight className="ml-2" size={18} />
@@ -731,7 +731,7 @@ const PricelistsPage = () => {
                 <Button
                   size="lg"
                   onClick={() => navigate('/add-product')}
-                  className="bg-[#118C8C] hover:bg-[#0d7070] text-white font-bold text-xl px-12 py-6 rounded-2xl"
+                  className="rounded-2xl bg-[#5C2D91] px-12 py-6 text-xl font-bold text-white hover:bg-[#4A2578]"
                 >
                   <Plus className="mr-3" size={28} />
                   Add New Product
@@ -746,7 +746,7 @@ const PricelistsPage = () => {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-80px' }}
-              className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#118C8C] via-[#0f7a7a] to-[#0b5f5f] text-white p-8 md:p-12 shadow-2xl scroll-mt-40"
+              className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#2D0E5A] via-[#5C2D91] to-[#7B3FA0] p-8 text-white shadow-2xl shadow-[#2D0E5A]/35 scroll-mt-40 md:p-12"
             >
               <div className="absolute inset-0 opacity-10">
                 <div className="absolute -top-10 -right-10 w-44 h-44 bg-white rounded-full blur-3xl" />

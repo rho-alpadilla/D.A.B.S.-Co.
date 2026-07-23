@@ -154,12 +154,12 @@ const RegisterPage = () => {
     <>
       <Helmet><title>Register - D.A.B.S. Co.</title></Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -183,15 +183,15 @@ const RegisterPage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
@@ -202,11 +202,12 @@ const RegisterPage = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden"
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            className="mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 shadow-2xl shadow-[#2D0E5A]/30 backdrop-blur-md"
           >
-            <div className="bg-[#118C8C] p-6 text-center sm:p-8 md:p-12">
-              <h1 className="mb-4 text-3xl font-bold text-white sm:text-4xl md:text-5xl">Join D.A.B.S. Co.</h1>
-              <p className="text-lg text-[#bcecec] sm:text-xl md:text-2xl">Create your account and start shopping</p>
+            <div className="relative p-7 text-center text-white sm:p-10 md:p-12 md:text-left" style={{ background: 'linear-gradient(135deg, #2D0E5A, #5C2D91)' }}>
+              <h1 className="mb-4 font-artisan-display text-4xl font-bold text-white sm:text-5xl md:text-6xl">Join D.A.B.S. Co.</h1>
+              <p className="max-w-2xl text-lg leading-8 text-white/85 sm:text-xl">Create your account and start shopping.</p>
             </div>
 
             <div className="p-6 sm:p-8 md:p-12">
@@ -220,14 +221,14 @@ const RegisterPage = () => {
                 {/* Personal Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-2">
-                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                    <label className="flex items-center gap-3 text-lg font-semibold text-[#342342]">
                       <User size={20} /> Full Name
                     </label>
                     <input
                       name="fullName"
                       type="text"
                       required
-                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                       placeholder="Juan Dela Cruz"
                       value={formData.fullName}
                       onChange={handleChange}
@@ -235,14 +236,14 @@ const RegisterPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                    <label className="flex items-center gap-3 text-lg font-semibold text-[#342342]">
                       <AtSign size={20} /> Username
                     </label>
                     <input
                       name="username"
                       type="text"
                       required
-                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                       placeholder="JuanDelaCruz_123 (anything is allowed)"
                       value={formData.username}
                       onChange={handleChange}
@@ -253,14 +254,14 @@ const RegisterPage = () => {
 
                 {/* Email */}
                 <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                  <label className="flex items-center gap-3 text-lg font-semibold text-[#342342]">
                     <Mail size={20} /> Email Address
                   </label>
                   <input
                     name="email"
                     type="email"
                     required
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                    className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                     placeholder="juan@example.com"
                     value={formData.email}
                     onChange={handleChange}
@@ -269,13 +270,13 @@ const RegisterPage = () => {
 
                 {/* Phone + Country */}
                 <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700">Phone Number</label>
+                  <label className="text-lg font-semibold text-[#342342]">Phone Number</label>
                   <div className="flex gap-4">
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setIsPhoneCountryOpen(!isPhoneCountryOpen)}
-                        className="flex items-center gap-3 px-5 py-4 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition"
+                        className="flex items-center gap-3 rounded-xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-5 py-4 text-[#2A1739] transition hover:bg-[#F0E6F7]"
                       >
                         <img src={selectedPhoneCountry.flag} alt="" className="w-8 h-6 rounded" />
                         <span className="font-medium">{selectedPhoneCountry.callingCode}</span>
@@ -318,7 +319,7 @@ const RegisterPage = () => {
                       name="phone"
                       type="tel"
                       required
-                      className="flex-1 px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      className="flex-1 rounded-xl border-2 border-[#DCCBE7] bg-[#FFFCFA] px-5 py-4 text-[#2A1739] transition focus:border-[#5C2D91] focus:outline-none"
                       placeholder="912 345 6789"
                       value={formData.phone}
                       onChange={handleChange}
@@ -327,8 +328,8 @@ const RegisterPage = () => {
                 </div>
 
                 {/* Shipping Address */}
-                <div className="space-y-6 pt-8 border-t-2 border-gray-200">
-                  <h3 className="text-2xl font-bold text-[#118C8C] flex items-center gap-3">
+                <div className="space-y-6 border-t-2 border-[#E6DDEB] pt-8">
+                  <h3 className="flex items-center gap-3 font-artisan-display text-3xl font-bold text-[#5C2D91]">
                     <Home size={28} /> Shipping Address
                   </h3>
 
@@ -338,7 +339,7 @@ const RegisterPage = () => {
                       type="text"
                       required
                       placeholder="Street Address"
-                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                       value={formData.streetAddress}
                       onChange={handleChange}
                     />
@@ -347,7 +348,7 @@ const RegisterPage = () => {
                       type="text"
                       required
                       placeholder="City"
-                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                       value={formData.city}
                       onChange={handleChange}
                     />
@@ -356,7 +357,7 @@ const RegisterPage = () => {
                       type="text"
                       required
                       placeholder="State / Province"
-                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                       value={formData.stateProvince}
                       onChange={handleChange}
                     />
@@ -365,7 +366,7 @@ const RegisterPage = () => {
                       type="text"
                       required
                       placeholder="Postal / ZIP Code"
-                      className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                      className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                       value={formData.postalCode}
                       onChange={handleChange}
                     />
@@ -373,12 +374,12 @@ const RegisterPage = () => {
 
                   {/* COUNTRY SELECTOR FOR ADDRESS */}
                   <div className="space-y-2">
-                    <label className="text-lg font-medium text-gray-700">Country</label>
+                    <label className="text-lg font-semibold text-[#342342]">Country</label>
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
-                        className="w-full flex items-center justify-between px-6 py-5 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition text-left"
+                        className="flex w-full items-center justify-between rounded-xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-6 py-5 text-left text-[#2A1739] transition hover:bg-[#F0E6F7]"
                       >
                         <div className="flex items-center gap-4">
                           <img src={selectedAddressCountry.flag} alt="" className="w-10 h-7 rounded" />
@@ -422,14 +423,14 @@ const RegisterPage = () => {
 
                 {/* Birthdate */}
                 <div className="space-y-2">
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                  <label className="flex items-center gap-3 text-lg font-semibold text-[#342342]">
                     <Calendar size={20} /> Birthdate
                   </label>
                   <input
                     name="birthdate"
                     type="date"
                     required
-                    className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                    className="w-full px-5 py-4 border-2 border-artisan-primary-wash rounded-xl focus:border-artisan-primary-light transition focus:outline-none focus:ring-2 focus:ring-artisan-primary/20"
                     value={formData.birthdate}
                     onChange={handleChange}
                   />
@@ -438,7 +439,7 @@ const RegisterPage = () => {
                 {/* Password */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-2">
-                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                    <label className="flex items-center gap-3 text-lg font-semibold text-[#342342]">
                       <Lock size={20} /> Password
                     </label>
 
@@ -465,7 +466,7 @@ const RegisterPage = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-lg font-medium text-gray-700 flex items-center gap-3">
+                    <label className="flex items-center gap-3 text-lg font-semibold text-[#342342]">
                       <Lock size={20} /> Confirm Password
                     </label>
 
@@ -493,7 +494,7 @@ const RegisterPage = () => {
 
                 <Button
                   type="submit"
-                  className="h-14 w-full bg-[#F2BB16] px-5 py-0 text-lg font-bold text-gray-900 hover:bg-[#d9a614] sm:text-xl"
+                  className="h-14 w-full rounded-2xl bg-[#5C2D91] px-5 py-0 text-lg font-bold text-white hover:bg-[#4A2578] sm:text-xl"
                   disabled={loading}
                 >
                   {loading ? 'Creating Account...' : 'Create Account'}
@@ -503,7 +504,7 @@ const RegisterPage = () => {
               <div className="mt-10 text-center">
                 <p className="text-gray-600 text-lg">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-[#118C8C] font-bold hover:underline text-xl">
+                  <Link to="/login" className="text-xl font-bold text-[#5C2D91] hover:underline">
                     Log In
                   </Link>
                 </p>

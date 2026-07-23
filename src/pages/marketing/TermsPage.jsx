@@ -1,10 +1,15 @@
+// src/pages/marketing/TermsPage.jsx
+// Design A — Artisan Canvas reskin. All legal content unchanged.
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
+import { FileText } from 'lucide-react';
 import Grainient from '@/components/effects/Grainient';
 import Particles from '@/components/effects/Particles';
 
 const TermsPage = () => {
+  const sectionHeadingCls = 'mb-3 font-artisan-display text-2xl font-bold text-[#2A1739]';
+
   return (
     <>
       <Helmet>
@@ -15,79 +20,76 @@ const TermsPage = () => {
         />
       </Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
+        {/* Background */}
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
-            timeSpeed={0.25}
-            colorBalance={-0.06}
-            warpStrength={1.5}
-            warpFrequency={3.8}
-            warpSpeed={2}
-            warpAmplitude={50}
-            blendAngle={0}
-            blendSoftness={1}
-            rotationAmount={500}
-            noiseScale={2}
-            grainAmount={0.1}
-            grainScale={2}
-            grainAnimated={false}
-            contrast={1.5}
-            gamma={1}
-            saturation={1}
-            centerX={0}
-            centerY={0}
-            zoom={0.9}
+            color1="#5C2D91" color2="#7B3FA0" color3="#C9A0DC"
+            timeSpeed={0.25} colorBalance={-0.06} warpStrength={1.5}
+            warpFrequency={3.8} warpSpeed={2} warpAmplitude={50}
+            blendAngle={0} blendSoftness={1} rotationAmount={500}
+            noiseScale={2} grainAmount={0.1} grainScale={2}
+            grainAnimated={false} contrast={1.5} gamma={1}
+            saturation={1} centerX={0} centerY={0} zoom={0.9}
           />
-
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
-              particleSpread={10}
-              speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
-              moveParticlesOnHover
-              particleHoverFactor={1}
-              alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
-              cameraDistance={53}
-              disableRotation={false}
+              particleCount={400} particleSpread={10} speed={0.1}
+              particleColors={['#FAF8FF', '#A87DC8', '#C9A0DC']}
+              moveParticlesOnHover particleHoverFactor={1}
+              alphaParticles={false} particleBaseSize={150}
+              sizeRandomness={1.7} cameraDistance={53} disableRotation={false}
             />
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-12">
+        <div className="relative z-10 container mx-auto px-5 py-14 md:px-8 md:py-20">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-4xl mx-auto"
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-start lg:gap-16"
           >
-            <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-8">Terms of Service</h1>
+            <aside className="h-fit text-white lg:sticky lg:top-24">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-sm">
+                <FileText className="text-artisan-primary-pale" size={14} />
+                Legal Information
+              </div>
+              <div className="mt-6 flex items-center gap-3">
+                <FileText className="text-artisan-primary-pale" size={34} />
+                <h1
+                  className="font-artisan-display text-5xl font-bold leading-[0.95] text-white md:text-6xl"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Terms of Service
+                </h1>
+              </div>
+              <p className="mt-6 border-y border-white/25 py-5 text-sm text-white/85">
+                Last Updated: {new Date().toLocaleDateString()}
+              </p>
+            </aside>
 
-            <div className="bg-white rounded-lg shadow-lg p-8 space-y-6">
-              <p className="text-gray-600 text-sm">Last Updated: {new Date().toLocaleDateString()}</p>
+            <article className="space-y-8 rounded-[2rem] border border-white/45 bg-[#FFFCFA]/95 p-6 shadow-2xl shadow-[#2D0E5A]/25 backdrop-blur-md sm:p-10">
 
               <section>
-                <h2 className="text-2xl font-semibold text-[#118C8C] mb-3">Acceptance of Terms</h2>
-                <p className="text-gray-700 leading-relaxed">
-                  By accessing and using D.A.B.S. Co.'s website and services, you accept and agree to be bound by the terms and provisions of this agreement.
+                <h2 className={sectionHeadingCls}>Acceptance of Terms</h2>
+                <p className="leading-relaxed text-[#5B4C66]">
+                  By accessing and using D.A.B.S. Co.'s website and services, you accept and agree
+                  to be bound by the terms and provisions of this agreement.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-[#118C8C] mb-3">Services</h2>
-                <p className="text-gray-700 leading-relaxed">
-                  D.A.B.S. Co. provides handcrafted artisan products and custom commission services including needlepoint canvases, crochet items, portraiture, and canvas paintings.
+                <h2 className={sectionHeadingCls}>Services</h2>
+                <p className="leading-relaxed text-[#5B4C66]">
+                  D.A.B.S. Co. provides handcrafted artisan products and custom commission services
+                  including needlepoint canvases, crochet items, portraiture, and canvas paintings.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-[#118C8C] mb-3">Orders and Commissions</h2>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <h2 className={sectionHeadingCls}>Orders and Commissions</h2>
+                <ul className="ml-4 list-inside list-disc space-y-2 text-[#5B4C66]">
                   <li>All custom orders require a 50% deposit before work begins</li>
                   <li>Completion times vary based on project complexity and current workload</li>
                   <li>Final prices may vary from estimates based on actual complexity and materials used</li>
@@ -96,11 +98,9 @@ const TermsPage = () => {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-[#118C8C] mb-3">Payment Terms</h2>
-                <p className="text-gray-700 leading-relaxed mb-3">
-                  Payment terms are as follows:
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <h2 className={sectionHeadingCls}>Payment Terms</h2>
+                <p className="mb-3 leading-relaxed text-[#5B4C66]">Payment terms are as follows:</p>
+                <ul className="ml-4 list-inside list-disc space-y-2 text-[#5B4C66]">
                   <li>50% deposit required for custom commissions</li>
                   <li>Final payment due before shipping or pickup</li>
                   <li>We accept major credit cards and secure online payment methods</li>
@@ -108,26 +108,33 @@ const TermsPage = () => {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-[#118C8C] mb-3">Returns and Refunds</h2>
-                <p className="text-gray-700 leading-relaxed">
-                  Due to the custom nature of our products, all sales are final. However, if there is a defect in materials or workmanship, please contact us within 7 days of receipt for resolution.
+                <h2 className={sectionHeadingCls}>Returns and Refunds</h2>
+                <p className="leading-relaxed text-[#5B4C66]">
+                  Due to the custom nature of our products, all sales are final. However, if there
+                  is a defect in materials or workmanship, please contact us within 7 days of
+                  receipt for resolution.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-[#118C8C] mb-3">Intellectual Property</h2>
-                <p className="text-gray-700 leading-relaxed">
-                  All original designs, patterns, and artwork created by D.A.B.S. Co. remain our intellectual property. Customers receive rights to the physical product only, not reproduction rights.
+                <h2 className={sectionHeadingCls}>Intellectual Property</h2>
+                <p className="leading-relaxed text-[#5B4C66]">
+                  All original designs, patterns, and artwork created by D.A.B.S. Co. remain our
+                  intellectual property. Customers receive rights to the physical product only, not
+                  reproduction rights.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-[#118C8C] mb-3">Contact Information</h2>
-                <p className="text-gray-700 leading-relaxed">
-                  For questions about these Terms of Service, please contact us at contact@dabsco.com.
+                <h2 className={sectionHeadingCls}>Contact Information</h2>
+                <p className="leading-relaxed text-[#5B4C66]">
+                  For questions about these Terms of Service, please contact us at{' '}
+                  <a href="mailto:contact@dabsco.com" className="text-artisan-primary font-semibold hover:underline">
+                    contact@dabsco.com
+                  </a>.
                 </p>
               </section>
-            </div>
+            </article>
           </motion.div>
         </div>
       </div>

@@ -123,12 +123,12 @@ const LoginPage = () => {
         <title>Login - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -152,45 +152,46 @@ const LoginPage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto flex min-h-[80vh] items-center justify-center px-4 py-12 sm:px-6 sm:py-20">
+        <div className="relative z-10 container mx-auto flex min-h-[80vh] items-center justify-center px-5 py-12 sm:px-6 sm:py-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-md bg-white/90 backdrop-blur-md rounded-3xl shadow-xl overflow-hidden border border-white/30"
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            className="grid w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 shadow-2xl shadow-[#2D0E5A]/30 backdrop-blur-md md:grid-cols-[0.82fr_1.18fr]"
           >
-            <div className="relative overflow-hidden bg-[#118C8C]/95 p-6 text-center text-white sm:p-8">
-              <div className="absolute inset-0 opacity-10">
+            <div className="relative flex overflow-hidden p-7 text-center text-white sm:p-10 md:text-left" style={{ background: 'linear-gradient(135deg, #2D0E5A, #5C2D91)' }}>
+              <div className="absolute inset-0 pointer-events-none opacity-15">
                 <div className="absolute -top-10 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
-                <div className="absolute -bottom-10 left-0 w-40 h-40 bg-[#F2BB16] rounded-full blur-3xl" />
+                <div className="absolute -bottom-10 left-0 w-40 h-40 bg-artisan-primary-pale rounded-full blur-3xl" />
               </div>
 
-              <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wider mb-4">
+              <div className="relative z-10 my-auto">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-xs font-semibold uppercase tracking-wider mb-4">
                   <Sparkles size={14} />
                   Welcome Back
                 </div>
 
-                <h1 className="text-3xl font-bold text-white">Log In</h1>
-                <p className="text-[#bcecec] mt-2">Sign in to continue your D.A.B.S. experience</p>
+                <h1 className="font-artisan-display text-4xl font-bold text-white md:text-5xl">Log In</h1>
+                <p className="mt-3 leading-7 text-white/85">Sign in to continue your D.A.B.S. experience.</p>
               </div>
             </div>
 
-            <div className="p-6 sm:p-8">
+            <div className="p-6 sm:p-8 md:p-10">
               {error && (
                 <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-600 text-sm text-center">
                   {error}
@@ -199,17 +200,17 @@ const LoginPage = () => {
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="email">
+                  <label className="text-sm font-semibold text-[#342342]" htmlFor="email">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7B3FA0]" size={18} />
                     <input
                       id="email"
                       name="email"
                       type="email"
                       required
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#118C8C] bg-white"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFCFA] py-3 pl-11 pr-4 text-[#2A1739] transition focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                       placeholder="admin@dabs.co"
                       value={formData.email}
                       onChange={handleChange}
@@ -221,17 +222,17 @@ const LoginPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="password">
+                  <label className="text-sm font-semibold text-[#342342]" htmlFor="password">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7B3FA0]" size={18} />
                     <input
                       id="password"
                       name="password"
                       type="password"
                       required
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#118C8C] bg-white"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFCFA] py-3 pl-11 pr-4 text-[#2A1739] transition focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                       placeholder="••••••••"
                       value={formData.password}
                       onChange={handleChange}
@@ -241,16 +242,17 @@ const LoginPage = () => {
 
                 <Button
                   type="submit"
-                  className="h-14 w-full rounded-2xl bg-[#F2BB16] px-5 py-0 text-base font-bold text-gray-900 hover:bg-[#d9a614]"
+                  className="h-14 w-full rounded-2xl text-base font-bold text-white transition-all hover:brightness-110"
+                  style={{ background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)', boxShadow: '0 8px 24px rgba(92,45,145,0.28)' }}
                   disabled={loading}
                 >
                   {loading ? 'Logging in...' : 'Log In'}
                 </Button>
               </form>
 
-              <div className="mt-6 text-center text-sm text-gray-600">
+              <div className="mt-6 text-center text-sm text-artisan-text-muted">
                 Don&apos;t have an account?{' '}
-                <Link to="/register" className="text-[#118C8C] font-semibold hover:underline">
+                <Link to="/register" className="text-artisan-primary font-semibold hover:underline">
                   Register
                 </Link>
               </div>

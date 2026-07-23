@@ -61,12 +61,12 @@ const CartPage = () => {
         <title>Shopping Cart - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -90,36 +90,36 @@ const CartPage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto min-h-[60vh] px-4 py-12 sm:px-6 lg:px-8">
+        <div className="relative z-10 container mx-auto min-h-[60vh] max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mb-8 rounded-3xl bg-white/90 backdrop-blur-md border border-white/30 shadow-lg p-6 md:p-8"
+            className="mb-8 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#118C8C] mb-3">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#F0E6F7] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#5C2D91]">
                   <Sparkles size={14} />
                   Your Cart
                 </div>
 
-                <h1 className="text-3xl md:text-4xl font-bold text-[#118C8C]">
+                <h1 className="font-artisan-display text-4xl font-bold text-[#2A1739] md:text-5xl">
                   Your Shopping Cart
                 </h1>
 
@@ -129,7 +129,7 @@ const CartPage = () => {
               </div>
 
               <Link to="/pending-orders" className="w-full sm:w-auto">
-                <Button className="h-12 w-full rounded-2xl bg-[#118C8C] px-5 py-0 text-white hover:bg-[#0d7070]">
+                <Button className="h-12 w-full rounded-2xl bg-[#5C2D91] px-5 py-0 text-white hover:bg-[#4A2578]">
                   View My Orders
                 </Button>
               </Link>
@@ -140,28 +140,28 @@ const CartPage = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-center py-14 bg-white/90 backdrop-blur-md rounded-3xl border border-white/30 shadow-lg"
+              className="rounded-[2rem] border border-white/45 bg-white/95 py-14 text-center shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
             >
-              <div className="w-20 h-20 rounded-full bg-[#118C8C]/10 flex items-center justify-center mx-auto mb-4">
-                <ShoppingBag size={42} className="text-[#118C8C]" />
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#F0E6F7]">
+                <ShoppingBag size={42} className="text-[#5C2D91]" />
               </div>
 
               <p className="text-gray-600 text-lg mb-6">Your cart is empty.</p>
 
               <Link to="/gallery">
-                <Button className="rounded-2xl bg-[#118C8C] text-white hover:bg-[#0d7070]">
+                <Button className="rounded-2xl bg-[#5C2D91] text-white hover:bg-[#4A2578]">
                   Start Shopping
                 </Button>
               </Link>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-4">
-                <div className="flex items-center justify-between mb-4 bg-white/85 backdrop-blur-md border border-white/30 rounded-2xl px-4 py-3 shadow-sm">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.55fr)]">
+              <div className="space-y-4">
+                <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/45 bg-white/95 px-4 py-3 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md">
                   <div className="flex items-center gap-2">
                     <button onClick={toggleSelectAll}>
                       {allSelected ? (
-                        <CheckSquare size={20} className="text-[#118C8C]" />
+                        <CheckSquare size={20} className="text-[#5C2D91]" />
                       ) : (
                         <Square size={20} className="text-gray-400" />
                       )}
@@ -183,17 +183,17 @@ const CartPage = () => {
                     <motion.div
                       layout
                       key={item.id}
-                      className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-4 rounded-3xl border border-white/30 bg-white/90 p-4 shadow-sm backdrop-blur-md sm:flex"
+                      className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-4 rounded-3xl border border-white/45 bg-white/95 p-4 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md sm:flex sm:p-5"
                     >
                       <button onClick={() => toggleSelect(item.id)}>
                         {isSelected ? (
-                          <CheckSquare size={20} className="text-[#118C8C] mt-1" />
+                          <CheckSquare size={20} className="mt-1 text-[#5C2D91]" />
                         ) : (
                           <Square size={20} className="text-gray-400 mt-1" />
                         )}
                       </button>
 
-                      <div className="w-24 h-24 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0">
+                      <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-[#F5EFF8]">
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
@@ -209,7 +209,7 @@ const CartPage = () => {
 
                       <div className="flex min-w-0 flex-1 flex-col justify-between">
                         <div className="flex justify-between items-start gap-3">
-                          <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                          <h3 className="font-artisan-display text-xl font-bold text-[#2A1739]">{item.name}</h3>
                           <button
                             onClick={() => removeFromCart(item.id)}
                             className="text-red-400 hover:text-red-600"
@@ -233,11 +233,11 @@ const CartPage = () => {
                               onChange={(e) =>
                                 updateQuantity(item.id, parseInt(e.target.value) || 1)
                               }
-                              className="w-16 border border-gray-300 rounded-xl px-2 py-1 text-sm bg-white"
+                              className="w-16 rounded-xl border border-[#DCCBE7] bg-white px-2 py-1 text-sm text-[#2A1739] focus:border-[#5C2D91] focus:outline-none"
                             />
                           </div>
 
-                          <p className="font-bold text-[#118C8C]">
+                          <p className="font-bold text-[#5C2D91]">
                             {formatPrice(item.price * item.quantity)}
                           </p>
                         </div>
@@ -247,28 +247,28 @@ const CartPage = () => {
                 })}
               </div>
 
-              <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-md h-fit border border-white/30">
-                <h2 className="text-xl font-bold mb-4 text-gray-900">Selected Summary</h2>
+              <aside className="h-fit rounded-[2rem] border border-white/25 bg-[#2D0E5A]/95 p-6 text-white shadow-2xl shadow-[#2D0E5A]/35 backdrop-blur-md lg:sticky lg:top-24">
+                <h2 className="mb-4 font-artisan-display text-3xl font-bold text-white">Selected Summary</h2>
 
-                <div className="space-y-3 mb-6 border-b border-gray-100 pb-6">
-                  <div className="flex justify-between text-gray-600">
+                <div className="mb-6 space-y-3 border-b border-white/20 pb-6">
+                  <div className="flex justify-between text-white/85">
                     <span>Subtotal (selected)</span>
                     <span>{formatPrice(selectedTotal)}</span>
                   </div>
-                  <div className="flex justify-between text-gray-600">
+                  <div className="flex justify-between text-white/85">
                     <span>Shipping</span>
                     <span>Calculated at checkout</span>
                   </div>
                 </div>
 
-                <div className="flex justify-between text-xl font-bold text-gray-900 mb-6">
+                <div className="mb-6 flex justify-between text-xl font-bold text-white">
                   <span>Total (est.)</span>
                   <span>{formatPrice(selectedTotal)}</span>
                 </div>
 
                 <Button
                   onClick={handleProceedToCheckout}
-                  className="h-14 w-full rounded-2xl bg-[#F2BB16] px-5 py-0 font-bold text-gray-900 hover:bg-[#d9a614]"
+                  className="h-14 w-full rounded-2xl bg-[#F0E6F7] px-5 py-0 font-bold text-[#4A2578] hover:bg-white"
                   disabled={selectedIds.length === 0}
                 >
                   Proceed to Checkout
@@ -276,15 +276,15 @@ const CartPage = () => {
                 </Button>
 
                 {selectedIds.length === 0 && (
-                  <p className="text-xs text-center text-red-500 mt-2">
+                  <p className="mt-2 text-center text-xs text-[#F7C4D0]">
                     Select at least one item to proceed
                   </p>
                 )}
 
-                <p className="text-xs text-center text-gray-400 mt-4">
+                <p className="mt-4 text-center text-xs text-white/70">
                   Secure checkout via Bank Transfer / GCash
                 </p>
-              </div>
+              </aside>
             </div>
           )}
         </div>

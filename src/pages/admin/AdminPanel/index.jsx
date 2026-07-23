@@ -22,7 +22,6 @@ import {
 } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -66,15 +65,13 @@ import AdminOverviewTab from './AdminOverviewTab';
 import AdminOrdersTab from './AdminOrdersTab';
 import AdminUsersTab from './AdminUsersTab';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
+import {
+  isAwaitingReview,
+  isDeclinedOrder,
+  isPostReviewWorkflow,
+} from './orderStatus';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
-
-const REVIEW_ENTRY_STATUSES = ["pending", "pending_review"];
-const POST_REVIEW_WORKFLOW_STATUSES = ["on_review", "payment_confirmed", "processing", "shipping", "completed", "cancelled"];
-
-const isAwaitingReview = (status) => REVIEW_ENTRY_STATUSES.includes(status || "pending");
-const isPostReviewWorkflow = (status) => POST_REVIEW_WORKFLOW_STATUSES.includes(status || "");
-const isDeclinedOrder = (status) => status === "declined";
 
 const AdminPanel = () => {
   const navigate = useNavigate();

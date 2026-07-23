@@ -39,27 +39,32 @@ export default function AuthModal() {
 
   // Only show modal when NOT logged in
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
-      <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 relative shadow-2xl">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#210A46]/70 p-4 backdrop-blur-sm">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white/70 bg-[#FCFAFF] p-6 shadow-[0_24px_80px_rgba(33,10,70,0.38)] sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-artisan-primary-pale/35 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-16 h-40 w-40 rounded-full bg-artisan-mauve/20 blur-3xl" />
         {/* Close button (switch between login/register) */}
         <button
           onClick={() => setIsLogin(!isLogin)}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 transition"
+          className="absolute right-5 top-5 z-10 rounded-full p-2 text-artisan-text-muted transition hover:bg-artisan-primary-wash hover:text-artisan-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary/40"
         >
           <X size={24} />
         </button>
 
-        <h2 className="text-3xl font-bold text-center mb-8 text-[#118C8C]">
+        <h2
+          className="relative text-center font-artisan-display text-3xl font-bold text-artisan-text mb-8"
+          style={{ color: '#5C2D91', fontFamily: "'Playfair Display', serif" }}
+        >
           {isLogin ? 'Welcome Back!' : 'Join D.A.B.S. Co.'}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="relative space-y-5">
           <input
             type="email"
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#118C8C]/20 focus:border-[#118C8C] transition"
+            className="h-12 w-full rounded-2xl border border-artisan-primary/15 bg-white/85 px-5 py-3 text-artisan-text outline-none transition focus:border-artisan-primary-light focus:ring-4 focus:ring-artisan-primary/15"
             required
           />
           <input
@@ -67,25 +72,26 @@ export default function AuthModal() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#118C8C]/20 focus:border-[#118C8C] transition"
+            className="h-12 w-full rounded-2xl border border-artisan-primary/15 bg-white/85 px-5 py-3 text-artisan-text outline-none transition focus:border-artisan-primary-light focus:ring-4 focus:ring-artisan-primary/15"
             required
           />
 
           <Button
             type="submit"
-            className="w-full bg-[#118C8C] hover:bg-[#0d7070] text-white font-bold py-6 text-lg rounded-xl"
+            className="h-12 w-full rounded-full text-lg font-bold text-white shadow-artisan-sm"
+            style={{ background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)' }}
             disabled={loading}
           >
             {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
           </Button>
         </form>
 
-        <p className="text-center mt-6 text-gray-600">
+        <p className="relative mt-6 text-center text-artisan-text-muted">
           {isLogin ? "Don't have an account? " : 'Already have an account? '}
           <button
             type="button"
             onClick={() => setIsLogin(!isLogin)}
-            className="text-[#118C8C] font-bold hover:underline"
+            className="text-artisan-primary font-bold hover:underline"
           >
             {isLogin ? 'Register Now' : 'Log In'}
           </button>

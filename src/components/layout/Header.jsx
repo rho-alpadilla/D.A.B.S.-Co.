@@ -1,3 +1,34 @@
+// src/components/layout/Header.jsx
+// Design A — Artisan Canvas reskin.
+// ── ALL ORIGINAL FUNCTIONS PRESERVED ────────────────────────────────────
+//   • Scroll-progress listener (requestAnimationFrame-throttled)
+//   • onSnapshot auth + role detection (isAdmin, photoURL)
+//   • Buyer notification listener (onSnapshot → buyerNotifications)
+//   • Admin alert listeners (orders + messages → adminAlerts)
+//   • markAllNotifsRead / handleNotifClick (Firestore updateDoc)
+//   • handleLogout (signOut + reset all dropdowns)
+//   • goToHighlight / goToHighlightsHome (smooth scroll + nav)
+//   • Currency switcher (useCurrency, CURRENCIES, setCurrency, searchQuery)
+//   • Cart badge (useCart → cartCount)
+//   • CircularText logo mark (kept + logo image centered inside ring)
+//   • Mobile hamburger menu (full feature parity with desktop)
+//   • All nav links: Home/Dashboard, Highlights dropdown, Gallery,
+//     Pricing, About, Contact (admin-aware)
+//   • User avatar dropdown: Dashboard, Profile, Logout
+//   • Login / Join buttons for guest users
+// ── WHAT CHANGED (visual only) ──────────────────────────────────────────
+//   • Color palette: teal #118C8C → artisan purple #5C2D91
+//   • Scroll-glassmorphism: warm cream → lavender white
+//   • Nav link underline: yellow → purple gradient
+//   • Currency pill: teal border → purple border
+//   • Login button: teal gradient → purple gradient
+//   • Join button: yellow → mauve gradient
+//   • Notification badge: yellow → purple
+//   • Cart badge: yellow → purple
+//   • Dropdown panels: teal accent → purple accent
+//   • Mobile menu: teal active states → purple
+//   • Logo: CircularText ring in purple + PNG image centered inside ring
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -30,10 +61,10 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import CircularText from '@/components/effects/CircularText';
+import dabsLogo from '@/assets/dabs-logo-square.png';
 
 const Header = () => {
   // ── STATE ──────────────────────────────────────────────────────────────
-  // UI toggles (menus/dropdowns), search, and live notification data.
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -83,8 +114,6 @@ const Header = () => {
   };
 
   // ── EFFECTS / LISTENERS ────────────────────────────────────────────────
-  // Scroll progress, auth state, and real-time Firestore notification
-  // subscriptions all live here.
   useEffect(() => {
     const onScroll = () => {
       if (rafRef.current) return;
@@ -292,8 +321,8 @@ const Header = () => {
       return {
         icon: <MessageSquareText size={16} />,
         chip: 'Message',
-        iconWrap: 'bg-[#118C8C]/10 text-[#118C8C]',
-        chipWrap: 'bg-[#118C8C]/10 text-[#118C8C]',
+        iconWrap: 'bg-artisan-primary-wash text-artisan-primary',
+        chipWrap: 'bg-artisan-primary-wash text-artisan-primary',
       };
     }
 
@@ -355,23 +384,20 @@ const Header = () => {
     navigate('/');
   };
 
-const goToHighlightsHome = () => {
-  setIsHighlightsOpen(false);
-  setIsMenuOpen(false);
-  setIsCurrencyOpen(false);
-  setIsUserMenuOpen(false);
-  setIsNotifOpen(false);
+  const goToHighlightsHome = () => {
+    setIsHighlightsOpen(false);
+    setIsMenuOpen(false);
+    setIsCurrencyOpen(false);
+    setIsUserMenuOpen(false);
+    setIsNotifOpen(false);
 
-  if (location.pathname === '/highlights') {
-    window.history.replaceState(null, '', '/highlights');
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
-  } else {
-    navigate('/highlights');
-  }
-};
+    if (location.pathname === '/highlights') {
+      window.history.replaceState(null, '', '/highlights');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      navigate('/highlights');
+    }
+  };
 
   const goToHighlight = (section) => {
     setIsHighlightsOpen(false);
@@ -388,10 +414,7 @@ const goToHighlightsHome = () => {
       const elementTop = el.getBoundingClientRect().top + window.pageYOffset;
       const targetTop = Math.max(elementTop - headerOffset, 0);
 
-      window.scrollTo({
-        top: targetTop,
-        behavior: 'smooth',
-      });
+      window.scrollTo({ top: targetTop, behavior: 'smooth' });
     };
 
     if (location.pathname === '/highlights') {
@@ -406,33 +429,44 @@ const goToHighlightsHome = () => {
 
   if (loading) return null;
 
+  // ── SCROLL-DRIVEN STYLE VALUES (Design A purple) ───────────────────────
   const p = scrollPct;
   const lerp = (a, b, t) => a + (b - a) * t;
 
-  const hdrBgA = lerp(1, 0.5, p);
-  const hdrBg = `rgba(250,248,241,${hdrBgA.toFixed(3)})`;
-  const hdrBlur = p > 0.05 ? `blur(${(p * 18).toFixed(1)}px)` : 'none';
-  const hdrBorderA = lerp(0.12, 0.22, p);
-  const hdrBorderColor = `rgba(180,170,145,${hdrBorderA.toFixed(3)})`;
+  // Background: opaque lavender-white → frosted glass
+  const hdrBgA = lerp(0.92, 0.82, p);
+  const hdrBg = `rgba(250, 248, 255, ${hdrBgA.toFixed(3)})`;
+  const hdrBlur = p > 0.05 ? `blur(${(p * 20).toFixed(1)}px)` : 'none';
+
+  // Border: subtle purple
+  const hdrBorderA = lerp(0.08, 0.18, p);
+  const hdrBorderColor = `rgba(92, 45, 145, ${hdrBorderA.toFixed(3)})`;
+
+  // Shadow: purple-tinted
   const hdrShadow =
-    p > 0.15 ? `0 4px 24px rgba(100,90,70,${(p * 0.1).toFixed(3)})` : 'none';
+    p > 0.15 ? `0 4px 24px rgba(92, 45, 145, ${(p * 0.12).toFixed(3)})` : 'none';
 
-  const linkColor = (active) => (active ? '#118C8C' : '#374151');
-  const linkShadow = 'none';
-  const iconColor = '#374151';
+  // Nav link color (active: artisan primary, inactive: text-mid)
+  const linkColor = (active) => (active ? '#5C2D91' : '#4A2560');
 
+  // Currency pill
   const currBg =
     p < 0.45
-      ? 'linear-gradient(135deg, rgba(17,140,140,0.14), rgba(17,140,140,0.08))'
-      : 'linear-gradient(135deg, rgba(17,140,140,0.18), rgba(17,140,140,0.1))';
-  const currBorder = 'rgba(17,140,140,0.45)';
-  const currColor = '#0f5f5f';
+      ? 'linear-gradient(135deg, rgba(92,45,145,0.10), rgba(92,45,145,0.06))'
+      : 'linear-gradient(135deg, rgba(92,45,145,0.14), rgba(92,45,145,0.09))';
+  const currBorder = 'rgba(92,45,145,0.35)';
+  const currColor = '#5C2D91';
 
-  const loginBg = 'linear-gradient(135deg, #118C8C, #0d7070)';
-  const loginBorder = 'rgba(17,140,140,0.85)';
+  // Login button: purple gradient
+  const loginBg = 'linear-gradient(135deg, #5C2D91, #7B3FA0)';
+  const loginBorder = 'rgba(92,45,145,0.85)';
   const loginColor = '#ffffff';
 
-  const avatarBorder = 'rgba(17,140,140,0.3)';
+  // Avatar ring
+  const avatarBorder = 'rgba(92,45,145,0.35)';
+
+  // Icon color
+  const iconColor = '#4A2560';
 
   const isActive = (path) => location.pathname === path;
   const isHighlightsPage = location.pathname === '/highlights';
@@ -454,14 +488,16 @@ const goToHighlightsHome = () => {
   const renderNotificationList = (mobile = false) => (
     <div className={mobile ? 'max-h-80 overflow-y-auto' : 'max-h-96 overflow-y-auto'}>
       {notifLoading ? (
-        <div className="p-8 text-sm text-gray-500 text-center">Loading notifications...</div>
+        <div className="p-8 text-sm text-artisan-text-muted text-center">
+          Loading notifications...
+        </div>
       ) : visibleNotifications.length === 0 ? (
         <div className="p-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 rounded-full bg-artisan-primary-wash text-artisan-primary flex items-center justify-center mx-auto mb-3">
             <Bell size={20} />
           </div>
-          <p className="text-sm font-medium text-gray-700">All caught up</p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-sm font-medium text-artisan-text">All caught up</p>
+          <p className="text-xs text-artisan-text-muted mt-1">
             {isAdmin ? 'No new admin alerts right now.' : 'No notifications yet.'}
           </p>
         </div>
@@ -477,7 +513,7 @@ const goToHighlightsHome = () => {
                 onClick={() => handleNotifClick(notif)}
                 className={`w-full text-left rounded-2xl border px-3 py-3 transition ${
                   isUnreadBuyerNotif
-                    ? 'bg-[#118C8C]/6 border-[#118C8C]/12 hover:bg-[#118C8C]/8'
+                    ? 'bg-artisan-primary-wash/50 border-artisan-primary-light/20 hover:bg-artisan-primary-wash'
                     : 'bg-white border-gray-100 hover:bg-gray-50'
                 }`}
               >
@@ -491,7 +527,7 @@ const goToHighlightsHome = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-artisan-text">
                           {notif.title || 'Notification'}
                         </p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -501,19 +537,19 @@ const goToHighlightsHome = () => {
                             {meta.chip}
                           </span>
                           {isUnreadBuyerNotif && (
-                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-[#F2BB16]/20 text-[#9a6c00]">
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-artisan-primary-pale/30 text-artisan-primary">
                               New
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="text-[11px] text-gray-400 shrink-0 pt-0.5">
+                      <div className="text-[11px] text-artisan-text-faint shrink-0 pt-0.5">
                         {formatNotifTime(notif.createdAt)}
                       </div>
                     </div>
 
-                    <p className="text-sm text-gray-600 mt-2 break-words leading-relaxed">
+                    <p className="text-sm text-artisan-text-muted mt-2 break-words leading-relaxed">
                       {notif.body || ''}
                     </p>
                   </div>
@@ -527,30 +563,29 @@ const goToHighlightsHome = () => {
   );
 
   // ── RENDER ─────────────────────────────────────────────────────────────
-  // Structure: scoped <style> block → desktop nav (logo, links, currency
-  // switcher, notifications, user menu) → mobile menu.
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
-
+        /* ── Artisan Canvas Header Styles ───────────────────────────────── */
         .hdr {
           position: sticky;
           top: 0;
           z-index: 50;
         }
 
+        /* Centered nav links (desktop) */
         .hdr-nav-center {
           position: absolute;
           left: 50%;
           transform: translateX(-50%);
           align-items: center;
-          gap: 2.25rem;
+          gap: 2rem;
           z-index: 2;
         }
 
+        /* Nav link — Inter font, purple palette */
         .hdr-link {
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', 'Poppins', sans-serif;
           font-weight: 400;
           font-size: 0.9375rem;
           letter-spacing: 0.02em;
@@ -558,12 +593,13 @@ const goToHighlightsHome = () => {
           padding: 0.375rem 0;
           position: relative;
           white-space: nowrap;
-          transition: color 0.32s ease, text-shadow 0.32s ease;
+          transition: color 0.32s ease;
           background: transparent;
           border: none;
           cursor: pointer;
         }
 
+        /* Ink-reveal underline in purple gradient */
         .hdr-link::after {
           content: '';
           position: absolute;
@@ -571,7 +607,7 @@ const goToHighlightsHome = () => {
           left: 0;
           right: 0;
           height: 2px;
-          background: linear-gradient(90deg, #F2BB16, #ffd84d);
+          background: linear-gradient(90deg, #5C2D91, #A87DC8);
           border-radius: 2px;
           transform: scaleX(0);
           transform-origin: left;
@@ -583,8 +619,9 @@ const goToHighlightsHome = () => {
           transform: scaleX(1);
         }
 
+        /* Currency pill */
         .hdr-curr {
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', 'Poppins', sans-serif;
           font-size: 0.84rem;
           font-weight: 700;
           display: flex;
@@ -594,16 +631,17 @@ const goToHighlightsHome = () => {
           border-radius: 999px;
           border: 1px solid;
           cursor: pointer;
-          transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+          transition: transform 0.2s ease, box-shadow 0.25s ease;
           white-space: nowrap;
-          box-shadow: 0 6px 18px rgba(17, 140, 140, 0.14);
+          box-shadow: 0 4px 14px rgba(92,45,145,0.14);
         }
 
         .hdr-curr:hover {
           transform: translateY(-1px);
-          box-shadow: 0 10px 22px rgba(17, 140, 140, 0.2);
+          box-shadow: 0 8px 22px rgba(92,45,145,0.22);
         }
 
+        /* Cart / icon buttons */
         .hdr-cart {
           position: relative;
           display: flex;
@@ -616,12 +654,13 @@ const goToHighlightsHome = () => {
 
         .hdr-cart:hover {
           transform: scale(1.08);
-          background: rgba(17,140,140,0.08);
+          background: rgba(92,45,145,0.08);
         }
 
+        /* Login / Join buttons */
         .hdr-login,
         .hdr-join {
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', 'Poppins', sans-serif;
           font-size: 0.875rem;
           font-weight: 700;
           min-height: 2.75rem;
@@ -638,33 +677,34 @@ const goToHighlightsHome = () => {
           padding: 0 1.15rem;
           border: 1px solid;
           transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.25s ease;
-          box-shadow: 0 8px 20px rgba(17, 140, 140, 0.22);
+          box-shadow: 0 6px 18px rgba(92,45,145,0.28);
         }
 
         .hdr-login:hover {
           transform: translateY(-1px);
-          filter: brightness(1.05);
-          box-shadow: 0 12px 24px rgba(17, 140, 140, 0.28);
+          filter: brightness(1.08);
+          box-shadow: 0 10px 24px rgba(92,45,145,0.36);
         }
 
         .hdr-join {
           padding: 0 1.35rem;
           border-radius: 100px;
           border: none;
-          background: linear-gradient(135deg, #F2BB16, #e8ac0e);
-          color: #1a1209;
+          background: linear-gradient(135deg, #7B4A72, #C47AB8);
+          color: #fff;
           cursor: pointer;
           text-decoration: none;
-          box-shadow: 0 2px 14px rgba(242,187,22,0.42);
+          box-shadow: 0 2px 14px rgba(123,74,114,0.38);
           transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
         }
 
         .hdr-join:hover {
           filter: brightness(1.08);
-          box-shadow: 0 4px 22px rgba(242,187,22,0.58);
+          box-shadow: 0 4px 22px rgba(123,74,114,0.52);
           transform: translateY(-1px);
         }
 
+        /* Avatar ring */
         .hdr-avatar {
           width: 2.25rem;
           height: 2.25rem;
@@ -676,26 +716,52 @@ const goToHighlightsHome = () => {
         }
 
         .hdr-avatar:hover {
-          box-shadow: 0 0 0 3px rgba(242,187,22,0.4);
+          box-shadow: 0 0 0 3px rgba(168,125,200,0.35);
         }
 
+        /* Dropdown panel */
         .hdr-dropdown {
-          background: rgba(255,255,255,0.98);
+          background: rgba(255,255,255,0.97);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(17,140,140,0.13);
+          border: 1px solid rgba(92,45,145,0.12);
           border-radius: 1.25rem;
-          box-shadow: 0 20px 60px rgba(17,140,140,0.2), 0 4px 16px rgba(0,0,0,0.07);
+          box-shadow: 0 20px 60px rgba(92,45,145,0.18), 0 4px 16px rgba(0,0,0,0.06);
           overflow: hidden;
         }
 
+        /* Mobile menu panel */
         .hdr-mobile {
-          background: rgba(255,255,255,0.98);
+          background: rgba(250,248,255,0.98);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
-          border-top: 1px solid rgba(17,140,140,0.1);
+          border-top: 1px solid rgba(92,45,145,0.10);
           border-radius: 0 0 1.5rem 1.5rem;
-          box-shadow: 0 12px 40px rgba(17,140,140,0.18);
+          box-shadow: 0 12px 40px rgba(92,45,145,0.15);
+        }
+
+        /* Logo mark container — holds CircularText ring + centered logo img */
+        .hdr-logo-mark {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          width: 56px;
+          height: 56px;
+        }
+
+        /* Logo image inside the circular ring */
+        .hdr-logo-img {
+          position: absolute;
+          width: 32px;
+          height: 32px;
+          object-fit: contain;
+          border-radius: 50%;
+          /* multiply blend makes the white background transparent on the glass nav */
+          mix-blend-mode: multiply;
+          pointer-events: none;
+          z-index: 1;
         }
       `}</style>
 
@@ -711,23 +777,27 @@ const goToHighlightsHome = () => {
             'background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
         }}
       >
-        {/* Problem #4 fix: was px-6, now px-4 to match Footer.jsx and PageContainer
-            so the header's left/right edges line up with every page's content. */}
-        <nav className="container mx-auto relative flex items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
-          <Link
-            to={homePath}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-          >
+        <nav className="container mx-auto relative flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+
+          {/* ── LOGO ── CircularText ring + centered PNG logo ── */}
+          <Link to={homePath} className="hdr-logo-mark">
             <CircularText
-              text="DABS.Co."
+              text="DABS.Co.•"
               onHover="speedUp"
               spinDuration={20}
-              size={50}
-              fontSize="0.50rem"
-              className="!text-[#118C8C]"
+              size={56}
+              fontSize="0.48rem"
+              className="!text-artisan-primary"
+            />
+            {/* PNG logo centered inside the spinning ring */}
+            <img
+              src={dabsLogo}
+              alt="D.A.B.S. Co. logo"
+              className="hdr-logo-img"
             />
           </Link>
 
+          {/* ── DESKTOP NAV LINKS ── */}
           <div className="hidden md:flex hdr-nav-center">
             {desktopLinks.map((item) => {
               if (item.type === 'dropdown') {
@@ -738,23 +808,22 @@ const goToHighlightsHome = () => {
                     onMouseEnter={() => setIsHighlightsOpen(true)}
                     onMouseLeave={() => setIsHighlightsOpen(false)}
                   >
-                   <button
-  onClick={goToHighlightsHome}
-  className={`hdr-link flex items-center gap-1${isHighlightsPage ? ' active' : ''}`}
-  style={{
-    color: linkColor(isHighlightsPage),
-    fontWeight: isHighlightsPage ? 500 : 400,
-    textShadow: linkShadow,
-  }}
->
-  {item.label}
-  <ChevronDown
-    size={14}
-    className={`transition-transform duration-200 ${
-      isHighlightsOpen ? 'rotate-180' : ''
-    }`}
-  />
-</button>
+                    <button
+                      onClick={goToHighlightsHome}
+                      className={`hdr-link flex items-center gap-1${isHighlightsPage ? ' active' : ''}`}
+                      style={{
+                        color: linkColor(isHighlightsPage),
+                        fontWeight: isHighlightsPage ? 600 : 400,
+                      }}
+                    >
+                      {item.label}
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform duration-200 ${
+                          isHighlightsOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
 
                     <AnimatePresence>
                       {isHighlightsOpen && (
@@ -765,30 +834,20 @@ const goToHighlightsHome = () => {
                           transition={{ duration: 0.18 }}
                           className="hdr-dropdown absolute left-1/2 top-full mt-3 w-64 -translate-x-1/2 z-[9999] p-2"
                         >
-                          <button
-                            onClick={() => goToHighlight('spotlight')}
-                            className="w-full text-left px-4 py-3 rounded-xl text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
-                          >
-                            Artist’s Spotlight
-                          </button>
-                          <button
-                            onClick={() => goToHighlight('favorites')}
-                            className="w-full text-left px-4 py-3 rounded-xl text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
-                          >
-                            Collector’s Favorites
-                          </button>
-                          <button
-                            onClick={() => goToHighlight('recent')}
-                            className="w-full text-left px-4 py-3 rounded-xl text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
-                          >
-                            Recent Works
-                          </button>
-                          <button
-                            onClick={() => goToHighlight('commission')}
-                            className="w-full text-left px-4 py-3 rounded-xl text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
-                          >
-                            Commission
-                          </button>
+                          {[
+                            { id: 'spotlight', label: "Artist's Spotlight" },
+                            { id: 'favorites', label: "Collector's Favorites" },
+                            { id: 'recent', label: 'Recent Works' },
+                            { id: 'commission', label: 'Commission' },
+                          ].map((sect) => (
+                            <button
+                              key={sect.id}
+                              onClick={() => goToHighlight(sect.id)}
+                              className="w-full text-left px-4 py-3 rounded-xl text-sm text-artisan-text-mid hover:bg-artisan-primary-wash hover:text-artisan-primary transition font-medium"
+                            >
+                              {sect.label}
+                            </button>
+                          ))}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -803,8 +862,7 @@ const goToHighlightsHome = () => {
                   className={`hdr-link${isActive(item.path) ? ' active' : ''}`}
                   style={{
                     color: linkColor(isActive(item.path)),
-                    fontWeight: isActive(item.path) ? 500 : 400,
-                    textShadow: linkShadow,
+                    fontWeight: isActive(item.path) ? 600 : 400,
                   }}
                 >
                   {item.label}
@@ -813,9 +871,13 @@ const goToHighlightsHome = () => {
             })}
           </div>
 
+          {/* ── DESKTOP RIGHT CONTROLS ── */}
           <div className="hidden md:flex items-center gap-2.5" style={{ zIndex: 2 }}>
+
+            {/* Currency switcher */}
             <div className="relative">
               <button
+                id="currency-switcher-btn"
                 className="hdr-curr"
                 onClick={() => {
                   setIsCurrencyOpen((v) => !v);
@@ -861,10 +923,11 @@ const goToHighlightsHome = () => {
                     transition={{ duration: 0.18 }}
                     className="hdr-dropdown absolute right-0 top-full mt-2.5 w-80 z-50"
                   >
-                    <div className="p-4 border-b border-gray-100">
+                    {/* Search */}
+                    <div className="p-4 border-b border-artisan-primary-wash">
                       <div className="relative">
                         <Search
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-artisan-text-faint"
                           size={15}
                         />
                         <input
@@ -872,15 +935,18 @@ const goToHighlightsHome = () => {
                           placeholder="Search currency..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/25 focus:border-[#118C8C] transition"
+                          className="w-full pl-9 pr-4 py-2.5 border border-artisan-primary-wash rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-artisan-primary/20 focus:border-artisan-primary-light transition"
                           autoFocus
                         />
                       </div>
                     </div>
 
+                    {/* Currency list */}
                     <div className="max-h-72 overflow-y-auto">
                       {filteredCurrencies.length === 0 ? (
-                        <p className="p-6 text-center text-gray-400 text-sm">No currency found</p>
+                        <p className="p-6 text-center text-artisan-text-faint text-sm">
+                          No currency found
+                        </p>
                       ) : (
                         filteredCurrencies.map((curr) => (
                           <button
@@ -890,23 +956,25 @@ const goToHighlightsHome = () => {
                               setIsCurrencyOpen(false);
                               setSearchQuery('');
                             }}
-                            className="w-full text-left px-5 py-3 hover:bg-gray-50 transition flex items-center justify-between text-sm"
+                            className="w-full text-left px-5 py-3 hover:bg-artisan-primary-wash/40 transition flex items-center justify-between text-sm"
                           >
                             <div className="flex items-center gap-3">
                               <span className="text-lg w-6 text-center">{curr.symbol}</span>
                               <div>
                                 <p
                                   className={`font-medium ${
-                                    currency === curr.code ? 'text-[#118C8C]' : 'text-gray-800'
+                                    currency === curr.code
+                                      ? 'text-artisan-primary'
+                                      : 'text-artisan-text'
                                   }`}
                                 >
                                   {curr.name}
                                 </p>
-                                <p className="text-xs text-gray-400">{curr.code}</p>
+                                <p className="text-xs text-artisan-text-faint">{curr.code}</p>
                               </div>
                             </div>
                             {currency === curr.code && (
-                              <div className="w-2 h-2 rounded-full bg-[#118C8C]" />
+                              <div className="w-2 h-2 rounded-full bg-artisan-primary" />
                             )}
                           </button>
                         ))
@@ -917,9 +985,11 @@ const goToHighlightsHome = () => {
               </AnimatePresence>
             </div>
 
+            {/* Notification bell (logged-in users only) */}
             {user && (
               <div className="relative">
                 <button
+                  id="notification-bell-btn"
                   onClick={() => {
                     setIsNotifOpen((v) => !v);
                     setIsCurrencyOpen(false);
@@ -932,7 +1002,7 @@ const goToHighlightsHome = () => {
                   <Bell size={20} strokeWidth={1.75} />
                   {unreadNotifCount > 0 && (
                     <span
-                      className="absolute -top-1 -right-1 bg-[#F2BB16] text-[10px] font-bold text-gray-900 rounded-full flex items-center justify-center"
+                      className="absolute -top-1 -right-1 bg-artisan-primary text-[10px] font-bold text-white rounded-full flex items-center justify-center"
                       style={{ minWidth: 18, minHeight: 18, padding: '0 3px' }}
                     >
                       {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
@@ -949,13 +1019,14 @@ const goToHighlightsHome = () => {
                       transition={{ duration: 0.18 }}
                       className="hdr-dropdown absolute right-0 top-full mt-2.5 w-[26rem] z-[9999]"
                     >
-                      <div className="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-[#118C8C]/6 via-white to-[#F2BB16]/10">
+                      {/* Notif header */}
+                      <div className="px-4 py-4 border-b border-artisan-primary-wash bg-gradient-to-r from-artisan-primary-wash/60 via-white to-artisan-primary-pale/20">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="font-semibold text-gray-900">
+                            <p className="font-semibold text-artisan-text">
                               {isAdmin ? 'Admin Alerts' : 'Notifications'}
                             </p>
-                            <p className="text-xs text-gray-500 mt-0.5">
+                            <p className="text-xs text-artisan-text-muted mt-0.5">
                               {isAdmin
                                 ? `${visibleNotifications.length} active alerts`
                                 : `${unreadNotifCount} unread`}
@@ -965,7 +1036,7 @@ const goToHighlightsHome = () => {
                           {visibleNotifications.length > 0 && (
                             <button
                               onClick={markAllNotifsRead}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#118C8C] hover:underline shrink-0"
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-artisan-primary hover:underline shrink-0"
                             >
                               <CheckCheck size={14} />
                               Mark all as read
@@ -981,12 +1052,18 @@ const goToHighlightsHome = () => {
               </div>
             )}
 
+            {/* Cart (buyers only) */}
             {!isAdmin && (
-              <Link to="/cart" className="hdr-cart p-2.5" style={{ color: iconColor }}>
+              <Link
+                to="/cart"
+                id="cart-link"
+                className="hdr-cart p-2.5"
+                style={{ color: iconColor }}
+              >
                 <ShoppingCart size={20} strokeWidth={1.75} />
                 {cartCount > 0 && (
                   <span
-                    className="absolute -top-1 -right-1 bg-[#F2BB16] text-[10px] font-bold text-gray-900 rounded-full flex items-center justify-center"
+                    className="absolute -top-1 -right-1 bg-artisan-primary text-[10px] font-bold text-white rounded-full flex items-center justify-center"
                     style={{ minWidth: 18, minHeight: 18, padding: '0 3px' }}
                   >
                     {cartCount}
@@ -995,9 +1072,11 @@ const goToHighlightsHome = () => {
               </Link>
             )}
 
+            {/* User avatar / Login+Join */}
             {user ? (
               <div className="relative">
                 <button
+                  id="user-menu-btn"
                   onClick={() => {
                     setIsUserMenuOpen((v) => !v);
                     setIsCurrencyOpen(false);
@@ -1005,20 +1084,24 @@ const goToHighlightsHome = () => {
                     setIsNotifOpen(false);
                   }}
                   className="flex items-center gap-2 rounded-full px-1 py-1 transition"
-                  style={{ background: isUserMenuOpen ? 'rgba(17,140,140,0.08)' : 'transparent' }}
+                  style={{
+                    background: isUserMenuOpen
+                      ? 'rgba(92,45,145,0.08)'
+                      : 'transparent',
+                  }}
                 >
                   <div className="hdr-avatar" style={{ borderColor: avatarBorder }}>
                     {photoURL ? (
                       <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[#118C8C] to-[#0d7070] flex items-center justify-center text-white font-bold text-sm">
+                      <div className="w-full h-full bg-gradient-to-br from-artisan-primary to-artisan-primary-mid flex items-center justify-center text-white font-bold text-sm">
                         {user.email[0].toUpperCase()}
                       </div>
                     )}
                   </div>
 
                   {isAdmin && (
-                    <span className="hidden lg:block bg-gradient-to-r from-amber-400 to-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider shadow-sm">
+                    <span className="hidden lg:block bg-gradient-to-r from-artisan-primary-light to-artisan-mauve text-white text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider shadow-sm">
                       Admin
                     </span>
                   )}
@@ -1033,10 +1116,13 @@ const goToHighlightsHome = () => {
                       transition={{ duration: 0.18 }}
                       className="hdr-dropdown absolute right-0 top-full mt-2.5 w-60 z-[9999]"
                     >
-                      <div className="p-4 border-b border-gray-100 bg-gradient-to-br from-[#118C8C]/5 to-transparent">
-                        <p className="font-medium text-gray-900 text-sm truncate">{user.email}</p>
+                      {/* User info header */}
+                      <div className="p-4 border-b border-artisan-primary-wash bg-gradient-to-br from-artisan-primary-wash/50 to-transparent">
+                        <p className="font-medium text-artisan-text text-sm truncate">
+                          {user.email}
+                        </p>
                         {isAdmin && (
-                          <span className="text-xs font-bold text-amber-500 tracking-wide">
+                          <span className="text-xs font-bold text-artisan-primary-mid tracking-wide">
                             Administrator
                           </span>
                         )}
@@ -1046,7 +1132,7 @@ const goToHighlightsHome = () => {
                         <Link
                           to="/buyer-dashboard"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-artisan-text-mid hover:bg-artisan-primary-wash hover:text-artisan-primary transition"
                         >
                           <Settings size={15} strokeWidth={1.75} /> Dashboard
                         </Link>
@@ -1055,12 +1141,12 @@ const goToHighlightsHome = () => {
                       <Link
                         to="/profile"
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-[#118C8C]/5 hover:text-[#118C8C] transition"
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-artisan-text-mid hover:bg-artisan-primary-wash hover:text-artisan-primary transition"
                       >
                         <User size={15} strokeWidth={1.75} /> Profile
                       </Link>
 
-                      <div className="border-t border-gray-100">
+                      <div className="border-t border-artisan-primary-wash">
                         <button
                           onClick={handleLogout}
                           className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition text-left"
@@ -1076,6 +1162,7 @@ const goToHighlightsHome = () => {
               <div className="flex items-center gap-2">
                 <Link
                   to="/login"
+                  id="login-btn"
                   className="hdr-login"
                   style={{
                     background: loginBg,
@@ -1086,17 +1173,19 @@ const goToHighlightsHome = () => {
                   Login
                 </Link>
 
-                <Link to="/register" className="hdr-join">
+                <Link to="/register" id="join-btn" className="hdr-join">
                   Join
                 </Link>
               </div>
             )}
           </div>
 
+          {/* ── MOBILE RIGHT CONTROLS ── */}
           <div
             className="md:hidden flex items-center gap-3"
             style={{ color: iconColor, transition: 'color 0.35s ease', zIndex: 2 }}
           >
+            {/* Mobile notification bell */}
             {user && (
               <button
                 onClick={() => {
@@ -1112,7 +1201,7 @@ const goToHighlightsHome = () => {
                 <Bell size={22} strokeWidth={1.75} />
                 {unreadNotifCount > 0 && (
                   <span
-                    className="absolute -top-1.5 -right-1.5 bg-[#F2BB16] text-[10px] font-bold text-gray-900 rounded-full flex items-center justify-center"
+                    className="absolute -top-1.5 -right-1.5 bg-artisan-primary text-[10px] font-bold text-white rounded-full flex items-center justify-center"
                     style={{ minWidth: 17, minHeight: 17, padding: '0 2px' }}
                   >
                     {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
@@ -1121,12 +1210,13 @@ const goToHighlightsHome = () => {
               </button>
             )}
 
+            {/* Mobile cart */}
             {!isAdmin && (
               <Link to="/cart" className="relative rounded-full p-1">
                 <ShoppingCart size={22} strokeWidth={1.75} />
                 {cartCount > 0 && (
                   <span
-                    className="absolute -top-1.5 -right-1.5 bg-[#F2BB16] text-[10px] font-bold text-gray-900 rounded-full flex items-center justify-center"
+                    className="absolute -top-1.5 -right-1.5 bg-artisan-primary text-[10px] font-bold text-white rounded-full flex items-center justify-center"
                     style={{ minWidth: 17, minHeight: 17, padding: '0 2px' }}
                   >
                     {cartCount}
@@ -1135,7 +1225,9 @@ const goToHighlightsHome = () => {
               </Link>
             )}
 
+            {/* Hamburger */}
             <button
+              id="mobile-menu-btn"
               onClick={() => {
                 setIsMenuOpen((v) => !v);
                 setIsHighlightsOpen(false);
@@ -1145,12 +1237,17 @@ const goToHighlightsHome = () => {
               }}
             >
               <motion.div animate={{ rotate: isMenuOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
-                {isMenuOpen ? <X size={26} strokeWidth={1.75} /> : <Menu size={26} strokeWidth={1.75} />}
+                {isMenuOpen ? (
+                  <X size={26} strokeWidth={1.75} />
+                ) : (
+                  <Menu size={26} strokeWidth={1.75} />
+                )}
               </motion.div>
             </button>
           </div>
         </nav>
 
+        {/* ── MOBILE NOTIFICATION PANEL ── */}
         <AnimatePresence>
           {isNotifOpen && user && (
             <motion.div
@@ -1162,13 +1259,13 @@ const goToHighlightsHome = () => {
             >
               <div className="hdr-mobile px-4 pb-4 pt-2">
                 <div className="hdr-dropdown w-full">
-                  <div className="px-4 py-4 border-b border-gray-100 bg-gradient-to-r from-[#118C8C]/6 via-white to-[#F2BB16]/10">
+                  <div className="px-4 py-4 border-b border-artisan-primary-wash bg-gradient-to-r from-artisan-primary-wash/60 via-white to-artisan-primary-pale/20">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-semibold text-artisan-text">
                           {isAdmin ? 'Admin Alerts' : 'Notifications'}
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs text-artisan-text-muted mt-0.5">
                           {isAdmin
                             ? `${visibleNotifications.length} active alerts`
                             : `${unreadNotifCount} unread`}
@@ -1178,7 +1275,7 @@ const goToHighlightsHome = () => {
                       {visibleNotifications.length > 0 && (
                         <button
                           onClick={markAllNotifsRead}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#118C8C] hover:underline shrink-0"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-artisan-primary hover:underline shrink-0"
                         >
                           <CheckCheck size={14} />
                           Mark all as read
@@ -1194,7 +1291,7 @@ const goToHighlightsHome = () => {
           )}
         </AnimatePresence>
 
-        {/* ── MOBILE MENU ──────────────────────────────────────────────── */}
+        {/* ── MOBILE MENU ── */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
@@ -1205,14 +1302,16 @@ const goToHighlightsHome = () => {
               className="md:hidden overflow-hidden"
             >
               <div className="hdr-mobile px-4 pb-5 pt-3 space-y-1">
+
+                {/* Currency selector */}
                 <div className="px-3 pt-2 pb-3 mb-1">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+                  <p className="text-xs font-semibold text-artisan-text-faint uppercase tracking-widest mb-2">
                     Currency
                   </p>
                   <select
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/25"
+                    className="w-full px-3 py-2.5 border border-artisan-primary-wash rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-artisan-primary/20 text-artisan-text"
                   >
                     {CURRENCIES.map((c) => (
                       <option key={c.code} value={c.code}>
@@ -1222,93 +1321,99 @@ const goToHighlightsHome = () => {
                   </select>
                 </div>
 
-                <div className="h-px bg-gray-100 mx-3 mb-2" />
+                <div className="h-px bg-artisan-primary-wash mx-3 mb-2" />
 
+                {/* Home / Dashboard */}
                 <Link
                   to={homePath}
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
                   style={{
-                    background: isActive('/') ? '#118C8C' : 'transparent',
-                    color: isActive('/') ? '#fff' : '#374151',
+                    background: isActive('/') ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)' : 'transparent',
+                    color: isActive('/') ? '#fff' : '#4A2560',
                   }}
                 >
                   {homeLabel}
-                  {isActive('/') && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />}
+                  {isActive('/') && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-artisan-primary-pale" />
+                  )}
                 </Link>
-<button
-  onClick={goToHighlightsHome}
-  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
-  style={{
-    background: isHighlightsPage ? '#118C8C' : 'transparent',
-    color: isHighlightsPage ? '#fff' : '#374151',
-  }}
->
-  Highlights
-  {isHighlightsPage && (
-    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />
-  )}
-</button>
-                <div className="mx-1 rounded-xl bg-[#118C8C]/5 border border-[#118C8C]/10 p-2">
-                  <p className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-[#118C8C]">
+
+                {/* Highlights top-level */}
+                <button
+                  onClick={goToHighlightsHome}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
+                  style={{
+                    background: isHighlightsPage
+                      ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)'
+                      : 'transparent',
+                    color: isHighlightsPage ? '#fff' : '#4A2560',
+                  }}
+                >
+                  Highlights
+                  {isHighlightsPage && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-artisan-primary-pale" />
+                  )}
+                </button>
+
+                {/* Highlights sub-items */}
+                <div className="mx-1 rounded-xl bg-artisan-primary-wash/50 border border-artisan-primary-wash p-2">
+                  <p className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-artisan-primary">
                     Highlights
                   </p>
-                  <button
-                    onClick={() => goToHighlight('spotlight')}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-white transition"
-                  >
-                    Artist’s Spotlight
-                  </button>
-                  <button
-                    onClick={() => goToHighlight('favorites')}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-white transition"
-                  >
-                    Collector’s Favorites
-                  </button>
-                  <button
-                    onClick={() => goToHighlight('recent')}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-white transition"
-                  >
-                    Recent Works
-                  </button>
-                  <button
-                    onClick={() => goToHighlight('commission')}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-white transition"
-                  >
-                    Commission
-                  </button>
+                  {[
+                    { id: 'spotlight', label: "Artist's Spotlight" },
+                    { id: 'favorites', label: "Collector's Favorites" },
+                    { id: 'recent', label: 'Recent Works' },
+                    { id: 'commission', label: 'Commission' },
+                  ].map((sect) => (
+                    <button
+                      key={sect.id}
+                      onClick={() => goToHighlight(sect.id)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-artisan-text-mid hover:bg-white hover:text-artisan-primary transition"
+                    >
+                      {sect.label}
+                    </button>
+                  ))}
                 </div>
 
+                {/* Gallery */}
                 <Link
                   to="/gallery"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
                   style={{
-                    background: isActive('/gallery') ? '#118C8C' : 'transparent',
-                    color: isActive('/gallery') ? '#fff' : '#374151',
+                    background: isActive('/gallery')
+                      ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)'
+                      : 'transparent',
+                    color: isActive('/gallery') ? '#fff' : '#4A2560',
                   }}
                 >
                   Gallery
                   {isActive('/gallery') && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-artisan-primary-pale" />
                   )}
                 </Link>
 
+                {/* Pricing */}
                 <Link
                   to="/pricelists"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
                   style={{
-                    background: isActive('/pricelists') ? '#118C8C' : 'transparent',
-                    color: isActive('/pricelists') ? '#fff' : '#374151',
+                    background: isActive('/pricelists')
+                      ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)'
+                      : 'transparent',
+                    color: isActive('/pricelists') ? '#fff' : '#4A2560',
                   }}
                 >
                   Pricing
                   {isActive('/pricelists') && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-artisan-primary-pale" />
                   )}
                 </Link>
 
+                {/* About + Contact (buyer only) */}
                 {!isAdmin && (
                   <>
                     <Link
@@ -1316,13 +1421,15 @@ const goToHighlightsHome = () => {
                       onClick={() => setIsMenuOpen(false)}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
                       style={{
-                        background: isActive('/about') ? '#118C8C' : 'transparent',
-                        color: isActive('/about') ? '#fff' : '#374151',
+                        background: isActive('/about')
+                          ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)'
+                          : 'transparent',
+                        color: isActive('/about') ? '#fff' : '#4A2560',
                       }}
                     >
                       About
                       {isActive('/about') && (
-                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />
+                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-artisan-primary-pale" />
                       )}
                     </Link>
 
@@ -1331,29 +1438,35 @@ const goToHighlightsHome = () => {
                       onClick={() => setIsMenuOpen(false)}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
                       style={{
-                        background: isActive('/contact') ? '#118C8C' : 'transparent',
-                        color: isActive('/contact') ? '#fff' : '#374151',
+                        background: isActive('/contact')
+                          ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)'
+                          : 'transparent',
+                        color: isActive('/contact') ? '#fff' : '#4A2560',
                       }}
                     >
                       Contact
                       {isActive('/contact') && (
-                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F2BB16]" />
+                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-artisan-primary-pale" />
                       )}
                     </Link>
                   </>
                 )}
 
+                {/* User section */}
                 {user ? (
-                  <div className="pt-2 mt-2 border-t border-gray-100 space-y-1">
-                    <div className="flex items-center gap-3 px-4 py-3 bg-[#118C8C]/5 rounded-xl">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#118C8C] to-[#0d7070] flex items-center justify-center text-white font-bold text-xs shrink-0">
+                  <div className="pt-2 mt-2 border-t border-artisan-primary-wash space-y-1">
+                    {/* User info */}
+                    <div className="flex items-center gap-3 px-4 py-3 bg-artisan-primary-wash/50 rounded-xl">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-artisan-primary to-artisan-primary-mid flex items-center justify-center text-white font-bold text-xs shrink-0">
                         {user.email[0].toUpperCase()}
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-gray-700 truncate max-w-[160px]">
+                        <p className="text-xs font-medium text-artisan-text truncate max-w-[160px]">
                           {user.email}
                         </p>
-                        {isAdmin && <span className="text-[10px] text-amber-500 font-bold">Admin</span>}
+                        {isAdmin && (
+                          <span className="text-[10px] text-artisan-primary font-bold">Admin</span>
+                        )}
                       </div>
                     </div>
 
@@ -1361,7 +1474,7 @@ const goToHighlightsHome = () => {
                       <Link
                         to="/buyer-dashboard"
                         onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-[#118C8C] font-medium hover:bg-gray-50 rounded-xl transition"
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-artisan-primary font-medium hover:bg-artisan-primary-wash rounded-xl transition"
                       >
                         <Settings size={15} /> Dashboard
                       </Link>
@@ -1370,7 +1483,7 @@ const goToHighlightsHome = () => {
                     <Link
                       to="/profile"
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-sm text-[#118C8C] font-medium hover:bg-gray-50 rounded-xl transition"
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-artisan-primary font-medium hover:bg-artisan-primary-wash rounded-xl transition"
                     >
                       <User size={15} /> Profile
                     </Link>
@@ -1387,7 +1500,8 @@ const goToHighlightsHome = () => {
                     <Link
                       to="/login"
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex-1 text-center py-2.5 rounded-xl bg-[#118C8C] text-white text-sm font-bold shadow-md hover:bg-[#0d7070] transition"
+                      className="flex-1 text-center py-2.5 rounded-xl text-white text-sm font-bold shadow-md transition"
+                      style={{ background: 'linear-gradient(135deg,#5C2D91,#7B3FA0)' }}
                     >
                       Login
                     </Link>
@@ -1395,7 +1509,8 @@ const goToHighlightsHome = () => {
                     <Link
                       to="/register"
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex-1 text-center py-2.5 rounded-xl bg-[#F2BB16] text-gray-900 text-sm font-bold hover:bg-[#e8ac0e] transition"
+                      className="flex-1 text-center py-2.5 rounded-xl text-white text-sm font-bold transition"
+                      style={{ background: 'linear-gradient(135deg,#7B4A72,#C47AB8)' }}
                     >
                       Join
                     </Link>

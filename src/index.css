@@ -1,26 +1,217 @@
-/* src/index.css */
+/* ─────────────────────────────────────────────────────────────────────────
+   src/index.css
+   Design A — Artisan Canvas token system
+   All original Tailwind directives and Poppins font preserved.
+   New purple artisan tokens added alongside existing ones.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Original fonts (kept — existing components still reference these) ── */
 @import url('https://fonts.googleapis.com/css2?family=Agbalumo&display=Permanent+Marker&family=Playball&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* ── Design A — Artisan Canvas fonts ─────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Dancing+Script:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design A — CSS Custom Properties (Purple Artisan Palette) ───────── */
 @layer base {
+  :root {
+    /* ── Artisan Purple Palette ─────────────────────────── */
+    --artisan-primary:       #5C2D91; /* deep violet — primary CTA, icons   */
+    --artisan-primary-mid:   #7B3FA0; /* mid violet — hover states, gradients */
+    --artisan-primary-light: #A87DC8; /* lavender — borders, light accents  */
+    --artisan-primary-pale:  #C9A0DC; /* pale lavender — tags, subtle fills */
+    --artisan-primary-wash:  #EDE0F9; /* wash — section tints, card bg      */
+    --artisan-mauve:         #7B4A72; /* mauve — warm purple muted text     */
+
+    /* ── Artisan Backgrounds ────────────────────────────── */
+    --artisan-bg:            #FAF8FF; /* page base (replaces #FAF8F1)       */
+    --artisan-bg-mid:        #F4EEFF; /* mid background wash                */
+    --artisan-bg-deep:       #EDE0F9; /* deepest background section tint    */
+
+    /* ── Artisan Text ───────────────────────────────────── */
+    --artisan-text:          #2D0E5A; /* primary body text                  */
+    --artisan-text-mid:      #4A2560; /* medium emphasis text               */
+    --artisan-text-muted:    #6B4A80; /* muted / secondary text             */
+    --artisan-text-faint:    #9B7AB0; /* placeholder, disabled text         */
+
+    /* ── Artisan Surfaces ───────────────────────────────── */
+    --artisan-surface:       rgba(255, 255, 255, 0.85); /* card / nav glass */
+    --artisan-surface-mid:   rgba(255, 255, 255, 0.70); /* lighter glass    */
+    --artisan-border:        rgba(168, 125, 200, 0.25); /* default border   */
+    --artisan-border-strong: rgba(92,  45,  145, 0.40); /* hover border     */
+
+    /* ── Artisan Gradients (as CSS strings — use in style={{}}) ──────── */
+    --artisan-gradient-btn:    linear-gradient(135deg, #5C2D91, #7B3FA0, #A87DC8);
+    --artisan-gradient-bg:     linear-gradient(170deg, #FAF8FF 0%, #F4EEFF 35%, #EDE0F9 65%, #F8F3FF 100%);
+    --artisan-gradient-footer: linear-gradient(135deg, #2D0E5A, #4A2580);
+
+    /* ── Artisan Shadows ────────────────────────────────── */
+    --artisan-shadow-sm:  0 4px 16px rgba(92, 45, 145, 0.12);
+    --artisan-shadow-md:  0 8px 30px rgba(92, 45, 145, 0.22);
+    --artisan-shadow-lg:  0 20px 60px rgba(92, 45, 145, 0.30);
+
+    /* ── Artisan Border Radius ──────────────────────────── */
+    --artisan-radius-card:   22px;
+    --artisan-radius-pill:   50px;
+    --artisan-radius-badge:  20px;
+    --artisan-radius-input:  12px;
+
+    /* ── Existing Radix UI / shadcn tokens (unchanged) ──── */
+    --background:              0 0% 100%;
+    --foreground:              222.2 84% 4.9%;
+    --card:                    0 0% 100%;
+    --card-foreground:         222.2 84% 4.9%;
+    --popover:                 0 0% 100%;
+    --popover-foreground:      222.2 84% 4.9%;
+    --primary:                 222.2 47.4% 11.2%;
+    --primary-foreground:      210 40% 98%;
+    --secondary:               210 40% 96.1%;
+    --secondary-foreground:    222.2 47.4% 11.2%;
+    --muted:                   210 40% 96.1%;
+    --muted-foreground:        215.4 16.3% 46.9%;
+    --accent:                  210 40% 96.1%;
+    --accent-foreground:       222.2 47.4% 11.2%;
+    --destructive:             0 84.2% 60.2%;
+    --destructive-foreground:  210 40% 98%;
+    --border:                  214.3 31.8% 91.4%;
+    --input:                   214.3 31.8% 91.4%;
+    --ring:                    222.2 84% 4.9%;
+    --radius:                  0.5rem;
+  }
+
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-[#FAF8F1] text-gray-900;
-    /* Changed to use Poppins as the default font */
-    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-      Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    /* Design A base background — lavender-cream (replaces warm cream #FAF8F1).
+       Individual pages override with their own richer gradients. */
+    background-color: var(--artisan-bg);
+    color: var(--artisan-text);
+
+    /* Body font: Inter for UI text (Design A). Poppins kept as fallback
+       so existing components that rely on Tailwind's font-sans still work. */
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont,
+      'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans',
+      'Droid Sans', 'Helvetica Neue', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 }
 
+/* ── Design A — Reusable Utility Classes ─────────────────────────────── */
 @layer utilities {
+  /* Text balance (unchanged) */
   .text-balance {
     text-wrap: balance;
   }
+
+  /* ── Artisan gradient text ── */
+  .text-artisan-gradient {
+    background: var(--artisan-gradient-btn);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Artisan glass surface ── */
+  .artisan-glass {
+    background: var(--artisan-surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--artisan-border);
+  }
+
+  /* ── Artisan page background ── */
+  .artisan-page-bg {
+    background:
+      radial-gradient(ellipse 800px 600px at 10% 0%,  rgba(168, 125, 200, 0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 600px 500px at 90% 20%, rgba(92,  45,  145, 0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 900px 400px at 50% 100%,rgba(201, 160, 220, 0.10) 0%, transparent 60%),
+      linear-gradient(170deg, #FAF8FF 0%, #F4EEFF 35%, #EDE0F9 65%, #F8F3FF 100%);
+  }
+
+  /* ── Artisan section divider (brush stroke style) ── */
+  .artisan-divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(168, 125, 200, 0.4) 30%,
+      rgba(201, 160, 220, 0.5) 60%,
+      transparent 100%
+    );
+  }
+
+  /* ── Cross-stitch pattern overlay (artisan branding detail) ── */
+  .artisan-xstitch-bg {
+    background-image:
+      repeating-linear-gradient(45deg,  currentColor 0, currentColor 1px, transparent 0, transparent 50%),
+      repeating-linear-gradient(-45deg, currentColor 0, currentColor 1px, transparent 0, transparent 50%);
+    background-size: 12px 12px;
+  }
+
+  /* ── Artisan card hover (shared bounce-up) ── */
+  .artisan-card-hover {
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.4s ease,
+                border-color 0.3s ease;
+  }
+
+  .artisan-card-hover:hover {
+    transform: translateY(-10px);
+    box-shadow: var(--artisan-shadow-lg);
+    border-color: var(--artisan-border-strong);
+  }
+}
+
+/* ── Design A — Keyframe Animations ─────────────────────────────────── */
+@layer utilities {
+  /* Floating orb (hero background decoration) */
+  @keyframes artisan-float-orb {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%       { transform: translate(20px, -20px) scale(1.05); }
+  }
+
+  /* Blob morphing (hero visual) */
+  @keyframes artisan-blob-morph {
+    0%, 100% { border-radius: 60% 40% 50% 50% / 40% 50% 60% 50%; }
+    33%       { border-radius: 50% 60% 40% 50% / 60% 40% 50% 40%; }
+    66%       { border-radius: 40% 50% 60% 40% / 50% 60% 40% 60%; }
+  }
+
+  /* Badge float (hero floating labels) */
+  @keyframes artisan-badge-float {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-8px); }
+  }
+
+  /* Dot pulse (live indicator) */
+  @keyframes artisan-dot-pulse {
+    0%, 100% { opacity: 1;   transform: scale(1);    }
+    50%       { opacity: 0.5; transform: scale(0.75); }
+  }
+
+  /* Ink reveal (underline slide-in on links) */
+  @keyframes artisan-ink-reveal {
+    from { width: 0; }
+    to   { width: 100%; }
+  }
+
+  /* Slow rotate (decorative ring elements) */
+  @keyframes artisan-rotate-slow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* Utility animation classes */
+  .animate-artisan-float     { animation: artisan-float-orb    12s ease-in-out infinite; }
+  .animate-artisan-blob      { animation: artisan-blob-morph    8s ease-in-out infinite; }
+  .animate-artisan-badge     { animation: artisan-badge-float   5s ease-in-out infinite; }
+  .animate-artisan-pulse     { animation: artisan-dot-pulse     2.5s ease-in-out infinite; }
+  .animate-artisan-rotate    { animation: artisan-rotate-slow  20s linear infinite; }
 }

@@ -21,7 +21,7 @@ const PageContainer = ({ size = 'wide', className = '', children, ...rest }) => 
   const maxWidth = sizeClasses[size] ?? sizeClasses.wide;
 
   return (
-    <div className={`${maxWidth} mx-auto w-full px-4 sm:px-6 lg:px-8 ${className}`} {...rest}>
+    <div className={`${maxWidth} mx-auto w-full px-5 sm:px-6 lg:px-8 ${className}`} {...rest}>
       {children}
     </div>
   );

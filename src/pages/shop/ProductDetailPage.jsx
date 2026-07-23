@@ -244,7 +244,7 @@ const ProductDetailPage = () => {
           <Star
             key={i}
             size={18}
-            className={i <= rating ? "text-yellow-500 fill-current" : "text-gray-300"}
+            className={i <= rating ? "fill-current text-[#C992D8]" : "text-[#E7DDEB]"}
           />
         ))}
       </div>
@@ -266,7 +266,7 @@ const ProductDetailPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
+        <div className="h-16 w-16 animate-spin rounded-full border-4 border-[#5C2D91] border-t-transparent"></div>
       </div>
     );
   }
@@ -277,7 +277,7 @@ const ProductDetailPage = () => {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-red-600 mb-4">Product Not Found</h1>
           <Link to="/gallery">
-            <Button className="bg-[#118C8C] hover:bg-[#0d7070]">Back to Gallery</Button>
+            <Button className="bg-[#5C2D91] hover:bg-[#4A2578]">Back to Gallery</Button>
           </Link>
         </div>
       </div>
@@ -306,24 +306,24 @@ const ProductDetailPage = () => {
       <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
 
       <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto px-6 max-w-5xl">
-          <div className="flex justify-between items-center mb-8">
-            <Link to="/gallery" className="inline-flex items-center gap-2 text-[#118C8C] hover:underline">
+        <div className="container mx-auto max-w-6xl px-5 py-2 sm:px-6 lg:px-8">
+          <div className="mb-8 flex items-center justify-between border-b border-[#E6DDEB] pb-5">
+            <Link to="/gallery" className="inline-flex items-center gap-2 font-semibold text-[#5C2D91] transition-colors hover:text-[#4A2578] hover:underline">
               <ArrowLeft size={20} /> Back to Gallery
             </Link>
             {isAdmin && !editing && (
-              <Button onClick={() => setEditing(true)} variant="outline" className="border-[#118C8C] text-[#118C8C]">
+              <Button onClick={() => setEditing(true)} variant="outline" className="border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]">
                 <Edit className="mr-2" /> Edit Product
               </Button>
             )}
           </div>
 
           {/* MAIN PRODUCT CARD */}
-          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-0 mb-12">
+          <div className="mb-12 grid grid-cols-1 overflow-hidden rounded-[2rem] border border-[#E6DDEB] bg-white shadow-2xl shadow-[#2D0E5A]/15 md:grid-cols-[1.05fr_0.95fr]">
             {/* Images Section */}
             <div className="relative">
               {/* Main Image */}
-              <div className="aspect-square overflow-hidden bg-gray-100 relative group">
+              <div className="group relative aspect-square overflow-hidden bg-[#F5EFF8]">
                 {currentImage ? (
                   <img 
                     src={currentImage} 
@@ -341,13 +341,13 @@ const ProductDetailPage = () => {
                   <>
                     <button
                       onClick={prevImage}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-sm"
+                      className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/35 bg-[#5C2D91]/80 p-3 text-white opacity-100 shadow-lg backdrop-blur-sm transition-colors hover:bg-[#4A2578] md:opacity-0 md:group-hover:opacity-100"
                     >
                       <ChevronLeft size={32} />
                     </button>
                     <button
                       onClick={nextImage}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-4 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 backdrop-blur-sm"
+                      className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/35 bg-[#5C2D91]/80 p-3 text-white opacity-100 shadow-lg backdrop-blur-sm transition-colors hover:bg-[#4A2578] md:opacity-0 md:group-hover:opacity-100"
                     >
                       <ChevronRight size={32} />
                     </button>
@@ -357,13 +357,13 @@ const ProductDetailPage = () => {
 
               {/* Thumbnails / Previews (editable in edit mode) */}
               {allImages.length > 0 && (
-                <div className="flex gap-2 p-4 bg-gray-50 flex-wrap justify-center">
+                <div className="flex flex-wrap justify-center gap-2 bg-[#FAF6FC] p-4">
                   {allImages.map((img, idx) => (
                     <div key={idx} className="relative group w-20 h-20">
                       <button
                         onClick={() => setMainImageIndex(idx)}
                         className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all ${
-                          idx === mainImageIndex ? 'border-[#118C8C] shadow-lg scale-105' : 'border-gray-300 hover:border-[#118C8C]/50'
+                          idx === mainImageIndex ? 'border-[#5C2D91] shadow-lg scale-105' : 'border-[#DCCBE7] hover:border-[#5C2D91]/50'
                         }`}
                       >
                         <img src={img} alt={`thumb ${idx + 1}`} className="w-full h-full object-cover" />
@@ -388,7 +388,7 @@ const ProductDetailPage = () => {
 
               {/* Add Images Button (only in edit mode) */}
               {editing && (
-                <div className="p-4 bg-gray-50 text-center">
+                <div className="bg-[#FAF6FC] p-4 text-center">
                   <input 
                     ref={fileInputRef} 
                     type="file" 
@@ -403,7 +403,7 @@ const ProductDetailPage = () => {
                     size="lg" 
                     onClick={() => fileInputRef.current?.click()} 
                     disabled={uploading}
-                    className="border-[#118C8C] text-[#118C8C] hover:bg-[#118C8C]/10"
+                    className="border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]"
                   >
                     <Plus className="mr-2" /> {uploading ? "Uploading..." : "Add More Images"}
                   </Button>
@@ -413,14 +413,14 @@ const ProductDetailPage = () => {
             </div>
 
             {/* Details Section */}
-            <div className="p-10 md:p-16 flex flex-col justify-center space-y-8">
+            <div className="flex flex-col justify-center space-y-7 p-7 md:p-10 lg:p-12">
               {editing ? (
                 <>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="text-4xl md:text-5xl font-bold text-[#118C8C] border-b-2 border-gray-300 focus:border-[#118C8C] outline-none" required />
+                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border-b-2 border-[#DCCBE7] text-4xl font-bold text-[#5C2D91] outline-none focus:border-[#5C2D91] md:text-5xl" required />
                   <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="text-lg text-gray-700 border rounded-lg p-4 h-40" required />
                   <div className="space-y-2">
-                    <label className="text-xl font-bold text-[#118C8C]">Price in PHP (₱)</label>
-                    <input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="text-5xl font-bold text-[#F2BB16] w-full border-b-4 border-[#F2BB16] focus:border-[#118C8C] outline-none bg-transparent" placeholder="12000" required />
+                    <label className="text-xl font-bold text-[#5C2D91]">Price in PHP (₱)</label>
+                    <input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full border-b-4 border-[#C992D8] bg-transparent text-5xl font-bold text-[#7B3FA0] outline-none focus:border-[#5C2D91]" placeholder="12000" required />
                     <p className="text-lg text-gray-600">Current: {formatPrice(product.price)}</p>
                   </div>
                   <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="px-4 py-3 border rounded-lg text-lg">
@@ -430,28 +430,28 @@ const ProductDetailPage = () => {
 
                   <div className="space-y-6 pt-6 border-t">
                     <label className="flex items-center gap-4 text-lg">
-                      <input type="checkbox" checked={form.inStock} onChange={e => setForm({ ...form, inStock: e.target.checked })} className="w-6 h-6 text-[#118C8C] rounded focus:ring-[#118C8C]" />
+                      <input type="checkbox" checked={form.inStock} onChange={e => setForm({ ...form, inStock: e.target.checked })} className="h-6 w-6 rounded text-[#5C2D91] focus:ring-[#5C2D91]" />
                       <span className="font-medium">In Stock</span>
                     </label>
                     <div>
                       <label className="block text-lg font-medium mb-2">Stock Quantity</label>
-                      <input type="number" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-xl" placeholder="0" min="0" />
+                      <input type="number" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full rounded-xl border-2 border-[#DCCBE7] px-5 py-4 text-xl focus:border-[#5C2D91]" placeholder="0" min="0" />
                     </div>
                   </div>
                 </>
               ) : (
                 <>
-                  <span className="text-sm font-bold text-[#F2BB16] uppercase tracking-wider mb-3">
+                  <span className="mb-3 text-sm font-bold uppercase tracking-wider text-[#7B3FA0]">
                     {product.category}
                   </span>
-                  <h1 className="text-4xl md:text-5xl font-bold text-[#118C8C] mb-6">
+                  <h1 className="mb-6 font-artisan-display text-4xl font-bold text-[#2A1739] md:text-5xl">
                     {product.name}
                   </h1>
 
                   {totalReviews > 0 && (
                     <div className="flex items-center gap-3 mb-4">
                       {renderStars(Math.round(averageRating))}
-                      <span className="text-2xl font-bold text-[#118C8C]">{averageRating}</span>
+                      <span className="text-2xl font-bold text-[#5C2D91]">{averageRating}</span>
                       <span className="text-gray-600">({totalReviews} reviews)</span>
                     </div>
                   )}
@@ -469,17 +469,17 @@ const ProductDetailPage = () => {
               )}
 
               <div className="py-6">
-                <span className="text-5xl font-bold text-[#F2BB16]">
+                <span className="text-5xl font-bold text-[#7B3FA0]">
                   {formatPrice(product.price)}
                 </span>
               </div>
 
               {!isAdmin && !editing && product.inStock && (
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" onClick={() => addToCart(product)} className="bg-[#118C8C] hover:bg-[#0d7070] flex-1 font-semibold" disabled={product.stockQuantity === 0}>
+                  <Button size="lg" onClick={() => addToCart(product)} className="flex-1 bg-[#5C2D91] font-semibold hover:bg-[#4A2578]" disabled={product.stockQuantity === 0}>
                     {product.stockQuantity === 0 ? "Out of Stock" : "Add to Cart"}
                   </Button>
-                  <Button size="lg" variant="outline" className="border-[#118C8C] text-[#118C8C] flex-1">
+                  <Button size="lg" variant="outline" className="flex-1 border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]">
                     Contact for Custom Order
                   </Button>
                 </div>
@@ -504,8 +504,8 @@ const ProductDetailPage = () => {
 
           {/* REVIEWS SECTION */}
           {totalReviews > 0 && (
-            <div className="mt-12 bg-white rounded-3xl shadow-lg p-10 mb-12">
-              <h2 className="text-3xl font-bold text-[#118C8C] mb-8">Customer Reviews</h2>
+            <div className="mb-12 mt-12 rounded-[2rem] border border-[#E6DDEB] bg-white p-7 shadow-xl shadow-[#2D0E5A]/10 md:p-10">
+              <h2 className="mb-8 font-artisan-display text-4xl font-bold text-[#2A1739]">Customer Reviews</h2>
               <div className="space-y-8">
                 {reviews.map(review => (
                   <div key={review.id} className="border-b pb-8 last:border-0">
@@ -513,7 +513,7 @@ const ProductDetailPage = () => {
                       {review.buyerPhoto ? (
                         <img src={review.buyerPhoto} alt={review.buyerName} className="w-14 h-14 rounded-full object-cover" />
                       ) : (
-                        <div className="w-14 h-14 bg-[#118C8C] rounded-full flex items-center justify-center text-white font-bold text-xl">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#5C2D91] text-xl font-bold text-white">
                           {review.buyerName[0]?.toUpperCase() || "U"}
                         </div>
                       )}
@@ -534,13 +534,13 @@ const ProductDetailPage = () => {
                     </div>
 
                     {review.adminReply ? (
-                      <div className="mt-6 ml-20 p-6 bg-blue-50 rounded-xl border-l-4 border-[#118C8C]">
+                      <div className="ml-0 mt-6 rounded-xl border-l-4 border-[#7B3FA0] bg-[#F7F0FA] p-6 sm:ml-20">
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 bg-[#118C8C] rounded-full flex items-center justify-center text-white font-bold">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5C2D91] font-bold text-white">
                             A
                           </div>
                           <div>
-                            <p className="font-bold text-[#118C8C]">Admin Reply</p>
+                            <p className="font-bold text-[#5C2D91]">Admin Reply</p>
                             <p className="text-xs text-gray-600">
                               {review.adminRepliedAt?.toDate?.().toLocaleDateString()}
                             </p>
@@ -549,7 +549,7 @@ const ProductDetailPage = () => {
                         <p className="text-gray-800">{review.adminReply}</p>
                       </div>
                     ) : isAdmin && (
-                      <div className="mt-6 ml-20">
+                      <div className="ml-0 mt-6 sm:ml-20">
                         {replyingTo === review.id ? (
                           <div className="flex gap-3">
                             <textarea
@@ -559,7 +559,7 @@ const ProductDetailPage = () => {
                               className="flex-1 px-4 py-3 border rounded-lg resize-none h-24"
                             />
                             <div className="flex flex-col gap-2">
-                              <Button onClick={() => sendReply(review.id)} size="sm" className="bg-[#118C8C]">
+                              <Button onClick={() => sendReply(review.id)} size="sm" className="bg-[#5C2D91] hover:bg-[#4A2578]">
                                 Send
                               </Button>
                               <Button onClick={() => { setReplyingTo(null); setReplyText(""); }} variant="outline" size="sm">
@@ -572,7 +572,7 @@ const ProductDetailPage = () => {
                             onClick={() => setReplyingTo(review.id)}
                             variant="outline"
                             size="sm"
-                            className="text-[#118C8C] border-[#118C8C] hover:bg-[#118C8C]/10"
+                            className="border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]"
                           >
                             <MessageCircle className="mr-2" size={16} /> Reply
                           </Button>
@@ -587,8 +587,8 @@ const ProductDetailPage = () => {
 
           {/* UNIFIED "YOU MAY ALSO LIKE" CAROUSEL */}
           {recommended.length > 0 && (
-            <div className="mt-16 bg-white rounded-3xl shadow-2xl p-10">
-              <h2 className="text-4xl font-bold text-center text-[#118C8C] mb-12">
+            <div className="mt-16 rounded-[2rem] border border-[#E6DDEB] bg-white p-7 shadow-2xl shadow-[#2D0E5A]/15 md:p-10">
+              <h2 className="mb-12 text-center font-artisan-display text-4xl font-bold text-[#2A1739]">
                 You May Also Like
               </h2>
 
@@ -624,20 +624,20 @@ const ProductDetailPage = () => {
                               </div>
                             )}
                             {new Date(item.createdAt?.seconds * 1000) > new Date(Date.now() - 7*24*60*60*1000) && (
-                              <div className="absolute top-3 right-3 bg-[#118C8C] text-white px-4 py-1 rounded-full text-xs font-bold shadow">
+                              <div className="absolute right-3 top-3 rounded-full bg-[#5C2D91] px-4 py-1 text-xs font-bold text-white shadow">
                                 NEW
                               </div>
                             )}
                           </div>
 
                           <div className="p-6 text-center">
-                            <h3 className="font-bold text-[#118C8C] line-clamp-2 mb-3 group-hover:text-[#0d7070] transition-colors">
+                            <h3 className="mb-3 line-clamp-2 font-bold text-[#5C2D91] transition-colors group-hover:text-[#4A2578]">
                               {item.name}
                             </h3>
                             <div className="flex justify-center gap-2 mb-3">
                               {renderStars(Math.round(item.averageRating || 0))}
                             </div>
-                            <p className="text-2xl font-bold text-[#F2BB16]">
+                            <p className="text-2xl font-bold text-[#7B3FA0]">
                               {formatPrice(item.price)}
                             </p>
                           </div>
@@ -653,13 +653,13 @@ const ProductDetailPage = () => {
                       onClick={prevSlide}
                       className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-lg p-5 rounded-full shadow-2xl hover:scale-110 transition z-10 border border-gray-200"
                     >
-                      <ChevronLeft size={32} className="text-[#118C8C]" />
+                      <ChevronLeft size={32} className="text-[#5C2D91]" />
                     </button>
                     <button 
                       onClick={nextSlide}
                       className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white/90 backdrop-blur-lg p-5 rounded-full shadow-2xl hover:scale-110 transition z-10 border border-gray-200"
                     >
-                      <ChevronRight size={32} className="text-[#118C8C]" />
+                      <ChevronRight size={32} className="text-[#5C2D91]" />
                     </button>
                   </>
                 )}

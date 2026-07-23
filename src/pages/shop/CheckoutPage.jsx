@@ -334,12 +334,12 @@ const CheckoutPage = () => {
           <title>Checkout - D.A.B.S. Co.</title>
         </Helmet>
 
-        <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+        <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
           <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
             <Grainient
-              color1="#118c8c"
-              color2="#118c8c"
-              color3="#fbfe9f"
+              color1="#5C2D91"
+              color2="#7B3FA0"
+              color3="#C9A0DC"
               timeSpeed={0.25}
               colorBalance={-0.06}
               warpStrength={1.5}
@@ -363,15 +363,15 @@ const CheckoutPage = () => {
 
             <div className="absolute inset-0 pointer-events-none">
               <Particles
-                particleCount={400}
+                particleCount={180}
                 particleSpread={10}
                 speed={0.1}
-                particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+                particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
                 moveParticlesOnHover
                 particleHoverFactor={1}
                 alphaParticles={false}
-                particleBaseSize={150}
-                sizeRandomness={1.7}
+                particleBaseSize={120}
+                sizeRandomness={1.4}
                 cameraDistance={53}
                 disableRotation={false}
               />
@@ -381,12 +381,12 @@ const CheckoutPage = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative z-10 container mx-auto px-4 py-12 max-w-4xl"
+            className="relative z-10 container mx-auto max-w-4xl px-5 py-14 sm:px-8 md:py-20"
           >
-            <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-xl p-8 md:p-12 border border-white/30">
+            <div className="rounded-[2rem] border border-white/45 bg-white/95 p-7 shadow-2xl shadow-[#2D0E5A]/30 backdrop-blur-md md:p-12">
               <div className="text-center mb-10">
                 <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
-                <h2 className="text-3xl font-bold text-[#118C8C] mb-4">Thank You!</h2>
+                <h2 className="mb-4 font-artisan-display text-4xl font-bold text-[#2A1739]">Thank You!</h2>
                 <p className="text-lg text-gray-700 mb-2">Your order has been placed successfully.</p>
                 <p className="text-sm text-gray-500">
                   Order ID: <span className="font-mono font-bold">{orderId?.slice(0, 8)}</span>
@@ -394,8 +394,8 @@ const CheckoutPage = () => {
               </div>
 
               <div className="space-y-10">
-                <div className="border-l-4 border-[#118C8C] pl-6">
-                  <h3 className="text-2xl font-bold text-[#118C8C] mb-4">Next Steps</h3>
+                <div className="border-l-4 border-[#7B3FA0] pl-6">
+                  <h3 className="mb-4 font-artisan-display text-3xl font-bold text-[#5C2D91]">Next Steps</h3>
                   <p className="text-gray-700 mb-4">
                     {paymentMethod === 'bank'
                       ? 'Please transfer the total amount to the BDO account shown below. Include your Order ID in the reference.'
@@ -404,7 +404,7 @@ const CheckoutPage = () => {
                 </div>
 
                 {paymentMethod === 'bank' && (
-                  <div className="p-6 bg-gray-50 rounded-2xl">
+                  <div className="rounded-2xl bg-[#FAF6FC] p-6">
                     <p className="font-semibold mb-2">Bank Details:</p>
                     <p>
                       Bank: <strong>{bankDetails.bankName}</strong>
@@ -437,7 +437,7 @@ const CheckoutPage = () => {
                   </p>
                   <Button
                     onClick={() => navigate('/buyer-dashboard')}
-                    className="bg-[#118C8C] hover:bg-[#0d7070] px-10 rounded-2xl"
+                    className="rounded-2xl bg-[#5C2D91] px-10 hover:bg-[#4A2578]"
                   >
                     Go to Dashboard
                   </Button>
@@ -456,12 +456,12 @@ const CheckoutPage = () => {
         <title>Checkout - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -485,48 +485,48 @@ const CheckoutPage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="relative z-10 container mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mb-8 rounded-3xl bg-white/90 backdrop-blur-md border border-white/30 shadow-lg p-6 md:p-8"
+            className="mb-8 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#118C8C] mb-3">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#F0E6F7] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#5C2D91]">
               <Sparkles size={14} />
               Secure Checkout
             </div>
 
-            <h1 className="text-3xl md:text-4xl font-bold text-[#118C8C] mb-2">Checkout</h1>
+            <h1 className="mb-2 font-artisan-display text-4xl font-bold text-[#2A1739] md:text-5xl">Checkout</h1>
             <p className="text-gray-600">Confirm your shipping details, payment method, and order.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md border border-white/30 p-6">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
+            <div className="space-y-8">
+              <div className="rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
                 <div className="flex justify-between items-center mb-4 gap-4">
-                  <h2 className="text-xl font-bold text-gray-800">Shipping Address</h2>
+                  <h2 className="font-artisan-display text-3xl font-bold text-[#2A1739]">Shipping Address</h2>
                   <button
                     onClick={() => {
                       if (editAddress) saveAddressToProfile();
                       setEditAddress(!editAddress);
                     }}
-                    className="text-[#118C8C] hover:underline flex items-center gap-1 shrink-0"
+                    className="flex shrink-0 items-center gap-1 font-semibold text-[#5C2D91] hover:underline"
                   >
                     <Edit size={16} /> {editAddress ? 'Done' : 'Edit'}
                   </button>
@@ -596,7 +596,7 @@ const CheckoutPage = () => {
                       <button
                         type="button"
                         onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
-                        className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 border-2 border-gray-300 rounded-2xl hover:bg-gray-100 transition"
+                      className="flex w-full items-center justify-between rounded-2xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-5 py-4 text-[#2A1739] transition hover:bg-[#F0E6F7]"
                       >
                         <div className="flex items-center gap-3">
                           <img src={formData.countryObj.flag} alt="" className="w-8 h-6 rounded" />
@@ -606,14 +606,14 @@ const CheckoutPage = () => {
                       </button>
 
                       {isAddressCountryOpen && (
-                        <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                        <div className="absolute z-50 mt-2 max-h-96 w-full overflow-y-auto rounded-2xl border border-[#DCCBE7] bg-white shadow-2xl">
                           <div className="p-4 border-b">
                             <input
                               type="text"
                               placeholder="Search country..."
                               value={addressCountrySearch}
                               onChange={(e) => setAddressCountrySearch(e.target.value)}
-                              className="w-full px-4 py-3 border rounded-2xl"
+                              className="w-full rounded-2xl border border-[#DCCBE7] px-4 py-3 text-[#2A1739] focus:border-[#5C2D91] focus:outline-none"
                               autoFocus
                             />
                           </div>
@@ -622,7 +622,7 @@ const CheckoutPage = () => {
                               key={country.code}
                               type="button"
                               onClick={() => selectCountry(country)}
-                              className="w-full text-left px-5 py-4 hover:bg-gray-50 flex items-center gap-4"
+                              className="flex w-full items-center gap-4 px-5 py-4 text-left text-[#2A1739] hover:bg-[#FAF6FC]"
                             >
                               <img src={country.flag} alt="" className="w-10 h-7 rounded" />
                               <span>{country.name}</span>
@@ -664,8 +664,8 @@ const CheckoutPage = () => {
                     <label
                       className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
                         deliveryMethod === 'courier'
-                          ? 'border-[#118C8C] bg-[#118C8C]/5'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-[#5C2D91] bg-[#F0E6F7]'
+                          : 'border-[#E6DDEB] hover:border-[#C992D8]'
                       }`}
                     >
                       <input
@@ -674,7 +674,7 @@ const CheckoutPage = () => {
                         value="courier"
                         checked={deliveryMethod === 'courier'}
                         onChange={() => setDeliveryMethod('courier')}
-                        className="w-5 h-5 text-[#118C8C]"
+                        className="h-5 w-5 text-[#5C2D91]"
                       />
                       <div>
                         <p className="font-medium">Courier Shipping (Seller Drop-Off)</p>
@@ -687,8 +687,8 @@ const CheckoutPage = () => {
                     <label
                       className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
                         deliveryMethod === 'pickup'
-                          ? 'border-[#118C8C] bg-[#118C8C]/5'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-[#5C2D91] bg-[#F0E6F7]'
+                          : 'border-[#E6DDEB] hover:border-[#C992D8]'
                       }`}
                     >
                       <input
@@ -697,7 +697,7 @@ const CheckoutPage = () => {
                         value="pickup"
                         checked={deliveryMethod === 'pickup'}
                         onChange={() => setDeliveryMethod('pickup')}
-                        className="w-5 h-5 text-[#118C8C]"
+                        className="h-5 w-5 text-[#5C2D91]"
                       />
                       <div>
                         <p className="font-medium">Local Pickup</p>
@@ -710,8 +710,8 @@ const CheckoutPage = () => {
                 </div>
               </div>
 
-              <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md border border-white/30 p-6">
-                <h2 className="text-xl font-bold mb-6">Order Summary</h2>
+              <div className="rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
+                <h2 className="mb-6 font-artisan-display text-3xl font-bold text-[#2A1739]">Order Summary</h2>
 
                 {cartItems.length === 0 ? (
                   <p className="text-gray-500">No items in cart.</p>
@@ -756,7 +756,7 @@ const CheckoutPage = () => {
                             <Trash2 size={18} />
                           </button>
 
-                          <p className="font-bold text-[#118C8C] min-w-[80px] text-right">
+                          <p className="min-w-[80px] text-right font-bold text-[#5C2D91]">
                             {formatPrice(item.price * item.quantity)}
                           </p>
                         </div>
@@ -778,16 +778,16 @@ const CheckoutPage = () => {
               </div>
             </div>
 
-            <div className="space-y-8">
-              <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md border border-white/30 p-6">
-                <h2 className="text-xl font-bold mb-6">Select Payment Method</h2>
+            <aside className="space-y-8 lg:sticky lg:top-24 lg:h-fit">
+              <div className="rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
+                <h2 className="mb-6 font-artisan-display text-3xl font-bold text-[#2A1739]">Select Payment Method</h2>
 
                 <div className="space-y-4">
                   <label
                     className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
                       paymentMethod === 'bank'
-                        ? 'border-[#118C8C] bg-[#118C8C]/5'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-[#5C2D91] bg-[#F0E6F7]'
+                        : 'border-[#E6DDEB] hover:border-[#C992D8]'
                     }`}
                   >
                     <input
@@ -796,20 +796,20 @@ const CheckoutPage = () => {
                       value="bank"
                       checked={paymentMethod === 'bank'}
                       onChange={() => setPaymentMethod('bank')}
-                      className="w-5 h-5 text-[#118C8C]"
+                      className="h-5 w-5 text-[#5C2D91]"
                     />
                     <div className="flex-grow">
                       <p className="font-medium">Bank Transfer</p>
                       <p className="text-sm text-gray-600">Transfer to our BDO account</p>
                     </div>
-                    {paymentMethod === 'bank' && <CheckCircle size={20} className="text-[#118C8C]" />}
+                    {paymentMethod === 'bank' && <CheckCircle size={20} className="text-[#5C2D91]" />}
                   </label>
 
                   <label
                     className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
                       paymentMethod === 'paypal'
-                        ? 'border-[#118C8C] bg-[#118C8C]/5'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-[#5C2D91] bg-[#F0E6F7]'
+                        : 'border-[#E6DDEB] hover:border-[#C992D8]'
                     }`}
                   >
                     <input
@@ -818,18 +818,18 @@ const CheckoutPage = () => {
                       value="paypal"
                       checked={paymentMethod === 'paypal'}
                       onChange={() => setPaymentMethod('paypal')}
-                      className="w-5 h-5 text-[#118C8C]"
+                      className="h-5 w-5 text-[#5C2D91]"
                     />
                     <div className="flex-grow">
                       <p className="font-medium">PayPal</p>
                       <p className="text-sm text-gray-600">Pay securely via PayPal</p>
                     </div>
-                    {paymentMethod === 'paypal' && <CheckCircle size={20} className="text-[#118C8C]" />}
+                    {paymentMethod === 'paypal' && <CheckCircle size={20} className="text-[#5C2D91]" />}
                   </label>
                 </div>
 
                 {paymentMethod === 'paypal' && showPayPal && (
-                  <div className="mt-6 p-6 bg-gray-50 rounded-2xl">
+                  <div className="mt-6 rounded-2xl bg-[#FAF6FC] p-6">
                     <p className="font-semibold mb-4 text-center text-lg">Complete Payment with PayPal</p>
                     <PayPalScriptProvider
                       options={{
@@ -877,14 +877,14 @@ const CheckoutPage = () => {
                 )}
               </div>
 
-              <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md border border-white/30 p-6">
-                <h2 className="text-xl font-bold mb-6">Order Detail</h2>
-                <div className="space-y-3 text-gray-700">
+              <div className="rounded-[2rem] border border-white/25 bg-[#2D0E5A]/95 p-6 text-white shadow-2xl shadow-[#2D0E5A]/35 backdrop-blur-md">
+                <h2 className="mb-6 font-artisan-display text-3xl font-bold text-white">Order Detail</h2>
+                <div className="space-y-3 text-white/85">
                   <div className="flex justify-between">
                     <span>Subtotal ({checkedIds.length} Items)</span>
                     <span>{formatPrice(selectedTotal)}</span>
                   </div>
-                  <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t">
+                  <div className="flex justify-between border-t border-white/20 pt-3 text-xl font-bold text-white">
                     <span>Total</span>
                     <span>{formatPrice(grandTotal)}</span>
                   </div>
@@ -900,13 +900,13 @@ const CheckoutPage = () => {
                       !deliveryMethod ||
                       !paymentMethod
                     }
-                    className="w-full mt-8 bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 text-lg rounded-2xl"
+                    className="mt-8 w-full rounded-2xl bg-[#F0E6F7] py-4 text-lg font-bold text-[#4A2578] hover:bg-white"
                   >
                     {loading ? 'Placing Order...' : 'PLACE ORDER NOW'}
                   </Button>
                 )}
               </div>
-            </div>
+            </aside>
           </div>
         </div>
       </div>
