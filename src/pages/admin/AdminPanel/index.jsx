@@ -11,13 +11,10 @@ import { db } from '@/lib/firebase';
 import {
   collection,
   onSnapshot,
-  query,
-  orderBy,
   doc,
   updateDoc,
   getDoc,
   increment,
-  getDocs,
   serverTimestamp
 } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
@@ -102,10 +99,7 @@ const AdminPanel = () => {
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const [users, setUsers] = useState([]);
   const [userSearch, setUserSearch] = useState('');
-  const [loadingUsers, setLoadingUsers] = useState(false);
-
   useEffect(() => {
     if (!user) return;
 
@@ -122,8 +116,22 @@ const AdminPanel = () => {
     });
 
     const unsubOrders = onSnapshot(
-      query(collection(db, "orders"), orderBy("createdAt", "desc")),
-      snap => setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      collection(db, "orders"),
+      (snap) => {
+        const toMillis = (value) => {
+          if (typeof value?.toMillis === 'function') return value.toMillis();
+          if (typeof value?.toDate === 'function') return value.toDate().getTime();
+          const parsed = new Date(value || 0).getTime();
+          return Number.isFinite(parsed) ? parsed : 0;
+        };
+
+        setOrders(
+          snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+        );
+      },
+      (error) => console.error('Failed to load admin orders:', error)
     );
 
     return () => {
@@ -157,13 +165,15 @@ const AdminPanel = () => {
     });
   };
 
-  const handleCancellation = async (orderId, action) => {
+  const handleCancellation = async (orderOrId, action) => {
     if (!isAdmin) {
       alert("Permission blocked. Contact Main admin for this action.");
       return;
     }
 
-    const order = orders.find(o => o.id === orderId);
+    const order = typeof orderOrId === 'string'
+      ? orders.find((existingOrder) => existingOrder.id === orderOrId)
+      : orderOrId;
     if (!order) return;
 
     try {
@@ -177,7 +187,7 @@ const AdminPanel = () => {
             await updateDoc(productRef, { stockQuantity: newStock, inStock: true });
           }
         }
-        await updateDoc(doc(db, "orders", orderId), {
+        await updateDoc(doc(db, "orders", order.id), {
           status: "Cancelled – Pending Refund",
           cancelledAt: new Date(),
           cancelledBy: "admin"
@@ -186,7 +196,7 @@ const AdminPanel = () => {
       }
 
       if (action === "refunded") {
-        await updateDoc(doc(db, "orders", orderId), {
+        await updateDoc(doc(db, "orders", order.id), {
           status: "Refunded",
           refundedAt: new Date()
         });
@@ -248,8 +258,10 @@ const AdminPanel = () => {
     }
   };
 
-  const updateOrderStatus = async (orderId, newStatus) => {
-    const order = orders.find((o) => o.id === orderId);
+  const updateOrderStatus = async (orderOrId, newStatus) => {
+    const order = typeof orderOrId === 'string'
+      ? orders.find((existingOrder) => existingOrder.id === orderOrId)
+      : orderOrId;
     if (!order) return;
 
     const currentStatus = order.status || "pending";
@@ -285,7 +297,7 @@ const AdminPanel = () => {
         await Promise.all(promises);
       }
 
-      await updateDoc(doc(db, "orders", orderId), {
+      await updateDoc(doc(db, "orders", order.id), {
         status: newStatus,
         updatedAt: new Date()
       });
@@ -397,18 +409,19 @@ const AdminPanel = () => {
   );
 
   const filteredCompletedOrders = useMemo(() => {
-    if (!customStartDate || !customEndDate) {
-      return [];
-    }
+    if (!customStartDate && !customEndDate) return completedOrders;
 
-    const start = new Date(`${customStartDate}T00:00:00`);
-    const end = new Date(`${customEndDate}T23:59:59`);
+    const start = customStartDate ? new Date(`${customStartDate}T00:00:00`) : null;
+    const end = customEndDate ? new Date(`${customEndDate}T23:59:59.999`) : null;
 
-    return completedOrders.filter((o) => {
-      const d = o.createdAt?.toDate?.();
-      return d && d >= start && d <= end;
+    return completedOrders.filter((order) => {
+      const orderDate = order.createdAt?.toDate?.() || new Date(order.createdAt || 0);
+      if (!Number.isFinite(orderDate.getTime())) return false;
+      if (start && orderDate < start) return false;
+      if (end && orderDate > end) return false;
+      return true;
     });
-  }, [completedOrders, customStartDate, customEndDate]);
+  }, [completedOrders, customEndDate, customStartDate]);
 
   const totalIncome = useMemo(() => {
     return filteredCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -517,33 +530,6 @@ const AdminPanel = () => {
     };
   }, [filteredCompletedOrders, customStartDate, customEndDate]);
 
-  const fetchUsers = async () => {
-    setLoadingUsers(true);
-
-    try {
-      const usersSnapshot = await getDocs(collection(db, "users"));
-
-      const usersList = usersSnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
-
-      console.log("Loaded users:", usersList);
-      setUsers(usersList);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      alert(`Failed to load users: ${error.message}`);
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  useEffect(() => {
-    if (tab === "users") {
-      fetchUsers();
-    }
-  }, [tab]);
-
   const makeSubAdmin = async (userId) => {
     if (!isAdmin) {
       alert("Permission blocked. Only the main admin can manage Sub-admin accounts.");
@@ -567,7 +553,6 @@ const AdminPanel = () => {
       });
 
       alert("User is now a Sub-admin.");
-      fetchUsers();
     } catch (error) {
       console.error("Error making sub-admin:", error);
       alert("Failed to make user a Sub-admin.");
@@ -597,27 +582,11 @@ const AdminPanel = () => {
       });
 
       alert("Sub-admin access removed.");
-      fetchUsers();
     } catch (error) {
       console.error("Error removing sub-admin:", error);
       alert("Failed to remove Sub-admin access.");
     }
   };
-
-  const filteredUsers = useMemo(() => {
-    const search = userSearch.trim().toLowerCase();
-
-    return users.filter((u) => {
-      if (!search) return true;
-
-      return (
-        u.name?.toLowerCase().includes(search) ||
-        u.displayName?.toLowerCase().includes(search) ||
-        u.email?.toLowerCase().includes(search) ||
-        u.role?.toLowerCase().includes(search)
-      );
-    });
-  }, [users, userSearch]);
 
   const formatDateTime = (ts) => {
     const d = ts?.toDate?.();
@@ -670,15 +639,19 @@ const AdminPanel = () => {
 
   const completedCountAll = completedOrders.length;
   const awaitingReviewCount = orders.filter(o => isAwaitingReview(o.status)).length;
-  const onReviewCount = orders.filter(o => o.status === "on_review").length;
-  const paymentConfirmedCount = orders.filter(o => o.status === "payment_confirmed").length;
-  const processingCount = orders.filter(o => o.status === "processing").length;
-  const shippingCount = orders.filter(o => o.status === "shipping").length;
-  const declinedCount = orders.filter(o => o.status === "declined").length;
+  const onReviewCount = orders.filter(o => o.status === 'on_review').length;
+  const paymentConfirmedCount = orders.filter(o => o.status === 'payment_confirmed').length;
+  const processingCount = orders.filter(o => o.status === 'processing').length;
+  const shippingCount = orders.filter(o => o.status === 'shipping').length;
+  const declinedCount = orders.filter(o => isDeclinedOrder(o.status)).length;
   const cancelledCount = orders.filter(o =>
-    ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status)
+    ['cancelled', 'Cancelled – Pending Refund', 'Refunded'].includes(o.status)
   ).length;
-  const cancellationRequestedCount = orders.filter(o => o.status === "Cancellation Requested").length;
+  /* Legacy client-side count retained for reference during the aggregate migration.
+  const legacyCancelledCount = orders.filter(o =>
+    ["cancelled", "Cancelled – Pending Refund", "Refunded"].includes(o.status)
+  ).length; */
+  const cancellationRequestedCount = orders.filter(o => o.status === 'Cancellation Requested').length;
 
   const outOfStockCount = products.filter(p => (p.stockQuantity ?? 0) <= 0).length;
   const lowStockCount = products.filter(p => {
@@ -686,9 +659,9 @@ const AdminPanel = () => {
     return s > 0 && s <= 5;
   }).length;
 
-  const recentOrders = orders.slice(0, 8);
-  const totalAllOrders = orders.length || 1;
-  const pct = (n) => Math.round((n / totalAllOrders) * 100);
+  const recentOrders = orders.slice(0, 5);
+  const totalAllOrders = orders.length;
+  const pct = (n) => totalAllOrders > 0 ? Math.round((n / totalAllOrders) * 100) : 0;
 
   const filteredOrders = useMemo(() => {
     const term = orderSearch.trim().toLowerCase();
@@ -752,6 +725,12 @@ const AdminPanel = () => {
 
 
   const adminState = {
+    allTimeCompletedRevenue: completedOrders.reduce(
+      (sum, order) => sum + (Number(order.total) || 0),
+      0
+    ),
+    analyticsError: null,
+    analyticsLoading: false,
     avgOrderValue,
     awaitingReviewCount,
     cancellationRequestedCount,
@@ -760,11 +739,11 @@ const AdminPanel = () => {
     completedOrders,
     customEndDate,
     customStartDate,
+    dashboardMetricsError: null,
+    dashboardMetricsLoading: false,
     declinedCount,
-    fetchUsers,
     filteredCompletedOrders,
     filteredOrders,
-    filteredUsers,
     forecast,
     formatDateTime,
     formatDeliveryMethod,
@@ -780,7 +759,6 @@ const AdminPanel = () => {
     handleReviewOrder,
     isAdmin,
     isSubAdmin,
-    loadingUsers,
     lowStockCount,
     makeSubAdmin,
     navigate,
@@ -804,7 +782,6 @@ const AdminPanel = () => {
     selectedOrder,
     setCustomEndDate,
     setCustomStartDate,
-    setLoadingUsers,
     setOrderSearch,
     setOrderStatusFilter,
     setOrders,
@@ -815,7 +792,6 @@ const AdminPanel = () => {
     setSelectedOrder,
     setTab,
     setUserSearch,
-    setUsers,
     shippingCount,
     subAdminAllowedStatuses,
     tab,
@@ -825,31 +801,39 @@ const AdminPanel = () => {
     updateOrderStatus,
     user,
     userSearch,
-    users,
   };
 
   return (
     <>
       <Helmet><title>Admin Panel - D.A.B.S. Co.</title></Helmet>
 
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div className="mb-8 flex flex-col gap-4 rounded-2xl border-l-4 border-[#118C8C] bg-white p-5 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-8">
+      <div className="min-h-screen py-14 sm:py-20" style={{ background: 'var(--artisan-gradient-bg)' }}>
+        <div className="container mx-auto max-w-7xl px-5 sm:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="relative mb-6 overflow-hidden rounded-[2rem] border border-white/35 bg-gradient-to-br from-[#2D0E5A] via-artisan-primary to-artisan-primary-mid p-7 text-white shadow-2xl shadow-[#2D0E5A]/25 sm:p-10"
+          >
+            <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-artisan-primary-pale/25 blur-3xl" />
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="flex items-center gap-2 text-[#118C8C] font-bold">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary-pale">
                 {isAdmin ? "ADMIN PANEL" : "SUB-ADMIN PANEL"}
               </div>
-              <h1 className="text-3xl font-bold">Store Management</h1>
+              <h1 className="mt-2 font-artisan-display text-4xl font-bold sm:text-5xl">Store Management</h1>
+              <p className="mt-3 max-w-2xl text-sm text-white/80 sm:text-base">Manage orders, customer activity, inventory, and store performance from one workspace.</p>
+            </div>
             </div>
           </motion.div>
 
-          <div className="mb-8 rounded-2xl border border-yellow-200 bg-yellow-50 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="mb-7 flex flex-col gap-4 rounded-[1.5rem] border border-amber-200/80 bg-white/95 p-5 text-artisan-text shadow-lg shadow-[#2D0E5A]/10 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-yellow-700">Orders Banner</p>
-              <h2 className="text-xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-700">Orders requiring attention</p>
+              <h2 className="mt-1 text-xl font-bold text-artisan-text">
                 Orders awaiting review: {awaitingReviewCount}
               </h2>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="mt-1 text-sm text-artisan-text-muted">
                 New orders must be reviewed first before normal admin actions appear.
               </p>
             </div>
@@ -859,14 +843,14 @@ const AdminPanel = () => {
                 setTab("orders");
                 setOrderStatusFilter("awaiting_review");
               }}
-              className="h-12 w-full rounded-xl bg-[#118C8C] px-5 py-0 text-white hover:bg-[#0d7070] md:w-auto"
+              className="h-12 w-full px-5 py-0 md:w-auto"
             >
               Review Orders
             </Button>
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="mb-8 grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 sm:grid-cols-4">
+            <TabsList className="mb-8 grid h-auto w-full grid-cols-2 gap-2 border border-white/55 bg-white/80 p-2 shadow-lg shadow-[#2D0E5A]/10 sm:grid-cols-4">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
@@ -905,109 +889,111 @@ const AdminPanel = () => {
             />
 
             <motion.div
-              className="fixed top-0 right-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 flex flex-col"
+              className="fixed right-0 top-0 z-50 flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 240 }}
             >
-              <div className="px-6 py-5 border-b bg-gradient-to-r from-[#118C8C]/10 via-white to-[#F2BB16]/10 flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#2D0E5A] via-artisan-primary to-artisan-primary-mid px-5 py-6 text-white sm:px-7">
                 <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#118C8C]/10 text-[#118C8C] text-xs font-bold mb-3">
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold text-artisan-primary-pale">
                     <ReceiptText size={14} />
                     Order Details
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900">
+                  <h3 className="font-artisan-display text-3xl font-bold">
                     #{selectedOrderLive.id.slice(0, 8)}
                   </h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="mt-1 text-sm text-white/80">
                     Full order summary and quick admin actions
                   </p>
                 </div>
 
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                  type="button"
+                  aria-label="Close order details"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/20"
                 >
                   <CloseIcon size={18} />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/60">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Status</p>
+              <div className="flex-1 space-y-6 overflow-y-auto bg-artisan-primary-wash/35 p-4 sm:p-6">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-artisan-primary/10 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Status</p>
                     <div className="mt-2">{getStatusBadge(selectedOrderLive.status)}</div>
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Total</p>
-                    <p className="text-xl font-bold text-gray-900 mt-2">
+                  <div className="rounded-2xl border border-artisan-primary/10 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Total</p>
+                    <p className="mt-2 text-xl font-bold text-artisan-primary">
                       {formatPrice(selectedOrderLive.total || 0)}
                     </p>
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Items</p>
-                    <p className="text-xl font-bold text-gray-900 mt-2">
+                  <div className="rounded-2xl border border-artisan-primary/10 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Items</p>
+                    <p className="mt-2 text-xl font-bold text-artisan-text">
                       {selectedOrderLive.items?.length || 0}
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <h4 className="text-lg font-bold text-[#118C8C] mb-4">Customer & Order Info</h4>
+                <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
+                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Customer & Order Info</h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <Mail size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Customer</p>
-                        <p className="text-sm font-medium text-gray-900 break-all">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Customer</p>
+                        <p className="break-all text-sm font-medium text-artisan-text">
                           {selectedOrderLive.buyerName || "Guest Buyer"}
                         </p>
-                        <p className="text-sm text-gray-600 break-all mt-0.5">
+                        <p className="mt-0.5 break-all text-sm text-artisan-text-muted">
                           {selectedOrderLive.buyerEmail || "Guest"}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <Hash size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Order ID</p>
-                        <p className="text-sm font-medium text-gray-900 break-all">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Order ID</p>
+                        <p className="break-all text-sm font-medium text-artisan-text">
                           {selectedOrderLive.id}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <CalendarDays size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Date Ordered</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Date Ordered</p>
+                        <p className="text-sm font-medium text-artisan-text">
                           {formatDateTime(selectedOrderLive.createdAt)}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <Wallet size={18} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Payment Method</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Payment Method</p>
+                        <p className="text-sm font-medium text-artisan-text">
                           {formatPaymentMethod(selectedOrderLive.paymentMethod)}
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="mt-0.5 text-xs text-artisan-text-muted">
                           Delivery: {formatDeliveryMethod(selectedOrderLive.deliveryMethod)}
                         </p>
                       </div>
@@ -1015,53 +1001,53 @@ const AdminPanel = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <h4 className="text-lg font-bold text-[#118C8C] mb-4">Shipping Address</h4>
+                <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
+                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Shipping Address</h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-start gap-3 sm:col-span-2">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <User size={18} />
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Recipient</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Recipient</p>
+                        <p className="text-sm font-medium text-artisan-text">
                           {`${selectedOrderLive.shippingInfo?.firstName || ""} ${selectedOrderLive.shippingInfo?.lastName || ""}`.trim() || selectedOrderLive.buyerName || "Not provided"}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <Phone size={18} />
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Phone</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Phone</p>
+                        <p className="text-sm font-medium text-artisan-text">
                           {selectedOrderLive.shippingInfo?.phone || "Not provided"}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <Mail size={18} />
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Email</p>
-                        <p className="text-sm font-medium text-gray-900 break-all">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Email</p>
+                        <p className="break-all text-sm font-medium text-artisan-text">
                           {selectedOrderLive.shippingInfo?.email || selectedOrderLive.buyerEmail || "Not provided"}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-3 sm:col-span-2">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-artisan-primary-wash text-artisan-primary">
                         <MapPin size={18} />
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Full Address</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Full Address</p>
+                        <p className="text-sm font-medium text-artisan-text">
                           {formatFullShippingAddress(selectedOrderLive.shippingInfo)}
                         </p>
                       </div>
@@ -1069,56 +1055,56 @@ const AdminPanel = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <h4 className="text-lg font-bold text-[#118C8C] mb-4">Items Ordered</h4>
+                <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
+                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Items Ordered</h4>
 
                   <div className="space-y-3">
                     {selectedOrderLive.items?.length ? (
                       selectedOrderLive.items.map((item, index) => (
                         <div
                           key={index}
-                          className="rounded-2xl border border-gray-100 bg-gray-50 p-4 flex items-start justify-between gap-4"
+                          className="flex items-start justify-between gap-4 rounded-2xl border border-artisan-primary/10 bg-artisan-primary-wash/35 p-4"
                         >
                           <div className="flex items-start gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-600 shrink-0">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-artisan-primary/10 bg-white text-artisan-primary">
                               <Box size={18} />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 break-words">
+                              <p className="break-words font-semibold text-artisan-text">
                                 {item.name || 'Unnamed item'}
                               </p>
-                              <p className="text-sm text-gray-600 mt-1">
+                              <p className="mt-1 text-sm text-artisan-text-muted">
                                 Quantity: {item.quantity || 0}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-artisan-text-muted">
                                 Unit Price: {formatPrice(item.price || 0)}
                               </p>
                             </div>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Line Total</p>
-                            <p className="font-bold text-gray-900 mt-1">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Line Total</p>
+                            <p className="mt-1 font-bold text-artisan-primary">
                               {formatPrice((item.price || 0) * (item.quantity || 0))}
                             </p>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-gray-500">No items found for this order.</p>
+                      <p className="text-sm text-artisan-text-muted">No items found for this order.</p>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <h4 className="text-lg font-bold text-[#118C8C] mb-4">Admin Actions</h4>
+                <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
+                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Admin Actions</h4>
 
                   <div className="flex flex-wrap gap-3">
                     {isAwaitingReview(selectedOrderLive.status) ? (
                       <>
                         <Button
                           onClick={() => handleReviewOrder(selectedOrderLive, false)}
-                          className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
+                          className="w-full sm:w-auto"
                         >
                           Review Order
                         </Button>
@@ -1126,7 +1112,7 @@ const AdminPanel = () => {
                         <Button
                           variant="outline"
                           onClick={() => handleDeclineOrder(selectedOrderLive, true)}
-                          className="rounded-xl border-red-300 text-red-600 hover:bg-red-50"
+                          className="w-full border-red-300 text-red-600 hover:bg-red-50 sm:w-auto"
                         >
                           Decline
                         </Button>
@@ -1136,7 +1122,7 @@ const AdminPanel = () => {
                         <select
                           value={selectedOrderLive.status || "on_review"}
                           onChange={(e) => updateOrderStatus(selectedOrderLive.id, e.target.value)}
-                          className="px-4 py-2 border rounded-xl text-sm bg-white"
+                          className="w-full rounded-xl border border-artisan-border bg-white px-4 py-2 text-sm text-artisan-text outline-none focus:ring-2 focus:ring-artisan-primary/15 sm:w-auto"
                         >
                           <option value="on_review">On Review</option>
                           <option value="payment_confirmed">Payment Confirmed</option>
@@ -1150,7 +1136,7 @@ const AdminPanel = () => {
                           <select
                             value={selectedOrderLive.status || "on_review"}
                             onChange={(e) => updateOrderStatus(selectedOrderLive.id, e.target.value)}
-                            className="px-4 py-2 border rounded-xl text-sm bg-white"
+                            className="w-full rounded-xl border border-artisan-border bg-white px-4 py-2 text-sm text-artisan-text outline-none focus:ring-2 focus:ring-artisan-primary/15 sm:w-auto"
                           >
                             <option value="on_review">On Review</option>
                             <option value="payment_confirmed">Payment Confirmed</option>
@@ -1158,7 +1144,7 @@ const AdminPanel = () => {
                             <option value="shipping">Shipping</option>
                           </select>
                         ) : (
-                          <div className="px-4 py-2 border rounded-xl text-sm bg-gray-50 text-gray-500">
+                          <div className="w-full rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/45 px-4 py-2 text-sm text-artisan-text-muted sm:w-auto">
                             Status locked for sub-admin
                           </div>
                         )
@@ -1190,8 +1176,8 @@ const AdminPanel = () => {
                 </div>
               </div>
 
-              <div className="border-t bg-white p-4 flex items-center justify-end gap-3">
-                <Button variant="outline" onClick={() => setSelectedOrder(null)} className="rounded-xl">
+              <div className="flex items-center justify-end gap-3 border-t border-artisan-primary/10 bg-white p-4">
+                <Button variant="outline" onClick={() => setSelectedOrder(null)}>
                   Close
                 </Button>
               </div>

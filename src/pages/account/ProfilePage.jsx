@@ -1,6 +1,7 @@
 // src/pages/ProfilePage.jsx ← FINAL: ADDRESS COUNTRY CHANGEABLE + LUXURY
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -27,6 +28,10 @@ const ALL_COUNTRIES = [
   { name: "Indonesia", code: "ID", flag: "https://flagcdn.com/id.svg", callingCode: "+62" },
   { name: "Vietnam", code: "VN", flag: "https://flagcdn.com/vn.svg", callingCode: "+84" },
 ];
+
+const FIELD_LABEL_CLASS = 'mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-artisan-text-muted';
+const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
+const FIELD_VALUE_CLASS = 'min-h-12 rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/35 px-4 py-3 text-base font-semibold text-artisan-text';
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -187,12 +192,12 @@ const ProfilePage = () => {
     <>
       <Helmet><title>@{profile.username} - Profile</title></Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -216,40 +221,49 @@ const ProfilePage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-12 max-w-5xl">
-          <div className="bg-white rounded-3xl shadow-2xl p-12">
+        <div className="relative z-10 container mx-auto max-w-6xl px-5 py-14 sm:px-8 md:py-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45 }}
+            className="overflow-hidden rounded-[2rem] border border-white/50 bg-white/95 shadow-2xl shadow-[#2D0E5A]/20 backdrop-blur-md"
+          >
             {/* Profile Header */}
-            <div className="flex flex-col md:flex-row items-center gap-12 mb-16">
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#2D0E5A] via-artisan-primary to-artisan-primary-mid px-6 py-10 text-white sm:px-10 md:px-14 md:py-14">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-artisan-primary-pale/30 blur-3xl" />
+              <div className="relative flex flex-col items-center gap-7 md:flex-row md:gap-10">
               <div className="relative">
-                <div className="w-48 h-48 rounded-full overflow-hidden bg-gray-200 border-8 border-white shadow-2xl">
+                <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-white/75 bg-artisan-primary-wash shadow-2xl sm:h-40 sm:w-40">
                   {profile.photoURL ? (
                     <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <User size={96} className="text-gray-400" />
+                    <div className="flex h-full w-full items-center justify-center">
+                      <User size={64} className="text-artisan-primary" />
                     </div>
                   )}
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-4 right-4 bg-[#118C8C] text-white p-4 rounded-full shadow-lg hover:bg-[#0d7070] transition"
+                  type="button"
+                  aria-label="Upload a new profile photo"
+                  className="absolute -bottom-1 -right-1 rounded-full border-2 border-white bg-artisan-primary-pale p-3 text-artisan-text shadow-lg transition hover:scale-105 hover:bg-white"
                 >
-                  <Camera size={28} />
+                  <Camera size={20} />
                 </button>
                 <input
                   ref={fileInputRef}
@@ -261,78 +275,88 @@ const ProfilePage = () => {
               </div>
 
               <div className="text-center md:text-left">
-                <h1 className="text-6xl font-bold text-[#118C8C]">
-                  {profile.username}
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-artisan-primary-pale">My profile</p>
+                <h1 className="font-artisan-display text-4xl font-bold sm:text-5xl">
+                  @{profile.username}
                 </h1>
-                <p className="text-3xl text-gray-700 mt-4">{profile.fullName}</p>
-                <p className="text-xl text-gray-600 mt-6 flex items-center gap-3 justify-center md:justify-start">
-                  <Mail size={24} /> {profile.email}
+                <p className="mt-2 text-xl font-semibold text-white/90 sm:text-2xl">{profile.fullName}</p>
+                <p className="mt-5 flex items-center justify-center gap-2 text-sm text-white/80 md:justify-start sm:text-base">
+                  <Mail size={18} /> {profile.email}
                 </p>
               </div>
             </div>
+            </div>
 
             {/* Profile Info */}
-            <div className="space-y-10">
+            <div className="space-y-10 p-6 sm:p-10 md:p-14">
               {/* Personal Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <section>
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Account details</p>
+                    <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Personal information</h2>
+                  </div>
+                  {!isEditing && <p className="text-sm text-artisan-text-muted">Select Edit Profile to update your details.</p>}
+                </div>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
                 <div>
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3 mb-3">
-                    <AtSign size={22} /> Username
+                  <label className={FIELD_LABEL_CLASS}>
+                    <AtSign size={18} /> Username
                   </label>
                   {isEditing ? (
                     <input
                       type="text"
                       value={tempData.username}
                       onChange={(e) => setTempData({...tempData, username: e.target.value})}
-                      className="w-full px-6 py-5 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                      className={FIELD_INPUT_CLASS}
                       placeholder="juandelacruz123"
                     />
                   ) : (
-                    <p className="text-2xl font-bold">{profile.username}</p>
+                    <p className={FIELD_VALUE_CLASS}>@{profile.username}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3 mb-3">
-                    <User size={22} /> Full Name
+                  <label className={FIELD_LABEL_CLASS}>
+                    <User size={18} /> Full Name
                   </label>
                   {isEditing ? (
                     <input
                       type="text"
                       value={tempData.fullName}
                       onChange={(e) => setTempData({...tempData, fullName: e.target.value})}
-                      className="w-full px-6 py-4 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                      className={FIELD_INPUT_CLASS}
                     />
                   ) : (
-                    <p className="text-2xl">{profile.fullName}</p>
+                    <p className={FIELD_VALUE_CLASS}>{profile.fullName}</p>
                   )}
                 </div>
 
                 {/* PHONE WITH COUNTRY SELECTOR */}
                 <div>
-                  <label className="text-lg font-medium text-gray-700 mb-3 block">Phone Number</label>
+                  <label className={FIELD_LABEL_CLASS}>Phone Number</label>
                   {isEditing ? (
-                    <div className="flex gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row">
                       <div className="relative">
                         <button
                           type="button"
                           onClick={() => setIsPhoneCountryOpen(!isPhoneCountryOpen)}
-                          className="flex items-center gap-3 px-5 py-4 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition"
+                          className="flex h-12 w-full items-center gap-2 rounded-xl border border-artisan-border bg-white px-3 text-artisan-text shadow-sm transition hover:border-artisan-primary sm:w-auto"
                         >
-                          <img src={profile.phoneCountry?.flag || ALL_COUNTRIES[0].flag} alt="" className="w-8 h-6 rounded" />
+                          <img src={profile.phoneCountry?.flag || ALL_COUNTRIES[0].flag} alt="" className="h-5 w-7 rounded" />
                           <span className="font-medium">{profile.phoneCountry?.callingCode || "+63"}</span>
                           <ChevronDown size={20} />
                         </button>
 
                         {isPhoneCountryOpen && (
-                          <div className="absolute top-full mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                            <div className="p-4 border-b">
+                          <div className="absolute top-full z-50 mt-2 max-h-96 w-[min(24rem,calc(100vw-3rem))] overflow-y-auto rounded-2xl border border-artisan-border bg-white shadow-2xl">
+                            <div className="border-b border-artisan-primary/10 p-4">
                               <input
                                 type="text"
                                 placeholder="Search country..."
                                 value={phoneCountrySearch}
                                 onChange={(e) => setPhoneCountrySearch(e.target.value)}
-                                className="w-full px-4 py-3 border rounded-lg"
+                                className={FIELD_INPUT_CLASS}
                                 autoFocus
                               />
                             </div>
@@ -345,11 +369,11 @@ const ProfilePage = () => {
                                   setIsPhoneCountryOpen(false);
                                   setPhoneCountrySearch("");
                                 }}
-                                className="w-full text-left px-5 py-4 hover:bg-gray-50 flex items-center gap-4"
+                                className="flex w-full items-center gap-4 px-5 py-3 text-left text-artisan-text transition hover:bg-artisan-primary-wash"
                               >
                                 <img src={country.flag} alt="" className="w-10 h-7 rounded" />
                                 <span className="flex-1">{country.name}</span>
-                                <span className="text-gray-500">{country.callingCode}</span>
+                                <span className="text-artisan-text-muted">{country.callingCode}</span>
                               </button>
                             ))}
                           </div>
@@ -360,125 +384,132 @@ const ProfilePage = () => {
                         type="text"
                         value={tempData.phone}
                         onChange={(e) => setTempData({...tempData, phone: e.target.value})}
-                        className="flex-1 px-6 py-4 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                        className={`flex-1 ${FIELD_INPUT_CLASS}`}
                         placeholder="912 345 6789"
                       />
                     </div>
                   ) : (
-                    <p className="text-2xl flex items-center gap-3">
-                      <img src={profile.phoneCountry?.flag || ALL_COUNTRIES[0].flag} alt="" className="w-10 h-7 rounded" />
+                    <p className={`${FIELD_VALUE_CLASS} flex items-center gap-3`}>
+                      <img src={profile.phoneCountry?.flag || ALL_COUNTRIES[0].flag} alt="" className="h-6 w-8 rounded" />
                       {profile.phoneCountry?.callingCode || "+63"} {profile.phone}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-lg font-medium text-gray-700 flex items-center gap-3 mb-3">
-                    <Calendar size={22} /> Birthdate
+                  <label className={FIELD_LABEL_CLASS}>
+                    <Calendar size={18} /> Birthdate
                   </label>
                   {isEditing ? (
                     <input
                       type="date"
                       value={tempData.birthdate}
                       onChange={(e) => setTempData({...tempData, birthdate: e.target.value})}
-                      className="w-full px-6 py-4 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                      className={FIELD_INPUT_CLASS}
                     />
                   ) : (
-                    <p className="text-2xl">{profile.birthdate || "Not set"}</p>
+                    <p className={FIELD_VALUE_CLASS}>{profile.birthdate || "Not set"}</p>
                   )}
                 </div>
               </div>
+              </section>
 
               {/* Shipping Address */}
-              <div className="mt-16 pt-10 border-t-4 border-[#118C8C]/20">
-                <h3 className="text-3xl font-bold text-[#118C8C] mb-8 flex items-center gap-4">
-                  <MapPin size={36} /> Address
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <section className="rounded-[1.5rem] border border-artisan-primary/10 bg-artisan-primary-wash/35 p-5 sm:p-7 md:p-8">
+                <div className="mb-7 flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-artisan-primary text-white shadow-artisan-sm">
+                    <MapPin size={21} />
+                  </div>
                   <div>
-                    <label className="text-lg font-medium text-gray-700 mb-3 block">Street Address</label>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Delivery details</p>
+                    <h2 className="font-artisan-display text-3xl font-bold text-artisan-text">Address</h2>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+                  <div>
+                    <label className={FIELD_LABEL_CLASS}>Street Address</label>
                     {isEditing ? (
                       <input
                         type="text"
                         value={tempData.street}
                         onChange={(e) => setTempData({...tempData, street: e.target.value})}
-                        className="w-full px-6 py-4 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                        className={FIELD_INPUT_CLASS}
                         placeholder="123 Sampaguita St"
                       />
                     ) : (
-                      <p className="text-xl">{profile.address.street || "Not set"}</p>
+                      <p className={FIELD_VALUE_CLASS}>{profile.address.street || "Not set"}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-lg font-medium text-gray-700 mb-3 block">City</label>
+                    <label className={FIELD_LABEL_CLASS}>City</label>
                     {isEditing ? (
                       <input
                         type="text"
                         value={tempData.city}
                         onChange={(e) => setTempData({...tempData, city: e.target.value})}
-                        className="w-full px-6 py-4 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                        className={FIELD_INPUT_CLASS}
                       />
                     ) : (
-                      <p className="text-xl">{profile.address.city || "Not set"}</p>
+                      <p className={FIELD_VALUE_CLASS}>{profile.address.city || "Not set"}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-lg font-medium text-gray-700 mb-3 block">State / Province</label>
+                    <label className={FIELD_LABEL_CLASS}>State / Province</label>
                     {isEditing ? (
                       <input
                         type="text"
                         value={tempData.stateProvince}
                         onChange={(e) => setTempData({...tempData, stateProvince: e.target.value})}
-                        className="w-full px-6 py-4 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                        className={FIELD_INPUT_CLASS}
                       />
                     ) : (
-                      <p className="text-xl">{profile.address.stateProvince || "Not set"}</p>
+                      <p className={FIELD_VALUE_CLASS}>{profile.address.stateProvince || "Not set"}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-lg font-medium text-gray-700 mb-3 block">Postal / ZIP Code</label>
+                    <label className={FIELD_LABEL_CLASS}>Postal / ZIP Code</label>
                     {isEditing ? (
                       <input
                         type="text"
                         value={tempData.postalCode}
                         onChange={(e) => setTempData({...tempData, postalCode: e.target.value})}
-                        className="w-full px-6 py-4 border-2 rounded-xl focus:border-[#118C8C] transition text-xl"
+                        className={FIELD_INPUT_CLASS}
                       />
                     ) : (
-                      <p className="text-xl">{profile.address.postalCode || "Not set"}</p>
+                      <p className={FIELD_VALUE_CLASS}>{profile.address.postalCode || "Not set"}</p>
                     )}
                   </div>
 
                   {/* COUNTRY SELECTOR FOR ADDRESS */}
                   <div className="md:col-span-2">
-                    <label className="text-lg font-medium text-gray-700 mb-3 block">Country</label>
+                    <label className={FIELD_LABEL_CLASS}>Country</label>
                     {isEditing ? (
                       <div className="relative">
                         <button
                           type="button"
                           onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
-                          className="w-full flex items-center justify-between px-6 py-5 bg-gray-50 border-2 border-gray-300 rounded-xl hover:bg-gray-100 transition text-left"
+                          className="flex w-full items-center justify-between rounded-xl border border-artisan-border bg-white px-4 py-3 text-left text-artisan-text shadow-sm transition hover:border-artisan-primary"
                         >
-                          <div className="flex items-center gap-4">
-                            <img src={profile.address.countryObj.flag} alt="" className="w-10 h-7 rounded" />
+                          <div className="flex items-center gap-3">
+                            <img src={profile.address.countryObj.flag} alt="" className="h-6 w-9 rounded" />
                             <span className="font-medium">{profile.address.countryObj.name}</span>
                           </div>
                           <ChevronDown size={20} />
                         </button>
 
                         {isAddressCountryOpen && (
-                          <div className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                            <div className="p-4 border-b">
+                          <div className="absolute top-full z-50 mt-2 max-h-96 w-full overflow-y-auto rounded-2xl border border-artisan-border bg-white shadow-2xl">
+                            <div className="border-b border-artisan-primary/10 p-4">
                               <input
                                 type="text"
                                 placeholder="Search country..."
                                 value={addressCountrySearch}
                                 onChange={(e) => setAddressCountrySearch(e.target.value)}
-                                className="w-full px-4 py-3 border rounded-lg"
+                                className={FIELD_INPUT_CLASS}
                                 autoFocus
                               />
                             </div>
@@ -491,7 +522,7 @@ const ProfilePage = () => {
                                   setIsAddressCountryOpen(false);
                                   setAddressCountrySearch("");
                                 }}
-                                className="w-full text-left px-6 py-4 hover:bg-gray-50 flex items-center gap-4"
+                                className="flex w-full items-center gap-4 px-5 py-3 text-left text-artisan-text transition hover:bg-artisan-primary-wash"
                               >
                                 <img src={country.flag} alt="" className="w-10 h-7 rounded" />
                                 <span>{country.name}</span>
@@ -501,34 +532,38 @@ const ProfilePage = () => {
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-4">
-                        <img src={profile.address.countryObj.flag} alt="" className="w-12 h-9 rounded shadow" />
-                        <p className="text-2xl font-bold">{profile.address.country}</p>
+                      <div className={`${FIELD_VALUE_CLASS} flex items-center gap-3`}>
+                        <img src={profile.address.countryObj.flag} alt="" className="h-6 w-9 rounded shadow-sm" />
+                        <p>{profile.address.country}</p>
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
+              </section>
 
               {/* Edit Button */}
-              <div className="text-center pt-12">
+              <div className="flex flex-col gap-4 border-t border-artisan-primary/10 pt-8 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+                <div>
+                  <p className="font-semibold text-artisan-text">{isEditing ? 'Review your changes before saving.' : 'Keep your delivery details up to date.'}</p>
+                  <p className="mt-1 text-sm text-artisan-text-muted">Your profile information is saved securely to your account.</p>
+                </div>
                 {isEditing ? (
-                  <div className="flex justify-center gap-8">
-                    <Button onClick={handleSave} size="lg" className="bg-[#118C8C] hover:bg-[#0d7070] px-16 py-5 text-xl">
-                      <Save className="mr-3" size={24} /> Save Changes
+                  <div className="flex flex-col-reverse justify-center gap-3 sm:flex-row">
+                    <Button onClick={handleSave} size="lg" className="w-full sm:w-auto">
+                      <Save className="mr-2" size={19} /> Save Changes
                     </Button>
-                    <Button variant="outline" size="lg" onClick={() => setIsEditing(false)} className="px-12 py-5 text-xl">
+                    <Button variant="outline" size="lg" onClick={() => setIsEditing(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
                   </div>
                 ) : (
-                  <Button size="lg" onClick={() => setIsEditing(true)} className="px-16 py-5 text-xl">
+                  <Button size="lg" onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
                     Edit Profile
                   </Button>
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </>

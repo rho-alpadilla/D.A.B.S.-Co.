@@ -56,12 +56,16 @@ import {
   doc,
   onSnapshot,
   collection,
+  limit,
   query,
   orderBy,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import CircularText from '@/components/effects/CircularText';
 import dabsLogo from '@/assets/dabs-logo-square.png';
+
+const MAX_VISIBLE_NOTIFICATIONS = 20;
 
 const Header = () => {
   // ── STATE ──────────────────────────────────────────────────────────────
@@ -161,7 +165,8 @@ const Header = () => {
 
     const notifQuery = query(
       collection(db, 'users', user.uid, 'notifications'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(MAX_VISIBLE_NOTIFICATIONS)
     );
 
     const unsub = onSnapshot(
@@ -189,7 +194,12 @@ const Header = () => {
     const seenMs = toMillis(adminNotifSeenAt);
 
     const unsubOrders = onSnapshot(
-      query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
+      query(
+        collection(db, 'orders'),
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'desc'),
+        limit(MAX_VISIBLE_NOTIFICATIONS)
+      ),
       (orderSnap) => {
         const pendingOrders = orderSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -197,7 +207,7 @@ const Header = () => {
             (order) =>
               order.status === 'pending' && toMillis(order.createdAt) > seenMs
           )
-          .slice(0, 20);
+          .slice(0, MAX_VISIBLE_NOTIFICATIONS);
 
         setAdminAlerts((prev) => {
           const nonOrderAlerts = prev.filter((item) => item.alertType !== 'order');
@@ -216,7 +226,7 @@ const Header = () => {
 
           return [...orderAlerts, ...nonOrderAlerts]
             .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-            .slice(0, 20);
+            .slice(0, MAX_VISIBLE_NOTIFICATIONS);
         });
 
         setNotifLoading(false);
@@ -228,7 +238,13 @@ const Header = () => {
     );
 
     const unsubMessages = onSnapshot(
-      query(collection(db, 'messages'), orderBy('createdAt', 'desc')),
+      query(
+        collection(db, 'messages'),
+        where('status', '==', 'unread'),
+        where('isAdminReply', '==', false),
+        orderBy('createdAt', 'desc'),
+        limit(MAX_VISIBLE_NOTIFICATIONS)
+      ),
       (msgSnap) => {
         const unreadBuyerMessages = msgSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -238,7 +254,7 @@ const Header = () => {
               msg.isAdminReply === false &&
               toMillis(msg.createdAt) > seenMs
           )
-          .slice(0, 20);
+          .slice(0, MAX_VISIBLE_NOTIFICATIONS);
 
         setAdminAlerts((prev) => {
           const nonMessageAlerts = prev.filter(
@@ -259,7 +275,7 @@ const Header = () => {
 
           return [...messageAlerts, ...nonMessageAlerts]
             .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-            .slice(0, 20);
+            .slice(0, MAX_VISIBLE_NOTIFICATIONS);
         });
 
         setNotifLoading(false);

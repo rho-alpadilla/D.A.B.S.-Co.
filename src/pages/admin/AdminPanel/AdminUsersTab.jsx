@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   Package,
   ShoppingCart,
@@ -28,108 +30,82 @@ import {
   Wallet
 } from "lucide-react";
 
-// Receives every field the Admin controller (AdminPanel/index.jsx) computes,
-// spread from its 'adminState' object. Trim this list to only what this tab
-// actually uses once you've confirmed it renders correctly (delete the rest).
 const AdminUsersTab = (props) => {
   const {
-    avgOrderValue,
-    awaitingReviewCount,
-    cancellationRequestedCount,
-    cancelledCount,
-    completedCountAll,
-    completedOrders,
-    customEndDate,
-    customStartDate,
-    declinedCount,
-    fetchUsers,
-    filteredCompletedOrders,
-    filteredOrders,
-    filteredUsers,
-    forecast,
-    formatDateTime,
-    formatDeliveryMethod,
-    formatFullShippingAddress,
-    formatPaymentMethod,
-    formatPrice,
-    formatShortDate,
-    formatShortTime,
-    formatStatusOptionLabel,
-    getStatusBadge,
-    handleCancellation,
-    handleDeclineOrder,
-    handleReviewOrder,
     isAdmin,
-    isSubAdmin,
-    loadingUsers,
-    lowStockCount,
     makeSubAdmin,
-    navigate,
-    notifyBuyerStatusChange,
-    onReviewCount,
-    orderSearch,
-    orderStatusFilter,
-    orderStatusOptions,
-    orders,
-    outOfStockCount,
-    paymentConfirmedCount,
-    processingCount,
-    productStats,
-    products,
-    rangeDays,
-    recentOrders,
     removeSubAdmin,
-    revenueChartData,
-    revenueOverTimeData,
-    role,
-    selectedOrder,
-    setCustomEndDate,
-    setCustomStartDate,
-    setLoadingUsers,
-    setOrderSearch,
-    setOrderStatusFilter,
-    setOrders,
-    setProductStats,
-    setProducts,
-    setRangeDays,
-    setRole,
-    setSelectedOrder,
-    setTab,
     setUserSearch,
-    setUsers,
-    shippingCount,
-    subAdminAllowedStatuses,
-    tab,
-    totalAllOrders,
-    totalIncome,
-    totalOrdersCompleted,
-    updateOrderStatus,
     user,
     userSearch,
-    users,
   } = props;
 
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(5);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    setLoadingUsers(true);
+    setUsersError(null);
+
+    return onSnapshot(
+      collection(db, 'users'),
+      (snapshot) => {
+        setUsers(snapshot.docs.map((userDoc) => ({ id: userDoc.id, ...userDoc.data() })));
+        setLoadingUsers(false);
+      },
+      (error) => {
+        console.error('Users could not be loaded:', error);
+        setUsersError('Users could not be loaded. Please try again.');
+        setLoadingUsers(false);
+      }
+    );
+  }, [refreshKey]);
+
+  const filteredUsers = useMemo(() => {
+    const search = userSearch.trim().toLowerCase();
+    if (!search) return users;
+
+    return users.filter((account) => (
+      account.name?.toLowerCase().includes(search) ||
+      account.fullName?.toLowerCase().includes(search) ||
+      account.displayName?.toLowerCase().includes(search) ||
+      account.email?.toLowerCase().includes(search) ||
+      account.role?.toLowerCase().includes(search)
+    ));
+  }, [userSearch, users]);
+
+  useEffect(() => {
+    setVisibleCount(5);
+  }, [userSearch]);
+
+  const visibleUsers = filteredUsers.slice(0, visibleCount);
+  const hasMore = filteredUsers.length > visibleCount;
+
   return (
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-                <div className="p-6 border-b bg-gradient-to-r from-[#118C8C]/10 via-white to-[#F2BB16]/10">
+              <div className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/95 shadow-xl shadow-[#2D0E5A]/10">
+                <div className="border-b border-artisan-primary/10 bg-artisan-primary-wash/45 p-5 sm:p-7">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                      <h2 className="text-2xl font-bold text-[#118C8C]">Sub-admin Management</h2>
-                      <p className="text-gray-600 text-sm mt-1">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Access management</p>
+                      <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Sub-admin Management</h2>
+                      <p className="mt-1 text-sm text-artisan-text-muted">
                         Search users and promote trusted buyer accounts to Sub-admin / Artisan.
                       </p>
                     </div>
 
                     <Button
-                      onClick={fetchUsers}
-                      className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl"
+                      onClick={() => setRefreshKey((key) => key + 1)}
+                      className="w-full lg:w-auto"
                     >
                       Reload Users
                     </Button>
                   </div>
 
                   {!isAdmin && (
-                    <div className="mt-5 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+                    <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                       You can view users, but only the main admin can promote or remove Sub-admin accounts.
                     </div>
                   )}
@@ -137,124 +113,204 @@ const AdminUsersTab = (props) => {
                   <div className="relative mt-5">
                     <Search
                       size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-artisan-text-faint"
                     />
                     <input
                       type="text"
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
-                      placeholder="Search by name, email, or role..."
-                      className="w-full border border-gray-200 rounded-2xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30 bg-white"
+                      placeholder="Search loaded users by name, email, or role..."
+                      className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                     />
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div>
                   {loadingUsers ? (
-                    <div className="p-16 text-center text-gray-500">
+                    <div className="p-16 text-center text-artisan-text-muted">
                       Loading users...
                     </div>
                   ) : (
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b">
+                    <>
+                    <div className="hidden max-h-[42rem] overflow-auto md:block">
+                    <table className="w-full min-w-[720px]">
+                      <thead className="border-b border-artisan-primary/10 bg-artisan-primary-wash/45 text-artisan-text">
                         <tr>
-                          <th className="p-4 text-left">Name</th>
-                          <th className="p-4 text-left">Email</th>
-                          <th className="p-4 text-left">Current Role</th>
-                          <th className="p-4 text-left">Actions</th>
+                          <th className="p-4 text-left text-sm font-bold">Name</th>
+                          <th className="p-4 text-left text-sm font-bold">Email</th>
+                          <th className="p-4 text-left text-sm font-bold">Current Role</th>
+                          <th className="p-4 text-left text-sm font-bold">Actions</th>
                         </tr>
                       </thead>
 
                       <tbody>
-                        {filteredUsers.map((u) => {
+                        {visibleUsers.map((u) => {
                           const userRole = u.role || "buyer";
                           const displayName = u.name || u.displayName || "No name";
                           const isCurrentUser = u.id === user?.uid;
 
                           return (
-                            <tr key={u.id} className="border-t hover:bg-gray-50">
-                              <td className="p-4 font-medium text-gray-900">
+                            <tr key={u.id} className="border-t border-artisan-primary/10 transition hover:bg-artisan-primary-wash/30">
+                              <td className="p-4 font-medium text-artisan-text">
                                 <div className="flex flex-col">
                                   <span>{displayName}</span>
                                   {isCurrentUser && (
-                                    <span className="text-xs text-[#118C8C] font-semibold mt-1">
+                                    <span className="mt-1 text-xs font-semibold text-artisan-primary">
                                       Current user
                                     </span>
                                   )}
                                 </div>
                               </td>
 
-                              <td className="p-4 text-gray-700">
+                              <td className="p-4 text-artisan-text-muted">
                                 {u.email || "No email"}
                               </td>
 
                               <td className="p-4">
-                                <span
-                                  className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                    userRole === "admin"
-                                      ? "bg-purple-100 text-purple-700"
-                                      : userRole === "sub-admin"
-                                        ? "bg-[#118C8C]/10 text-[#118C8C]"
-                                        : "bg-gray-100 text-gray-700"
-                                  }`}
-                                >
-                                  {userRole}
-                                </span>
+                                <RoleBadge role={userRole} />
                               </td>
 
                               <td className="p-4">
-                                {userRole === "admin" ? (
-                                  <span className="text-sm text-gray-400 font-semibold">
-                                    Protected
-                                  </span>
-                                ) : !isAdmin ? (
-                                  <span className="text-sm text-gray-400 font-semibold">
-                                    View only
-                                  </span>
-                                ) : userRole === "sub-admin" ? (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => removeSubAdmin(u.id)}
-                                    disabled={isCurrentUser}
-                                    className="bg-red-600 hover:bg-red-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    Remove Sub-admin
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => makeSubAdmin(u.id)}
-                                    disabled={isCurrentUser}
-                                    className="bg-[#118C8C] hover:bg-[#0d7070] text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    Make Sub-admin
-                                  </Button>
-                                )}
+                                <UserRoleAction
+                                  userId={u.id}
+                                  userRole={userRole}
+                                  isAdmin={isAdmin}
+                                  isCurrentUser={isCurrentUser}
+                                  makeSubAdmin={makeSubAdmin}
+                                  removeSubAdmin={removeSubAdmin}
+                                />
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
+                    </div>
+
+                    <div className="max-h-[42rem] space-y-4 overflow-y-auto p-4 md:hidden">
+                      {visibleUsers.map((u) => {
+                        const userRole = u.role || 'buyer';
+                        const displayName = u.name || u.displayName || 'No name';
+                        const isCurrentUser = u.id === user?.uid;
+
+                        return (
+                          <article key={u.id} className="rounded-2xl border border-artisan-primary/10 bg-white p-5 shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-bold text-artisan-text">{displayName}</p>
+                                <p className="mt-1 break-all text-sm text-artisan-text-muted">{u.email || 'No email'}</p>
+                              </div>
+                              <RoleBadge role={userRole} />
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-artisan-primary/10 pt-4">
+                              {isCurrentUser ? (
+                                <span className="text-xs font-semibold text-artisan-primary">Current user</span>
+                              ) : (
+                                <span className="text-xs text-artisan-text-muted">Account access</span>
+                              )}
+                              <UserRoleAction
+                                userId={u.id}
+                                userRole={userRole}
+                                isAdmin={isAdmin}
+                                isCurrentUser={isCurrentUser}
+                                makeSubAdmin={makeSubAdmin}
+                                removeSubAdmin={removeSubAdmin}
+                              />
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                    </>
                   )}
 
                   {!loadingUsers && users.length === 0 && (
-                    <div className="p-16 text-center text-gray-500">
-                      <User size={56} className="mx-auto mb-4 text-gray-300" />
-                      <p className="text-lg font-semibold text-gray-700">No users loaded yet</p>
-                      <p className="text-sm mt-1">Users auto-load when you open this tab. If it still fails, check the alert message and Firestore rules.</p>
+                    <div className="p-16 text-center text-artisan-text-muted">
+                      <User size={56} className="mx-auto mb-4 text-artisan-primary-pale" />
+                      <p className="text-lg font-semibold text-artisan-text">No users found</p>
+                      <p className="text-sm mt-1">New accounts will appear here automatically.</p>
                     </div>
                   )}
 
                   {!loadingUsers && users.length > 0 && filteredUsers.length === 0 && (
-                    <div className="p-16 text-center text-gray-500">
-                      <Search size={56} className="mx-auto mb-4 text-gray-300" />
-                      <p className="text-lg font-semibold text-gray-700">No matching users</p>
-                      <p className="text-sm mt-1">Try searching a different name, email, or role.</p>
+                    <div className="p-16 text-center text-artisan-text-muted">
+                      <Search size={56} className="mx-auto mb-4 text-artisan-primary-pale" />
+                      <p className="text-lg font-semibold text-artisan-text">No matching users</p>
+                      <p className="text-sm mt-1">Search only includes the users loaded so far. Try another term or load more users.</p>
                     </div>
                   )}
+
+                  <div className="flex flex-col items-center gap-3 border-t border-artisan-primary/10 px-5 py-6 sm:flex-row sm:justify-center">
+                    {usersError && <p className="text-sm text-red-600">{usersError}</p>}
+                    {hasMore && (
+                      <Button variant="outline" onClick={() => setVisibleCount((count) => count + 5)}>
+                        Load 5 more users
+                      </Button>
+                    )}
+                    {visibleCount > 5 && (
+                      <Button variant="outline" onClick={() => setVisibleCount(5)}>
+                        Show fewer users
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
+  );
+};
+
+const RoleBadge = ({ role }) => {
+  const styles = {
+    admin: 'bg-purple-100 text-purple-700',
+    'sub-admin': 'bg-artisan-primary-wash text-artisan-primary',
+    buyer: 'bg-gray-100 text-gray-700',
+  };
+
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${styles[role] || styles.buyer}`}>
+      {role}
+    </span>
+  );
+};
+
+const UserRoleAction = ({
+  userId,
+  userRole,
+  isAdmin,
+  isCurrentUser,
+  makeSubAdmin,
+  removeSubAdmin,
+}) => {
+  if (userRole === 'admin') {
+    return <span className="text-sm font-semibold text-artisan-text-faint">Protected</span>;
+  }
+
+  if (!isAdmin) {
+    return <span className="text-sm font-semibold text-artisan-text-faint">View only</span>;
+  }
+
+  if (userRole === 'sub-admin') {
+    return (
+      <Button
+        size="sm"
+        onClick={() => removeSubAdmin(userId)}
+        disabled={isCurrentUser}
+        className="bg-red-600 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Remove Sub-admin
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      size="sm"
+      onClick={() => makeSubAdmin(userId)}
+      disabled={isCurrentUser}
+      className="disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Make Sub-admin
+    </Button>
   );
 };
 

@@ -4,14 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, db, storage } from '@/lib/firebase';
 import {
   collection,
-  query,
-  orderBy,
   onSnapshot,
+  query,
   where,
   addDoc,
   serverTimestamp,
-  updateDoc,
   doc,
+  writeBatch,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
@@ -32,16 +31,21 @@ const MessageCenterPage = () => {
 
   const [role, setRole] = useState(null);
 
-  const [conversations, setConversations] = useState([]);
   const [selectedConvo, setSelectedConvo] = useState(null);
-  const [supportMessages, setSupportMessages] = useState([]);
   const [replyInput, setReplyInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [recentMessages, setRecentMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [messagesError, setMessagesError] = useState(null);
+  const [visibleConversationCount, setVisibleConversationCount] = useState(5);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
+  const threadScrollRef = useRef(null);
+  const latestThreadMessageIdRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(false);
 
   const isAdmin = role === 'admin';
   const isSubAdmin = role === 'sub-admin';
@@ -143,7 +147,7 @@ const MessageCenterPage = () => {
 
   const getAvatarTone = (seed = '') => {
     const tones = [
-      'bg-[#118C8C]/12 text-[#118C8C]',
+      'bg-artisan-primary-wash text-artisan-primary',
       'bg-amber-100 text-amber-700',
       'bg-blue-100 text-blue-700',
       'bg-emerald-100 text-emerald-700',
@@ -156,107 +160,142 @@ const MessageCenterPage = () => {
   };
 
   useEffect(() => {
-    if (!user?.email) return;
+    if (!user?.email || role === null) return undefined;
 
-    const q = isAdminLike
-      ? query(collection(db, 'messages'), orderBy('createdAt', 'desc'))
-      : query(
-          collection(db, 'messages'),
-          where('buyerEmail', '==', user.email),
-          orderBy('createdAt', 'desc')
-        );
+    setMessagesLoading(true);
+    setMessagesError(null);
 
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const source = isAdminLike
+      ? collection(db, 'messages')
+      : query(collection(db, 'messages'), where('buyerEmail', '==', user.email));
 
-      const grouped = {};
-      messages.forEach((msg) => {
-        const buyerKey = msg.buyerEmail || 'unknown';
-        const subject = msg.subject || 'General Support';
-        const key = isAdminLike ? `${buyerKey}-${subject}` : subject;
-        const createdMillis = msg.createdAt?.toMillis?.() || 0;
+    return onSnapshot(
+      source,
+      (snapshot) => {
+        const nextMessages = snapshot.docs
+          .map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }))
+          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
-        const previewText =
-          msg.message ||
-          msg.attachmentName ||
-          (msg.attachmentUrl ? 'Attachment sent' : '');
-
-        if (!grouped[key]) {
-grouped[key] = {
-  key,
-  subject,
-  buyerId: isAdminLike
-  ? selectedConvo?.buyerId || null
-  : user?.uid || null,
-  buyerEmail: msg.buyerEmail,
-  buyerName: msg.buyerName || buyerKey.split('@')[0],
-  latestMillis: createdMillis,
-  lastPreview: previewText,
-  lastSenderLabel: msg.isAdminReply ? 'Admin' : 'Buyer',
-  hasUnread: false,
-};
-        }
-
-        if (createdMillis >= (grouped[key].latestMillis || 0)) {
-          grouped[key].latestMillis = createdMillis;
-          grouped[key].lastPreview = previewText;
-          grouped[key].lastSenderLabel = msg.isAdminReply ? 'Admin' : 'Buyer';
-        }
-
-        if (
-          msg.status === 'unread' &&
-          ((isAdminLike && !msg.isAdminReply) || (!isAdminLike && msg.isAdminReply))
-        ) {
-          grouped[key].hasUnread = true;
-        }
-      });
-
-      const sorted = Object.values(grouped).sort(
-        (a, b) => (b.latestMillis || 0) - (a.latestMillis || 0)
-      );
-
-      setConversations(sorted);
-    });
-
-    return () => unsubscribe();
-  }, [user?.email, isAdminLike]);
-
-  useEffect(() => {
-    if (!selectedConvo || !user?.email) return;
-
-    const buyerEmail = isAdminLike ? selectedConvo.buyerEmail : user.email;
-
-    const q = query(
-      collection(db, 'messages'),
-      where('subject', '==', selectedConvo.subject),
-      where('buyerEmail', '==', buyerEmail),
-      orderBy('createdAt', 'asc')
+        setRecentMessages(nextMessages);
+        setMessagesLoading(false);
+      },
+      (error) => {
+        console.error('Messages could not be loaded:', error);
+        setMessagesError('Messages could not be loaded. Please try again.');
+        setMessagesLoading(false);
+      }
     );
+  }, [isAdminLike, role, user?.email]);
 
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setSupportMessages(msgs);
+  const threadMessagesNewestFirst = useMemo(() => {
+    if (!selectedConvo) return [];
 
-      msgs.forEach(async (msg) => {
-        if (
-          msg.status === 'unread' &&
-          ((isAdminLike && !msg.isAdminReply) || (!isAdminLike && msg.isAdminReply))
-        ) {
-          try {
-            await updateDoc(doc(db, 'messages', msg.id), { status: 'read' });
-          } catch (err) {
-            console.error('Mark read failed:', err);
-          }
-        }
-      });
+    return recentMessages.filter((message) => (
+      (message.subject || 'General Support') === selectedConvo.subject &&
+      (!isAdminLike || message.buyerEmail === selectedConvo.buyerEmail)
+    ));
+  }, [isAdminLike, recentMessages, selectedConvo]);
+
+  const conversations = useMemo(() => {
+    const grouped = {};
+
+    recentMessages.forEach((msg) => {
+      const buyerKey = msg.buyerEmail || 'unknown';
+      const subject = msg.subject || 'General Support';
+      const key = isAdminLike ? `${buyerKey}-${subject}` : subject;
+      const createdMillis = msg.createdAt?.toMillis?.() || 0;
+
+      const previewText =
+        msg.message ||
+        msg.attachmentName ||
+        (msg.attachmentUrl ? 'Attachment sent' : '');
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          key,
+          subject,
+          buyerId: msg.buyerId || (!isAdminLike ? user?.uid || null : null),
+          buyerEmail: msg.buyerEmail,
+          buyerName: msg.buyerName || buyerKey.split('@')[0],
+          latestMillis: createdMillis,
+          lastPreview: previewText,
+          lastSenderLabel: msg.isAdminReply ? 'Admin' : 'Buyer',
+          hasUnread: false,
+        };
+      }
+
+      if (createdMillis >= (grouped[key].latestMillis || 0)) {
+        grouped[key].latestMillis = createdMillis;
+        grouped[key].lastPreview = previewText;
+        grouped[key].lastSenderLabel = msg.isAdminReply ? 'Admin' : 'Buyer';
+      }
+
+      if (
+        msg.status === 'unread' &&
+        ((isAdminLike && !msg.isAdminReply) || (!isAdminLike && msg.isAdminReply))
+      ) {
+        grouped[key].hasUnread = true;
+      }
     });
 
-    return () => unsubscribe();
-  }, [selectedConvo, user?.email, isAdminLike]);
+    return Object.values(grouped).sort(
+      (a, b) => (b.latestMillis || 0) - (a.latestMillis || 0)
+    );
+  }, [isAdminLike, recentMessages, user?.uid]);
+
+  const supportMessages = useMemo(
+    () => [...threadMessagesNewestFirst].reverse(),
+    [threadMessagesNewestFirst]
+  );
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [supportMessages]);
+    if (!selectedConvo) return;
+
+    shouldScrollToBottomRef.current = true;
+    latestThreadMessageIdRef.current = null;
+  }, [selectedConvo?.key]);
+
+  useEffect(() => {
+    const unreadMessages = threadMessagesNewestFirst.filter((msg) => (
+      msg.status === 'unread' &&
+      ((isAdminLike && !msg.isAdminReply) || (!isAdminLike && msg.isAdminReply))
+    ));
+
+    if (!unreadMessages.length) return;
+
+    const markMessagesRead = async () => {
+      try {
+        const batch = writeBatch(db);
+        unreadMessages.forEach((message) => {
+          batch.update(doc(db, 'messages', message.id), { status: 'read' });
+        });
+        await batch.commit();
+      } catch (error) {
+        console.error('Mark messages read failed:', error);
+      }
+    };
+
+    markMessagesRead();
+  }, [isAdminLike, threadMessagesNewestFirst]);
+
+  useEffect(() => {
+    const latestMessageId = threadMessagesNewestFirst[0]?.id;
+    const hasNewLatestMessage =
+      latestMessageId && latestMessageId !== latestThreadMessageIdRef.current;
+
+    if (shouldScrollToBottomRef.current || hasNewLatestMessage) {
+      const threadScroller = threadScrollRef.current;
+      if (threadScroller) {
+        threadScroller.scrollTo({
+          top: threadScroller.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+      shouldScrollToBottomRef.current = false;
+    }
+
+    latestThreadMessageIdRef.current = latestMessageId || null;
+  }, [threadMessagesNewestFirst]);
 
   const filteredConversations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -276,6 +315,12 @@ grouped[key] = {
       );
     });
   }, [conversations, searchTerm]);
+
+  useEffect(() => {
+    setVisibleConversationCount(5);
+  }, [searchTerm]);
+
+  const visibleConversations = filteredConversations.slice(0, visibleConversationCount);
 
   const uploadAttachment = async (file) => {
     const safeName = `${Date.now()}-${file.name}`;
@@ -364,8 +409,8 @@ await addDoc(collection(db, 'messages'), {
         <div
           className={`max-w-[78%] rounded-3xl px-4 py-3 shadow-sm border ${
             isMine
-              ? 'bg-[#118C8C] text-white border-[#118C8C]/20'
-              : 'bg-white text-gray-800 border-gray-200'
+              ? 'border-artisan-primary/20 bg-gradient-to-br from-artisan-primary to-artisan-primary-mid text-white'
+              : 'border-artisan-primary/15 bg-white text-artisan-text'
           }`}
         >
           <div className="text-[11px] opacity-75 mb-1">{label}</div>
@@ -399,12 +444,12 @@ await addDoc(collection(db, 'messages'), {
                   className={`flex items-center gap-3 rounded-2xl px-3 py-3 border ${
                     isMine
                       ? 'border-white/20 bg-white/10 hover:bg-white/15'
-                      : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                      : 'border-artisan-primary/10 bg-artisan-primary-wash/35 hover:bg-artisan-primary-wash'
                   } transition`}
                 >
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      isMine ? 'bg-white/15' : 'bg-white border border-gray-200'
+                      isMine ? 'bg-white/15' : 'border border-artisan-primary/10 bg-white'
                     }`}
                   >
                     <FileText size={18} />
@@ -466,14 +511,14 @@ await addDoc(collection(db, 'messages'), {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-10 text-center max-w-md w-full">
+      <div className="flex min-h-screen items-center justify-center px-4" style={{ background: 'var(--artisan-gradient-bg)' }}>
+        <div className="w-full max-w-md rounded-[2rem] border border-white/60 bg-white/95 p-10 text-center text-artisan-text shadow-xl shadow-[#2D0E5A]/15">
           <h1 className="text-3xl font-bold text-red-600">Login Required</h1>
-          <p className="text-gray-600 mt-3">
+          <p className="mt-3 text-artisan-text-muted">
             Please log in first to view the message center.
           </p>
           <Button
-            className="mt-6 bg-[#118C8C] hover:bg-[#0d7070]"
+            className="mt-6"
             onClick={() => navigate('/login')}
           >
             Go to Login
@@ -489,67 +534,73 @@ await addDoc(collection(db, 'messages'), {
         <title>Message Center - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 overflow-hidden min-h-[78vh] flex flex-col">
-            <div className="border-b bg-gradient-to-r from-[#118C8C]/10 via-white to-[#F2BB16]/10 px-6 py-5 flex items-center justify-between gap-4">
+      <div className="min-h-screen py-10 sm:py-14" style={{ background: 'var(--artisan-gradient-bg)' }}>
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="flex h-[calc(100dvh-6rem)] min-h-[36rem] max-h-[780px] flex-col overflow-hidden rounded-[2rem] border border-white/55 bg-white/95 shadow-2xl shadow-[#2D0E5A]/20 backdrop-blur-md">
+            <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-[#2D0E5A] via-artisan-primary to-artisan-primary-mid px-5 py-5 text-white sm:px-8 sm:py-6">
               <div className="flex items-center gap-4 min-w-0">
                 <Button
                   variant="outline"
                   onClick={() => navigate(isAdminLike ? '/admin-panel' : '/')}
-                  className="rounded-2xl"
+                  className="border-white/35 bg-white/10 text-white hover:border-white/60 hover:bg-white/20 hover:text-white"
                 >
                   <ArrowLeft className="mr-2" size={16} />
                   Back
                 </Button>
 
                 <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#118C8C]">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-artisan-primary-pale">
                     {isAdminLike ? 'Admin Support' : 'Your Support'}
                   </p>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 truncate">
+                  <h1 className="truncate font-artisan-display text-2xl font-bold sm:text-3xl">
                     {isAdminLike ? 'Customer Message Center' : 'Message Center'}
                   </h1>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[360px_1fr]">
-              <div className="border-r bg-white flex flex-col min-h-0">
-                <div className="p-4 border-b shrink-0">
+            <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[360px_1fr]">
+              <div className={`${selectedConvo ? 'hidden lg:flex' : 'flex'} min-h-0 flex-col border-b border-artisan-primary/10 bg-artisan-primary-wash/35 lg:border-b-0 lg:border-r`}>
+                <div className="shrink-0 border-b border-artisan-primary/10 p-4">
                   {isAdminLike ? (
                     <div className="relative">
                       <Search
                         size={18}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-artisan-text-faint"
                       />
                       <input
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search customer, email, subject..."
-                        className="w-full border border-gray-200 rounded-2xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                        className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                       />
                     </div>
                   ) : (
                     <div>
-                      <p className="font-semibold text-gray-900">Your Conversations</p>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="font-semibold text-artisan-text">Your Conversations</p>
+                      <p className="mt-1 text-sm text-artisan-text-muted">
                         View your support chats in a bigger page.
                       </p>
                     </div>
                   )}
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 bg-gray-50/60">
-                  {filteredConversations.length === 0 ? (
-                    <div className="text-center text-gray-500 px-6 py-16">
-                      <p className="font-medium text-gray-700">No conversations found</p>
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+                  {messagesLoading ? (
+                    <div className="px-6 py-16 text-center text-artisan-text-muted">
+                      Loading recent conversations...
+                    </div>
+                  ) : filteredConversations.length === 0 ? (
+                    <div className="px-6 py-16 text-center text-artisan-text-muted">
+                      <p className="font-medium text-artisan-text">No conversations found</p>
                       <p className="text-sm mt-1">
-                        Support threads will show here.
+                        {searchTerm
+                          ? 'Search includes the conversations loaded so far.'
+                          : 'Support threads will show here.'}
                       </p>
                     </div>
                   ) : (
-                    filteredConversations.map((convo) => {
+                    visibleConversations.map((convo) => {
                       const isActive = selectedConvo?.key === convo.key;
                       const displayName = isAdminLike ? getDisplayName(convo) : convo.subject;
                       const avatarTone = getAvatarTone(
@@ -560,10 +611,10 @@ await addDoc(collection(db, 'messages'), {
                         <button
                           key={convo.key}
                           onClick={() => setSelectedConvo(convo)}
-                          className={`w-full text-left rounded-2xl px-3 py-3 border transition shadow-sm ${
+                          className={`w-full rounded-2xl border px-3 py-3 text-left transition shadow-sm ${
                             isActive
-                              ? 'bg-[#118C8C]/8 border-[#118C8C]/25'
-                              : 'bg-white border-gray-200 hover:bg-gray-50'
+                              ? 'border-artisan-primary/35 bg-white shadow-artisan-sm'
+                              : 'border-transparent bg-white/60 hover:border-artisan-primary/20 hover:bg-white'
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -579,23 +630,23 @@ await addDoc(collection(db, 'messages'), {
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-gray-900 truncate">
+                                  <p className="truncate font-semibold text-artisan-text">
                                     {displayName}
                                   </p>
-                                  <p className="text-xs text-gray-500 truncate mt-0.5">
+                                  <p className="mt-0.5 truncate text-xs text-artisan-text-muted">
                                     {isAdminLike
                                       ? convo.buyerEmail || 'No email'
                                       : 'D.A.B.S. Support'}
                                   </p>
                                 </div>
 
-                                <div className="shrink-0 text-[11px] text-gray-400 pt-0.5">
+                                <div className="shrink-0 pt-0.5 text-[11px] text-artisan-text-faint">
                                   {formatListTime(convo.latestMillis)}
                                 </div>
                               </div>
 
                               <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2.5 py-1 text-[11px] font-medium">
+                                <span className="inline-flex items-center rounded-full bg-artisan-primary-wash px-2.5 py-1 text-[11px] font-medium text-artisan-primary">
                                   {convo.subject || 'General Support'}
                                 </span>
 
@@ -606,8 +657,8 @@ await addDoc(collection(db, 'messages'), {
                                 )}
                               </div>
 
-                              <p className="text-sm text-gray-600 truncate mt-2">
-                                <span className="font-medium text-gray-500">
+                              <p className="mt-2 truncate text-sm text-artisan-text-muted">
+                                <span className="font-medium text-artisan-text-mid">
                                   {convo.lastSenderLabel}:
                                 </span>{' '}
                                 {convo.lastPreview || 'Open conversation'}
@@ -618,27 +669,53 @@ await addDoc(collection(db, 'messages'), {
                       );
                     })
                   )}
+
+                  <div className="pt-2 text-center">
+                    {messagesError && (
+                      <p className="mb-2 text-xs text-red-600">{messagesError}</p>
+                    )}
+                    {filteredConversations.length > visibleConversationCount && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setVisibleConversationCount((count) => count + 5)}
+                      >
+                        Load 5 more conversations
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col min-h-0 bg-white">
+              <div className={`${selectedConvo ? 'flex' : 'hidden lg:flex'} min-h-0 flex-col bg-white`}>
                 {!selectedConvo ? (
-                  <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-white">
-                    <div className="text-center max-w-md">
-                      <div className="w-20 h-20 rounded-full bg-[#118C8C]/10 text-[#118C8C] flex items-center justify-center mx-auto mb-5">
+                  <div className="flex flex-1 items-center justify-center bg-gradient-to-b from-artisan-primary-wash/45 to-white p-8">
+                    <div className="max-w-md text-center">
+                      <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-artisan-primary text-white shadow-artisan-md">
                         <MessageCircle size={34} />
                       </div>
-                      <h2 className="text-2xl font-bold text-gray-900">
+                      <h2 className="font-artisan-display text-3xl font-bold text-artisan-text">
                         Select a conversation
                       </h2>
-                      <p className="text-gray-600 mt-2">
+                      <p className="mt-2 text-artisan-text-muted">
                         Open a support thread from the left to continue chatting in a bigger view.
                       </p>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="px-6 py-4 border-b bg-white flex items-center gap-3 shrink-0">
+                    <div className="flex shrink-0 items-center gap-3 border-b border-artisan-primary/10 bg-white px-5 py-4 sm:px-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSelectedConvo(null)}
+                        className="shrink-0 lg:hidden"
+                        aria-label="Back to conversations"
+                      >
+                        <ArrowLeft size={17} />
+                      </Button>
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center font-bold shrink-0 ${getAvatarTone(
                           selectedConvo.buyerEmail ||
@@ -650,21 +727,31 @@ await addDoc(collection(db, 'messages'), {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-gray-900 truncate">
+                        <p className="truncate font-semibold text-artisan-text">
                           {isAdminLike ? getDisplayName(selectedConvo) : 'D.A.B.S. Support'}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="truncate text-xs text-artisan-text-muted">
                           {isAdminLike ? selectedConvo.buyerEmail : selectedConvo.subject}
                         </p>
                         <div className="mt-1">
-                          <span className="inline-flex items-center rounded-full bg-[#118C8C]/10 text-[#118C8C] px-2 py-0.5 text-[11px] font-medium">
+                          <span className="inline-flex items-center rounded-full bg-artisan-primary-wash px-2 py-0.5 text-[11px] font-medium text-artisan-primary">
                             {selectedConvo.subject}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-y-auto p-6 bg-gradient-to-b from-gray-50 to-white space-y-3">
+                    <div ref={threadScrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-artisan-primary-wash/35 to-white p-4 sm:p-6">
+                      <div className="text-center">
+                        {messagesError && <p className="mb-2 text-xs text-red-600">{messagesError}</p>}
+                      </div>
+
+                      {messagesLoading ? (
+                        <p className="py-10 text-center text-sm text-artisan-text-muted">Loading messages...</p>
+                      ) : renderedSupportStream.length === 0 ? (
+                        <p className="py-10 text-center text-sm text-artisan-text-muted">No messages in this conversation yet.</p>
+                      ) : null}
+
                       {renderedSupportStream.map((item) => {
                         if (item._type === 'date') {
                           return (
@@ -672,7 +759,7 @@ await addDoc(collection(db, 'messages'), {
                               key={item.id}
                               className="flex items-center justify-center my-2"
                             >
-                              <div className="px-3 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-600 shadow-sm">
+                              <div className="rounded-full border border-artisan-primary/10 bg-white px-3 py-1 text-xs text-artisan-text-muted shadow-sm">
                                 {item.label}
                               </div>
                             </div>
@@ -691,7 +778,7 @@ await addDoc(collection(db, 'messages'), {
                       <div ref={bottomRef} />
                     </div>
 
-                    <div className="border-t bg-white p-4 shrink-0">
+                    <div className="shrink-0 border-t border-artisan-primary/10 bg-white p-4">
                       <div className="flex flex-col gap-3">
                         <div className="flex items-center gap-2">
                           <input
@@ -704,7 +791,7 @@ await addDoc(collection(db, 'messages'), {
                                 sendSupportReply({ text: replyInput });
                               }
                             }}
-                            className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                            className="flex-1 rounded-2xl border border-artisan-border bg-white px-4 py-3 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                             disabled={sending || uploading}
                           />
 
@@ -720,7 +807,7 @@ await addDoc(collection(db, 'messages'), {
                             variant="outline"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={sending || uploading}
-                            className="rounded-2xl"
+                            className="shrink-0"
                             title="Attach image or file"
                           >
                             <Paperclip size={16} />
@@ -730,13 +817,13 @@ await addDoc(collection(db, 'messages'), {
                             type="button"
                             onClick={() => sendSupportReply({ text: replyInput })}
                             disabled={sending || uploading || !replyInput.trim()}
-                            className="rounded-2xl bg-[#118C8C] hover:bg-[#0d7070]"
+                            className="shrink-0"
                           >
                             <Send size={16} />
                           </Button>
                         </div>
 
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-artisan-text-muted">
                           <div className="flex items-center gap-1">
                             <ImageIcon size={14} />
                             Images supported
@@ -746,7 +833,7 @@ await addDoc(collection(db, 'messages'), {
                             Files supported
                           </div>
                           {(sending || uploading) && (
-                            <span className="text-[#118C8C] font-medium">
+                            <span className="font-medium text-artisan-primary">
                               {uploading ? 'Uploading attachment...' : 'Sending...'}
                             </span>
                           )}

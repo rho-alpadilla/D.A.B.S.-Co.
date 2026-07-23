@@ -18,6 +18,9 @@ const CATEGORIES = [
   "Painting on Canvas"
 ];
 
+const FIELD_LABEL_CLASS = 'mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted';
+const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
+
 const AddProductPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.email?.includes('admin');
@@ -40,11 +43,11 @@ const AddProductPage = () => {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
+      <div className="flex min-h-screen items-center justify-center px-5" style={{ background: 'var(--artisan-gradient-bg)' }}>
+        <div className="w-full max-w-md rounded-[2rem] border border-white/60 bg-white/95 p-10 text-center shadow-xl shadow-[#2D0E5A]/15">
           <h1 className="text-4xl font-bold text-red-600 mb-4">Access Denied</h1>
-          <p className="text-gray-600">Admins only</p>
-          <Button onClick={() => navigate('/')} className="mt-6 bg-[#118C8C]">
+          <p className="text-artisan-text-muted">Admins only</p>
+          <Button onClick={() => navigate('/')} className="mt-6">
             Back to Home
           </Button>
         </div>
@@ -125,12 +128,12 @@ const AddProductPage = () => {
     <>
       <Helmet><title>Add New Product - D.A.B.S. Co.</title></Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -154,71 +157,83 @@ const AddProductPage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
           </div>
         </div>
 
-        <div className="relative z-10 py-12">
-          <div className="container mx-auto px-6 max-w-4xl">
-            <div className="flex items-center gap-4 mb-8">
-              <Button variant="outline" onClick={() => navigate('/pricelists')}>
+        <div className="relative z-10 py-14 md:py-20">
+          <div className="container mx-auto max-w-5xl px-5 sm:px-8">
+            <div className="relative mb-8 overflow-hidden rounded-[2rem] border border-white/35 bg-gradient-to-br from-[#2D0E5A] via-artisan-primary to-artisan-primary-mid p-7 text-white shadow-2xl shadow-[#2D0E5A]/25 sm:p-10">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-artisan-primary-pale/25 blur-3xl" />
+              <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary-pale">Inventory management</p>
+                  <h1 className="mt-2 font-artisan-display text-4xl font-bold sm:text-5xl">Add New Product</h1>
+                  <p className="mt-3 max-w-xl text-sm text-white/80 sm:text-base">Create a product listing with pricing, stock information, images, and a clear customer-facing description.</p>
+                </div>
+              <Button variant="outline" onClick={() => navigate('/pricelists')} className="border-white/35 bg-white/10 text-white hover:border-white/60 hover:bg-white/20 hover:text-white">
                 <ArrowLeft size={20} className="mr-2" /> Back to Pricelists
               </Button>
-              <h1 className="text-3xl font-bold text-[#118C8C]">Add New Product</h1>
+              </div>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-2xl p-10">
+            <div className="rounded-[2rem] border border-white/60 bg-white/95 p-6 shadow-2xl shadow-[#2D0E5A]/15 backdrop-blur-md sm:p-10">
               <form onSubmit={handleSubmit} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Product information</p>
+                  <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Listing details</h2>
+                  <p className="mt-2 text-sm text-artisan-text-muted">Fields marked by the form validation are required before you can publish the product.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                    <label className={FIELD_LABEL_CLASS}>Product Name</label>
                     <input
                       value={form.name}
                       onChange={e => setForm({ ...form, name: e.target.value })}
-                      className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                      className={FIELD_INPUT_CLASS}
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Price (PHP)</label>
+                    <label className={FIELD_LABEL_CLASS}>Price (PHP)</label>
                     <input
                       type="number"
                       value={form.price}
                       onChange={e => setForm({ ...form, price: e.target.value })}
-                      className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                      className={FIELD_INPUT_CLASS}
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className={FIELD_LABEL_CLASS}>Description</label>
                   <textarea
                     value={form.description}
                     onChange={e => setForm({ ...form, description: e.target.value })}
-                    className="w-full px-5 py-4 border-2 rounded-xl h-40 focus:border-[#118C8C]"
+                    className={`${FIELD_INPUT_CLASS} h-40 resize-y`}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <label className={FIELD_LABEL_CLASS}>Category</label>
                   <select
                     value={form.category}
                     onChange={e => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                    className={FIELD_INPUT_CLASS}
                     required
                   >
                     <option value="">Select Category</option>
@@ -226,8 +241,8 @@ const AddProductPage = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Product Images (multiple allowed)</label>
+                <div className="rounded-[1.5rem] border border-dashed border-artisan-primary/30 bg-artisan-primary-wash/35 p-5 sm:p-6">
+                  <label className={FIELD_LABEL_CLASS}>Product Images (multiple allowed)</label>
                   <input 
                     ref={fileInputRef} 
                     type="file" 
@@ -245,22 +260,23 @@ const AddProductPage = () => {
                   >
                     <Upload className="mr-2" /> {uploading ? "Uploading..." : "Upload Images"}
                   </Button>
-                  <p className="text-sm text-gray-500 mt-2">You can select multiple images at once (different angles, details, etc.)</p>
+                  <p className="mt-3 text-sm text-artisan-text-muted">You can select multiple images at once for different angles and product details.</p>
                 </div>
 
                 {previews.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                  <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     {previews.map((preview, index) => (
-                      <div key={index} className="relative group">
+                      <div key={index} className="group relative overflow-hidden rounded-xl border border-artisan-primary/10 bg-white shadow-sm">
                         <img 
                           src={preview} 
                           alt={`preview ${index}`} 
-                          className="w-full h-40 object-cover rounded-lg shadow" 
+                          className="h-36 w-full object-cover sm:h-40"
                         />
                         <button
                           type="button"
                           onClick={() => removePreview(index)}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label={`Remove preview ${index + 1}`}
+                          className="absolute right-2 top-2 rounded-full bg-red-500 p-1.5 text-white opacity-100 shadow-sm transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -269,34 +285,34 @@ const AddProductPage = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="flex items-center gap-4">
+                <div className="grid grid-cols-1 gap-6 rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 md:grid-cols-2 md:items-end sm:p-6">
+                  <div className="flex items-center gap-3 rounded-xl bg-artisan-primary-wash/40 p-4">
                     <input
                       type="checkbox"
                       checked={form.inStock}
                       onChange={e => setForm({ ...form, inStock: e.target.checked })}
-                      className="w-6 h-6 text-[#118C8C] rounded"
+                      className="h-5 w-5 rounded border-artisan-primary text-artisan-primary focus:ring-artisan-primary"
                     />
-                    <label className="text-lg font-medium">In Stock</label>
+                    <label className="font-semibold text-artisan-text">In Stock</label>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity</label>
+                    <label className={FIELD_LABEL_CLASS}>Stock Quantity</label>
                     <input
                       type="number"
                       value={form.stockQuantity}
                       onChange={e => setForm({ ...form, stockQuantity: e.target.value })}
-                      className="w-full px-5 py-4 border-2 rounded-xl focus:border-[#118C8C] text-lg"
+                      className={FIELD_INPUT_CLASS}
                       min="0"
                     />
                   </div>
                 </div>
 
-                <div className="flex justify-center gap-6 mt-12">
+                <div className="flex flex-col-reverse justify-end gap-3 border-t border-artisan-primary/10 pt-8 sm:flex-row">
                   <Button 
                     type="submit" 
                     size="lg" 
-                    className="bg-[#118C8C] hover:bg-[#0d7070] px-12 py-6 text-xl font-bold"
+                    className="w-full px-8 sm:w-auto"
                     disabled={uploading || !form.imageUrls.length}
                   >
                     <Save className="mr-3" /> Add Product
@@ -306,6 +322,7 @@ const AddProductPage = () => {
                     variant="outline" 
                     size="lg" 
                     onClick={() => navigate('/pricelists')}
+                    className="w-full sm:w-auto"
                   >
                     <X className="mr-3" /> Cancel
                   </Button>

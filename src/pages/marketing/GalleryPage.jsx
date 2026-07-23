@@ -20,7 +20,8 @@ const GalleryPage = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOrder, setSortOrder] = useState('default');
+  const [sortOrder, setSortOrder] = useState('newest');
+  const [visibleCount, setVisibleCount] = useState(5);
   const [imageIndices, setImageIndices] = useState({});
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
@@ -50,11 +51,24 @@ const GalleryPage = () => {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((p) => p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q));
     }
-    if (sortOrder === 'lowToHigh') filtered = [...filtered].sort((a, b) => a.price - b.price);
+    const toMillis = (value) => {
+      if (typeof value?.toMillis === 'function') return value.toMillis();
+      if (typeof value?.toDate === 'function') return value.toDate().getTime();
+      const parsed = new Date(value || 0).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    if (sortOrder === 'newest') filtered = [...filtered].sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+    else if (sortOrder === 'oldest') filtered = [...filtered].sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
+    else if (sortOrder === 'lowToHigh') filtered = [...filtered].sort((a, b) => a.price - b.price);
     else if (sortOrder === 'highToLow') filtered = [...filtered].sort((a, b) => b.price - a.price);
     else if (sortOrder === 'topSellers') filtered = [...filtered].sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0));
     setFilteredProducts(filtered);
   }, [products, searchQuery, sortOrder]);
+
+  useEffect(() => {
+    setVisibleCount(5);
+  }, [activeTab, searchQuery, sortOrder]);
 
   const getCategoryItems = (category) => category === 'all' ? filteredProducts : filteredProducts.filter((p) => p.category === category);
   const getNavIdsForTab = (tabId) => getCategoryItems(tabId).map((p) => p.id);
@@ -113,10 +127,19 @@ const GalleryPage = () => {
                   <input type="text" placeholder="Search products, categories, or descriptions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-12 rounded-2xl border border-artisan-primary-wash bg-white pl-11 pr-4 text-sm md:text-base outline-none transition focus:border-artisan-primary-light focus:ring-4 focus:ring-artisan-primary/10" />
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto xl:justify-end">
-                  <div className="flex items-center gap-2 rounded-2xl border border-artisan-primary-wash bg-white px-3 h-12 w-full sm:w-auto">
+                  <div className="flex h-12 w-full items-center gap-2 rounded-2xl border border-artisan-primary-wash bg-white px-3 sm:w-auto">
                     <ArrowUpDown size={17} className="text-artisan-text-muted shrink-0" />
-                    <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="bg-transparent w-full sm:w-auto text-sm md:text-base text-artisan-text outline-none">
-                      <option value="default">Featured</option>
+                    <label htmlFor="gallery-sort" className="shrink-0 text-xs font-bold uppercase tracking-wide text-artisan-text-muted">
+                      Sort
+                    </label>
+                    <select
+                      id="gallery-sort"
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      className="w-full bg-transparent text-sm text-artisan-text outline-none sm:w-auto md:text-base"
+                    >
+                      <option value="newest">Newest to Oldest</option>
+                      <option value="oldest">Oldest to Newest</option>
                       <option value="lowToHigh">Price: Low to High</option>
                       <option value="highToLow">Price: High to Low</option>
                       <option value="topSellers">Top Sellers</option>
@@ -153,8 +176,9 @@ const GalleryPage = () => {
                        <p className="mt-4 text-white/85">Loading gallery...</p>
                     </div>
                   ) : getCategoryItems(cat.id).length > 0 ? (
+                    <div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5 md:gap-6">
-                      {getCategoryItems(cat.id).map((item, index) => {
+                      {getCategoryItems(cat.id).slice(0, visibleCount).map((item, index) => {
                         const isTopSeller = item.totalSold > 0 && sortOrder === 'topSellers';
                         const showBadge = isTopSeller || item.totalSold >= 5;
                         const allImages = item.imageUrls?.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
@@ -213,6 +237,19 @@ const GalleryPage = () => {
                           </motion.div>
                         );
                       })}
+                    </div>
+                    {getCategoryItems(cat.id).length > visibleCount && (
+                      <div className="mt-8 flex justify-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setVisibleCount((count) => count + 5)}
+                          className="border-white/55 bg-white/90 text-artisan-primary hover:bg-white"
+                        >
+                          Load 5 more products
+                        </Button>
+                      </div>
+                    )}
                     </div>
                   ) : (
                     <div className="text-center py-24">

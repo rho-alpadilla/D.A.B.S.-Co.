@@ -250,8 +250,22 @@ function AppContent() {
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route
+            path="/buyer-dashboard"
+            element={
+              <ProtectedRoute>
+                <BuyerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/checkout"

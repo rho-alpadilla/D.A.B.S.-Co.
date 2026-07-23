@@ -1,0 +1,176 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().data.role == 'admin';
+    }
+
+    function isSubAdmin() {
+      return isSignedIn() && userDoc().data.role == 'sub-admin';
+    }
+
+    function ownsOrder() {
+      return isSignedIn() &&
+        resource.data.buyerEmail == request.auth.token.email;
+    }
+
+    function createsOwnOrder() {
+      return isSignedIn() &&
+        request.resource.data.buyerEmail == request.auth.token.email &&
+        request.resource.data.status in ['pending', 'paid'];
+    }
+
+    function buyerUpdatesPaymentReference() {
+      return ownsOrder() &&
+        resource.data.status == 'paid' &&
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['paymentId', 'paidAt']);
+    }
+
+    function buyerRequestsCancellation() {
+      return ownsOrder() &&
+        resource.data.status in [
+          'pending',
+          'pending_review',
+          'on_review',
+          'Paid / Processing'
+        ] &&
+        request.resource.data.status == 'Cancellation Requested' &&
+        request.resource.data.cancellationRequestedBy == 'buyer' &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'cancelReason',
+          'cancellationRequestedAt',
+          'cancellationRequestedBy'
+        ]);
+    }
+
+    match /users/{userId} {
+      // Registration creates a profile for the authenticated account only.
+      // The app currently uses both customer and buyer as non-privileged roles.
+      allow create: if isSignedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.role in ['customer', 'buyer'];
+
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isAdmin() ||
+        isSubAdmin()
+      );
+
+      allow update: if (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        !request.resource.data.diff(resource.data).changedKeys().hasAny([
+          'role',
+          'promotedBy',
+          'promotedAt',
+          'removedBy',
+          'removedAt',
+          'updatedAt'
+        ])
+      ) || isAdmin();
+
+      allow delete: if isAdmin();
+
+      match /cart/{itemId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      match /notifications/{notificationId} {
+        allow read, write: if isSignedIn() && (
+          request.auth.uid == userId || isAdmin()
+        );
+      }
+    }
+
+    match /pricelists/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Preserved pending a separate review-workflow decision. Signed-in writes
+    // remain compatible with the existing review and admin-reply behavior.
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /orders/{orderId} {
+      allow create: if createsOwnOrder();
+
+      allow read: if isSignedIn() && (
+        resource.data.buyerEmail == request.auth.token.email ||
+        isAdmin() ||
+        isSubAdmin()
+      );
+
+      allow update: if isAdmin() ||
+        buyerUpdatesPaymentReference() ||
+        buyerRequestsCancellation() ||
+        (
+          isSubAdmin() &&
+          request.resource.data.diff(resource.data).changedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          request.resource.data.status in [
+            'on_review',
+            'payment_confirmed',
+            'processing',
+            'shipping'
+          ]
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAdmin() || isSubAdmin() || (
+        isSignedIn() && resource.data.buyerEmail == request.auth.token.email
+      );
+
+      allow create: if (
+        isSignedIn() &&
+        request.resource.data.buyerEmail == request.auth.token.email &&
+        request.resource.data.isAdminReply == false
+      ) || (
+        (isAdmin() || isSubAdmin()) &&
+        request.resource.data.isAdminReply == true
+      );
+
+      allow update: if (
+        isAdmin() ||
+        isSubAdmin() ||
+        (isSignedIn() && resource.data.buyerEmail == request.auth.token.email)
+      ) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['status']) &&
+        request.resource.data.status in ['read', 'unread'];
+
+      allow delete: if isAdmin();
+    }
+
+    // Daily summaries are server-maintained. Admin dashboards may read the
+    // compact reports; no browser client may write them or the event log.
+    match /analyticsDaily/{dayId} {
+      allow read: if isAdmin() || isSubAdmin();
+      allow write: if false;
+    }
+
+    match /analyticsEventLog/{eventId} {
+      allow read, write: if false;
+    }
+  }
+}

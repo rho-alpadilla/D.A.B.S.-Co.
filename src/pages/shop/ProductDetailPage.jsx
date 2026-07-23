@@ -34,6 +34,7 @@ const ProductDetailPage = () => {
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(5);
   const [averageRating, setAverageRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
   const [recommended, setRecommended] = useState([]);
@@ -56,6 +57,7 @@ const ProductDetailPage = () => {
 
   useEffect(() => {
     if (!id) return;
+    setVisibleReviewCount(5);
 
     const unsubProduct = onSnapshot(doc(db, "pricelists", id), (snap) => {
       if (snap.exists()) {
@@ -507,7 +509,7 @@ const ProductDetailPage = () => {
             <div className="mb-12 mt-12 rounded-[2rem] border border-[#E6DDEB] bg-white p-7 shadow-xl shadow-[#2D0E5A]/10 md:p-10">
               <h2 className="mb-8 font-artisan-display text-4xl font-bold text-[#2A1739]">Customer Reviews</h2>
               <div className="space-y-8">
-                {reviews.map(review => (
+                {reviews.slice(0, visibleReviewCount).map(review => (
                   <div key={review.id} className="border-b pb-8 last:border-0">
                     <div className="flex items-start gap-4">
                       {review.buyerPhoto ? (
@@ -581,6 +583,17 @@ const ProductDetailPage = () => {
                     )}
                   </div>
                 ))}
+                {reviews.length > visibleReviewCount && (
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setVisibleReviewCount((count) => count + 5)}
+                    >
+                      Load 5 more reviews
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

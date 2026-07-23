@@ -1,18 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/lib/firebase';
-import { db } from '@/lib/firebase';
+import { useAuth, db } from '@/lib/firebase';
 import {
   collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
   doc,
+  onSnapshot,
+  query,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  where,
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,7 +24,10 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  Eye
+  Eye,
+  ShoppingBag,
+  ArrowRight,
+  ReceiptText,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -136,37 +137,72 @@ const PendingOrdersPage = () => {
   const { user, loading: authLoading } = useAuth();
   const { formatPrice } = useCurrency();
 
-  const [orders, setOrders] = useState([]);
+  const [activeTab, setActiveTab] = useState('all');
+  const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [visibleCounts, setVisibleCounts] = useState({
-    all: 5,
-    pending: 5,
-    completed: 5,
-    cancelled: 5,
-  });
+  const [ordersError, setOrdersError] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(5);
 
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [selectedReason, setSelectedReason] = useState('');
   const [otherReason, setOtherReason] = useState('');
 
+  const selectedStatuses = useMemo(() => {
+    if (activeTab === 'all') return [];
+    if (activeTab === 'active') return ACTIVE_ORDER_STATUSES;
+    if (activeTab === 'completed') return COMPLETED_ORDER_STATUSES;
+    if (activeTab === 'cancelled') return CANCELLED_ORDER_STATUSES;
+    return [];
+  }, [activeTab]);
+
   useEffect(() => {
-    if (!user) return;
+    if (!user?.email) return undefined;
 
-    const q = query(
-      collection(db, 'orders'),
-      where('buyerEmail', '==', user.email),
-      orderBy('createdAt', 'desc')
+    setLoading(true);
+    setOrdersError(null);
+
+    return onSnapshot(
+      query(collection(db, 'orders'), where('buyerEmail', '==', user.email)),
+      (snapshot) => {
+        const toMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || 0;
+        const nextOrders = snapshot.docs
+          .map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }))
+          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+
+        setAllOrders(nextOrders);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Orders could not be loaded:', error);
+        setOrdersError('Orders could not be loaded. Please try again.');
+        setLoading(false);
+      }
     );
+  }, [user?.email]);
 
-    const unsub = onSnapshot(q, (snap) => {
-      setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    });
+  useEffect(() => {
+    setVisibleCount(5);
+  }, [activeTab]);
 
-    return () => unsub();
-  }, [user]);
+  const matchingOrders = useMemo(() => (
+    selectedStatuses.length
+      ? allOrders.filter((order) => selectedStatuses.includes(order.status))
+      : allOrders
+  ), [allOrders, selectedStatuses]);
+
+  const orders = matchingOrders.slice(0, visibleCount);
+  const hasMore = matchingOrders.length > visibleCount;
+  const loadingMore = false;
+  const loadMore = () => setVisibleCount((count) => count + 5);
+  const collapseToFirstPage = () => setVisibleCount(5);
+  const countsLoading = loading;
+  const orderCounts = useMemo(() => ({
+    all: allOrders.length,
+    active: allOrders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)).length,
+    completed: allOrders.filter((order) => COMPLETED_ORDER_STATUSES.includes(order.status)).length,
+    cancelled: allOrders.filter((order) => CANCELLED_ORDER_STATUSES.includes(order.status)).length,
+  }), [allOrders]);
 
   const openCancelModal = (order) => {
     setOrderToCancel(order);
@@ -221,19 +257,6 @@ const PendingOrdersPage = () => {
     );
   };
 
-  const pendingOrders = orders.filter((o) => ACTIVE_ORDER_STATUSES.includes(o.status || 'pending_review'));
-  const completedOrders = orders.filter((o) => COMPLETED_ORDER_STATUSES.includes(o.status));
-  const cancelledOrders = orders.filter((o) => CANCELLED_ORDER_STATUSES.includes(o.status));
-  const allOrders = orders;
-
-  const loadMore = (tab) => {
-    setVisibleCounts((prev) => ({ ...prev, [tab]: prev[tab] + 5 }));
-  };
-
-  const loadLess = (tab) => {
-    setVisibleCounts((prev) => ({ ...prev, [tab]: Math.max(5, prev[tab] - 5) }));
-  };
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -253,12 +276,12 @@ const PendingOrdersPage = () => {
         <title>My Orders - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen bg-[#daf0ee] overflow-hidden">
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
-            color1="#118c8c"
-            color2="#118c8c"
-            color3="#fbfe9f"
+            color1="#5C2D91"
+            color2="#7B3FA0"
+            color3="#C9A0DC"
             timeSpeed={0.25}
             colorBalance={-0.06}
             warpStrength={1.5}
@@ -282,98 +305,120 @@ const PendingOrdersPage = () => {
 
           <div className="absolute inset-0 pointer-events-none">
             <Particles
-              particleCount={400}
+              particleCount={180}
               particleSpread={10}
               speed={0.1}
-              particleColors={['#faf8f1', '#118c8c', '#f1bb19']}
+              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
               moveParticlesOnHover
               particleHoverFactor={1}
               alphaParticles={false}
-              particleBaseSize={150}
-              sizeRandomness={1.7}
+              particleBaseSize={120}
+              sizeRandomness={1.4}
               cameraDistance={53}
               disableRotation={false}
             />
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-12 min-h-[60vh]">
+        <div className="relative z-10 container mx-auto max-w-7xl px-5 py-14 sm:px-8 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mb-8 rounded-3xl bg-white/90 backdrop-blur-md border border-white/30 shadow-lg p-6 md:p-8"
+            className="relative mb-8 overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 p-7 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-10"
           >
+            <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-artisan-primary-pale/30 blur-3xl" />
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#118C8C] mb-3">
+              <div className="relative">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-artisan-primary-wash px-4 py-2 text-xs font-semibold uppercase tracking-wider text-artisan-primary">
                   <Sparkles size={14} />
                   Order Tracking
                 </div>
 
-                <h1 className="text-3xl md:text-4xl font-bold text-[#118C8C] flex items-center gap-3">
-                  <Package className="text-[#F2BB16]" size={32} />
+                <h1 className="flex items-center gap-3 font-artisan-display text-4xl font-bold text-artisan-text md:text-5xl">
+                  <Package className="text-artisan-primary" size={34} />
                   My Orders
                 </h1>
 
-                <p className="text-gray-600 mt-2">
+                <p className="mt-3 max-w-xl text-artisan-text-muted">
                   Review your active, completed, and cancelled orders.
                 </p>
               </div>
 
-              <div className="flex gap-3">
-                <Button asChild className="bg-[#118C8C] hover:bg-[#0d7070] rounded-2xl">
-                  <Link to="/cart">Back to Cart</Link>
+              <div className="relative flex flex-col gap-3 sm:flex-row">
+                <Button asChild className="w-full sm:w-auto">
+                  <Link to="/cart"><ShoppingBag size={17} className="mr-2" />Back to Cart</Link>
                 </Button>
-                <Button asChild variant="outline" className="rounded-2xl">
-                  <Link to="/buyer-dashboard">Dashboard</Link>
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link to="/buyer-dashboard">Dashboard <ArrowRight size={17} className="ml-2" /></Link>
                 </Button>
               </div>
             </div>
           </motion.div>
 
-          {orders.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.08 }}
+            className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          >
+            <OrderStat label="All orders" value={orderCounts.all} tone="bg-white/95" loading={countsLoading} />
+            <OrderStat label="Active" value={orderCounts.active} tone="bg-amber-50/95" loading={countsLoading} />
+            <OrderStat label="Completed" value={orderCounts.completed} tone="bg-emerald-50/95" loading={countsLoading} />
+            <OrderStat label="Cancelled" value={orderCounts.cancelled} tone="bg-rose-50/95" loading={countsLoading} />
+          </motion.div>
+
+          {!countsLoading && orderCounts.all === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-center py-12 bg-white/90 backdrop-blur-md rounded-3xl border border-white/30 shadow-lg"
+              className="rounded-[2rem] border border-white/45 bg-white/95 py-14 text-center shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md"
             >
-              <Package size={48} className="mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500 text-lg mb-6">No orders yet</p>
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-artisan-primary-wash">
+                <Package size={32} className="text-artisan-primary" />
+              </div>
+              <h2 className="font-artisan-display text-2xl font-bold text-artisan-text">No orders yet</h2>
+              <p className="mx-auto mt-2 max-w-sm text-artisan-text-muted">Your purchased pieces will appear here as soon as an order is placed.</p>
               <Link to="/gallery">
-                <Button className="bg-[#118C8C] hover:bg-[#0d7070] rounded-2xl">
-                  Browse Products
+                <Button className="mt-6">
+                  Browse Products <ArrowRight size={17} className="ml-2" />
                 </Button>
               </Link>
             </motion.div>
           ) : (
-            <div className="bg-white/90 backdrop-blur-md rounded-3xl border border-white/30 shadow-lg overflow-hidden">
-              <Tabs defaultValue="all">
-                <TabsList className="grid w-full grid-cols-4 rounded-none bg-white/70 border-b border-gray-100">
-                  <TabsTrigger value="all">All ({allOrders.length})</TabsTrigger>
-                  <TabsTrigger value="pending">Active ({pendingOrders.length})</TabsTrigger>
-                  <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
-                  <TabsTrigger value="cancelled">Cancelled ({cancelledOrders.length})</TabsTrigger>
+            <div className="overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid min-h-0 w-full grid-cols-2 gap-2 rounded-none border-0 border-b border-artisan-primary/10 bg-artisan-primary-wash/35 p-3 sm:grid-cols-4">
+                  <TabsTrigger value="all">All <span className="ml-1 opacity-70">({orderCounts.all})</span></TabsTrigger>
+                  <TabsTrigger value="active">Active <span className="ml-1 opacity-70">({orderCounts.active})</span></TabsTrigger>
+                  <TabsTrigger value="completed">Completed <span className="ml-1 opacity-70">({orderCounts.completed})</span></TabsTrigger>
+                  <TabsTrigger value="cancelled">Cancelled <span className="ml-1 opacity-70">({orderCounts.cancelled})</span></TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all" className="mt-0">
                   <OrderTable
-                    orders={allOrders}
-                    visibleCount={visibleCounts.all}
-                    onLoadMore={() => loadMore('all')}
-                    onLoadLess={() => loadLess('all')}
+                    orders={orders}
+                    hasMore={hasMore}
+                    loadingMore={loadingMore}
+                    onLoadMore={loadMore}
+                    canLoadLess={orders.length > 10}
+                    onLoadLess={collapseToFirstPage}
+                    error={ordersError}
                     formatPrice={formatPrice}
                     onCancel={openCancelModal}
                     canCancel={canCancel}
                   />
                 </TabsContent>
 
-                <TabsContent value="pending" className="mt-0">
+                <TabsContent value="active" className="mt-0">
                   <OrderTable
-                    orders={pendingOrders}
-                    visibleCount={visibleCounts.pending}
-                    onLoadMore={() => loadMore('pending')}
-                    onLoadLess={() => loadLess('pending')}
+                    orders={orders}
+                    hasMore={hasMore}
+                    loadingMore={loadingMore}
+                    onLoadMore={loadMore}
+                    canLoadLess={orders.length > 10}
+                    onLoadLess={collapseToFirstPage}
+                    error={ordersError}
                     formatPrice={formatPrice}
                     onCancel={openCancelModal}
                     canCancel={canCancel}
@@ -382,10 +427,13 @@ const PendingOrdersPage = () => {
 
                 <TabsContent value="completed" className="mt-0">
                   <OrderTable
-                    orders={completedOrders}
-                    visibleCount={visibleCounts.completed}
-                    onLoadMore={() => loadMore('completed')}
-                    onLoadLess={() => loadLess('completed')}
+                    orders={orders}
+                    hasMore={hasMore}
+                    loadingMore={loadingMore}
+                    onLoadMore={loadMore}
+                    canLoadLess={orders.length > 10}
+                    onLoadLess={collapseToFirstPage}
+                    error={ordersError}
                     formatPrice={formatPrice}
                     onCancel={openCancelModal}
                     canCancel={canCancel}
@@ -394,10 +442,13 @@ const PendingOrdersPage = () => {
 
                 <TabsContent value="cancelled" className="mt-0">
                   <OrderTable
-                    orders={cancelledOrders}
-                    visibleCount={visibleCounts.cancelled}
-                    onLoadMore={() => loadMore('cancelled')}
-                    onLoadLess={() => loadLess('cancelled')}
+                    orders={orders}
+                    hasMore={hasMore}
+                    loadingMore={loadingMore}
+                    onLoadMore={loadMore}
+                    canLoadLess={orders.length > 10}
+                    onLoadLess={collapseToFirstPage}
+                    error={ordersError}
                     formatPrice={formatPrice}
                     onCancel={openCancelModal}
                     canCancel={canCancel}
@@ -409,10 +460,12 @@ const PendingOrdersPage = () => {
 
           {cancelModalOpen && orderToCancel && (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative border border-white/30">
+              <div className="relative w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-7 text-artisan-text shadow-2xl sm:p-8">
                 <button
                   onClick={() => setCancelModalOpen(false)}
-                  className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                  type="button"
+                  aria-label="Close cancellation dialog"
+                  className="absolute right-4 top-4 rounded-full p-2 text-artisan-text-muted transition hover:bg-artisan-primary-wash hover:text-artisan-primary"
                 >
                   <X size={24} />
                 </button>
@@ -421,16 +474,16 @@ const PendingOrdersPage = () => {
                   <AlertCircle size={28} /> Cancel Order?
                 </h2>
 
-                <p className="text-gray-700 mb-6">
+                <p className="mb-6 text-artisan-text-muted">
                   Order <strong>#{orderToCancel.id.slice(0, 8)}</strong> will be cancelled. This
                   action cannot be undone.
                 </p>
 
                 <div className="mb-6">
-                  <p className="font-medium mb-3">Please select a reason:</p>
+                  <p className="mb-3 font-semibold text-artisan-text">Please select a reason:</p>
                   <div className="space-y-3">
                     {CANCEL_REASONS.map((reason) => (
-                      <label key={reason} className="flex items-center gap-3 cursor-pointer">
+                      <label key={reason} className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-artisan-primary-wash/70">
                         <input
                           type="radio"
                           name="cancelReason"
@@ -439,7 +492,7 @@ const PendingOrdersPage = () => {
                           onChange={(e) => setSelectedReason(e.target.value)}
                           className="w-5 h-5 text-red-600 focus:ring-red-500"
                         />
-                        <span className="text-gray-800">{reason}</span>
+                        <span className="text-artisan-text">{reason}</span>
                       </label>
                     ))}
                   </div>
@@ -449,20 +502,20 @@ const PendingOrdersPage = () => {
                       value={otherReason}
                       onChange={(e) => setOtherReason(e.target.value)}
                       placeholder="Please explain your reason..."
-                      className="w-full mt-4 px-4 py-3 border border-gray-300 rounded-2xl resize-none h-28 focus:border-red-500 focus:ring-red-500"
+                      className="mt-4 h-28 w-full resize-none rounded-2xl border border-artisan-border bg-white px-4 py-3 text-artisan-text placeholder:text-artisan-text-faint focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
                       required
                     />
                   )}
                 </div>
 
-                <div className="flex justify-end gap-4">
-                  <Button variant="outline" onClick={() => setCancelModalOpen(false)} className="rounded-2xl">
+                <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+                  <Button variant="outline" onClick={() => setCancelModalOpen(false)}>
                     Nevermind
                   </Button>
                   <Button
                     onClick={confirmCancellation}
                     disabled={!selectedReason || (selectedReason === 'Other' && !otherReason.trim())}
-                    className="bg-red-600 hover:bg-red-700 text-white rounded-2xl"
+                    className="bg-red-600 text-white hover:bg-red-700"
                   >
                     Confirm Cancellation
                   </Button>
@@ -478,81 +531,126 @@ const PendingOrdersPage = () => {
 
 const OrderTable = ({
   orders,
-  visibleCount,
+  hasMore,
+  loadingMore,
   onLoadMore,
+  canLoadLess,
   onLoadLess,
+  error,
   formatPrice,
   onCancel,
   canCancel,
 }) => {
   if (orders.length === 0) {
-    return <div className="text-center py-12 text-gray-500">No orders in this category.</div>;
+    return (
+      <div className="px-6 py-14 text-center">
+        <ReceiptText size={34} className="mx-auto mb-3 text-artisan-primary-pale" />
+        <p className="font-semibold text-artisan-text">No orders in this category.</p>
+        <p className="mt-1 text-sm text-artisan-text-muted">Try another tab to view your order history.</p>
+      </div>
+    );
   }
 
-  const displayed = orders.slice(0, visibleCount);
-  const hasMore = visibleCount < orders.length;
-  const hasLess = visibleCount > 5;
-
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-gray-50/90">
+    <div>
+      <div className="hidden overflow-x-auto md:block">
+      <table className="w-full min-w-[760px] text-left">
+        <thead className="bg-artisan-primary-wash/45 text-artisan-text">
           <tr>
-            <th className="p-4 font-semibold">Order ID</th>
-            <th className="p-4 font-semibold">Date</th>
-            <th className="p-4 font-semibold">Items</th>
-            <th className="p-4 font-semibold">Total</th>
-            <th className="p-4 font-semibold">Status</th>
-            <th className="p-4 font-semibold">Actions</th>
+            <th className="p-5 text-sm font-bold">Order ID</th>
+            <th className="p-5 text-sm font-bold">Date</th>
+            <th className="p-5 text-sm font-bold">Items</th>
+            <th className="p-5 text-sm font-bold">Total</th>
+            <th className="p-5 text-sm font-bold">Status</th>
+            <th className="p-5 text-sm font-bold">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {displayed.map((order) => (
-            <tr key={order.id} className="border-t hover:bg-gray-50/70 transition">
-              <td className="p-4 font-medium">#{order.id.slice(0, 8)}</td>
-              <td className="p-4">
+          {orders.map((order) => (
+            <tr key={order.id} className="border-t border-artisan-primary/10 transition hover:bg-artisan-primary-wash/30">
+              <td className="p-5 font-semibold text-artisan-text">#{order.id.slice(0, 8)}</td>
+              <td className="p-5 text-artisan-text-muted">
                 {order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
               </td>
-              <td className="p-4">
+              <td className="p-5 text-artisan-text-muted">
                 {order.items?.map((item, i) => (
                   <p key={i} className="text-sm">
                     • {item.name} x{item.quantity}
                   </p>
                 )) || <p className="text-sm text-gray-500">No items</p>}
               </td>
-              <td className="p-4 font-bold text-[#F2BB16]">
+              <td className="p-5 font-bold text-artisan-primary">
                 {formatPrice(order.total || order.grandTotal || 0)}
               </td>
-              <td className="p-4">{getStatusBadge(order.status)}</td>
-              <td className="p-4 space-y-2">
+              <td className="p-5">{getStatusBadge(order.status)}</td>
+              <td className="p-5 space-y-2">
                 {canCancel(order) && (
                   <Button
                     onClick={() => onCancel(order)}
                     variant="outline"
                     size="sm"
-                    className="border-red-300 text-red-600 hover:bg-red-50 rounded-xl"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
                   >
                     Cancel Order
                   </Button>
                 )}
                 {order.cancelReason && (
-                  <p className="text-xs text-gray-600 italic">Reason: {order.cancelReason}</p>
+                  <p className="text-xs italic text-artisan-text-muted">Reason: {order.cancelReason}</p>
                 )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
 
-      <div className="flex justify-center gap-4 py-6">
+      <div className="space-y-4 p-4 md:hidden">
+        {orders.map((order) => (
+          <article key={order.id} className="rounded-2xl border border-artisan-primary/15 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-bold text-artisan-text">Order #{order.id.slice(0, 8)}</p>
+                <p className="mt-1 text-sm text-artisan-text-muted">{order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+              </div>
+              {getStatusBadge(order.status)}
+            </div>
+
+            <div className="mt-4 border-y border-artisan-primary/10 py-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-artisan-text-faint">Items</p>
+              <div className="space-y-1.5 text-sm text-artisan-text-muted">
+                {order.items?.map((item, index) => (
+                  <p key={index}>{item.name} <span className="text-artisan-text-faint">×{item.quantity}</span></p>
+                )) || <p>No items</p>}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-lg font-bold text-artisan-primary">{formatPrice(order.total || order.grandTotal || 0)}</p>
+              {canCancel(order) && (
+                <Button onClick={() => onCancel(order)} variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50">
+                  Cancel Order
+                </Button>
+              )}
+            </div>
+            {order.cancelReason && (
+              <p className="mt-3 text-xs italic text-artisan-text-muted">Reason: {order.cancelReason}</p>
+            )}
+          </article>
+        ))}
+      </div>
+
+      <div className="flex flex-col items-center justify-center gap-3 px-4 py-6 sm:flex-row">
+        {error && (
+          <p className="text-sm text-red-600">{error}</p>
+        )}
         {hasMore && (
-          <Button variant="outline" onClick={onLoadMore} className="flex items-center gap-2 rounded-2xl">
-            View More ({orders.length - visibleCount} remaining)
+          <Button variant="outline" onClick={onLoadMore} disabled={loadingMore} className="flex items-center gap-2">
+            {loadingMore ? 'Loading more orders...' : 'Load more orders'}
             <ChevronDown size={20} />
           </Button>
         )}
-        {hasLess && (
-          <Button variant="outline" onClick={onLoadLess} className="flex items-center gap-2 rounded-2xl">
+        {canLoadLess && (
+          <Button variant="outline" onClick={onLoadLess} className="flex items-center gap-2">
             View Less
             <ChevronUp size={20} />
           </Button>
@@ -561,5 +659,12 @@ const OrderTable = ({
     </div>
   );
 };
+
+const OrderStat = ({ label, value, tone, loading }) => (
+  <div className={`rounded-2xl border border-white/55 p-4 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md ${tone}`}>
+    <p className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">{label}</p>
+    <p className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">{loading ? '—' : value}</p>
+  </div>
+);
 
 export default PendingOrdersPage;

@@ -59,16 +59,28 @@ const HighlightsPage = () => {
     </div>
   );
 
-  const ProductCard = ({ item, badge }) => (
+  const ProductCard = ({ item, badge }) => {
+    const primaryImageUrl = item.imageUrls?.find(
+      (imageUrl) => typeof imageUrl === 'string' && imageUrl.trim()
+    ) || item.imageUrl;
+
+    return (
     <Link to={`/product/${item.id}`} className="group block h-full">
       <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/20 bg-white shadow-lg backdrop-blur-md transition-all duration-500 hover:-translate-y-2 hover:border-artisan-primary/35 hover:shadow-2xl">
         <div className="aspect-square relative overflow-hidden bg-artisan-primary-wash/30">
-          {item.imageUrl ? (
-            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Palette size={56} className="text-artisan-primary-pale" />
-            </div>
+          <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+            <Palette size={56} className="text-artisan-primary-pale" />
+          </div>
+          {primaryImageUrl && (
+            <img
+              src={primaryImageUrl}
+              alt={item.name || 'Handmade product'}
+              loading="lazy"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+              className="relative h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+            />
           )}
           {badge && (
             <div className="absolute top-3 right-3 px-3 py-1.5 bg-gradient-to-r from-artisan-primary to-artisan-primary-mid text-white rounded-xl font-bold text-xs uppercase shadow-xl border-2 border-white">
@@ -97,7 +109,8 @@ const HighlightsPage = () => {
         </div>
       </div>
     </Link>
-  );
+    );
+  };
 
   const SectionHeading = ({ id, title, subtitle, align = 'center' }) => (
     <div id={id} className={`mb-10 scroll-mt-28 md:mb-12 ${align === 'left' ? 'text-left' : 'text-center'}`}>

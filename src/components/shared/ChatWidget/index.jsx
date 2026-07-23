@@ -28,6 +28,7 @@ import {
   serverTimestamp,
   updateDoc,
   doc,
+  limit,
   where,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -58,6 +59,9 @@ const ADMIN_AI_WELCOME_MESSAGE = {
   content:
     'Admin Assistant is ready. You can ask about products, orders, stock, best sellers, revenue, and order status counts.',
 };
+
+const COMPACT_SUPPORT_MESSAGE_LIMIT = 50;
+const ADMIN_AI_ORDER_WINDOW_LIMIT = 100;
 
 const getRandomFaqQuestions = (faqPool, count = 4, exclude = []) => {
   const excluded = new Set(exclude);
@@ -410,14 +414,18 @@ const ChatWidget = () => {
   };
 
   useEffect(() => {
-    if (!isOpen || !isAdminLike) return;
+    if (!isOpen || !isAdminLike || activeTab !== 'admin-ai') return;
 
     const unsubProducts = onSnapshot(collection(db, 'pricelists'), (snap) => {
       setAdminProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     const unsubOrders = onSnapshot(
-      query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
+      query(
+        collection(db, 'orders'),
+        orderBy('createdAt', 'desc'),
+        limit(ADMIN_AI_ORDER_WINDOW_LIMIT)
+      ),
       (snap) => setAdminOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
 
@@ -425,7 +433,7 @@ const ChatWidget = () => {
       unsubProducts();
       unsubOrders();
     };
-  }, [isOpen, isAdminLike]);
+  }, [activeTab, isOpen, isAdminLike]);
 
   const getAdminAssistantAnswer = (question) => {
     const q = normalizeText(question);
@@ -475,34 +483,34 @@ const ChatWidget = () => {
       q.includes('total orders') ||
       q.includes('number of orders')
     ) {
-      return `You currently have ${orders.length} total orders.`;
+      return `The recent Admin AI window contains ${orders.length} of the newest orders (up to ${ADMIN_AI_ORDER_WINDOW_LIMIT}). Use the dashboard for all-time totals.`;
     }
 
     if (q.includes('completed orders') || q.includes('how many completed')) {
-      return `There are ${completedOrders.length} completed orders.`;
+      return `The recent Admin AI window contains ${completedOrders.length} completed orders.`;
     }
 
     if (q.includes('pending orders') || q.includes('how many pending')) {
-      return `There are ${pendingCount} pending orders.`;
+      return `The recent Admin AI window contains ${pendingCount} pending orders.`;
     }
 
     if (q.includes('payment confirmed')) {
-      return `There are ${paymentConfirmedCount} payment confirmed orders.`;
+      return `The recent Admin AI window contains ${paymentConfirmedCount} payment confirmed orders.`;
     }
 
     if (q.includes('processing orders') || q.includes('how many processing')) {
-      return `There are ${processingCount} processing orders.`;
+      return `The recent Admin AI window contains ${processingCount} processing orders.`;
     }
 
     if (q.includes('shipping orders') || q.includes('how many shipping')) {
-      return `There are ${shippingCount} orders currently marked as shipping.`;
+      return `The recent Admin AI window contains ${shippingCount} orders currently marked as shipping.`;
     }
 
     if (
       q.includes('cancellation request') ||
       q.includes('cancellation requests')
     ) {
-      return `There are ${cancellationRequestedCount} cancellation requests right now.`;
+      return `The recent Admin AI window contains ${cancellationRequestedCount} cancellation requests.`;
     }
 
     if (
@@ -510,7 +518,7 @@ const ChatWidget = () => {
       q.includes('refund') ||
       q.includes('refunded')
     ) {
-      return `There are ${cancelledCount} cancelled/refund-related orders.`;
+      return `The recent Admin AI window contains ${cancelledCount} cancelled or refund-related orders.`;
     }
 
     if (
@@ -535,8 +543,8 @@ const ChatWidget = () => {
       q.includes('top selling')
     ) {
       return bestSellers.length
-        ? `Current best sellers:\n${bestSellers.join('\n')}`
-        : 'There is not enough order data yet to determine best sellers.';
+        ? `Recent best sellers:\n${bestSellers.join('\n')}`
+        : 'There is not enough recent order data to determine best sellers.';
     }
 
     if (
@@ -697,11 +705,16 @@ const ChatWidget = () => {
     if (!user?.email || activeTab !== 'support' || !isOpen) return;
 
     const q = isAdminLike
-      ? query(collection(db, 'messages'), orderBy('createdAt', 'desc'))
+      ? query(
+          collection(db, 'messages'),
+          orderBy('createdAt', 'desc'),
+          limit(COMPACT_SUPPORT_MESSAGE_LIMIT)
+        )
       : query(
           collection(db, 'messages'),
           where('buyerEmail', '==', user.email),
-          orderBy('createdAt', 'desc')
+          orderBy('createdAt', 'desc'),
+          limit(COMPACT_SUPPORT_MESSAGE_LIMIT)
         );
 
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -767,11 +780,14 @@ const ChatWidget = () => {
       collection(db, 'messages'),
       where('subject', '==', selectedConvo.subject),
       where('buyerEmail', '==', buyerEmail),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'desc'),
+      limit(COMPACT_SUPPORT_MESSAGE_LIMIT)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const msgs = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .reverse();
       setSupportMessages(msgs);
 
       msgs.forEach(async (msg) => {
