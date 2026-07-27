@@ -112,6 +112,9 @@ const AdminAnalyticsTab = (props) => {
     users,
   } = props;
 
+  const hasRevenueOverTimeData = Boolean(revenueOverTimeData?.datasets?.[0]?.data?.length);
+  const hasProductRevenueData = (revenueChartData?.datasets?.[0]?.data || []).some((value) => Number(value) > 0);
+
   return (
     <>
               {isSubAdmin ? (
@@ -153,7 +156,7 @@ const AdminAnalyticsTab = (props) => {
                           value={customStartDate}
                           onChange={(e) => setCustomStartDate(e.target.value)}
                           max={customEndDate || undefined}
-                          className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm text-artisan-text outline-none focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                          className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                         />
                       </div>
 
@@ -166,7 +169,7 @@ const AdminAnalyticsTab = (props) => {
                           value={customEndDate}
                           onChange={(e) => setCustomEndDate(e.target.value)}
                           min={customStartDate || undefined}
-                          className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm text-artisan-text outline-none focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                          className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                         />
                       </div>
 
@@ -178,6 +181,7 @@ const AdminAnalyticsTab = (props) => {
                           setCustomEndDate('');
                         }}
                         className="h-11 w-full sm:w-auto"
+                        disabled={!customStartDate && !customEndDate}
                       >
                         Clear
                       </Button>
@@ -213,15 +217,23 @@ const AdminAnalyticsTab = (props) => {
                   <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
                     <h3 className="mb-4 font-artisan-display text-2xl font-bold text-artisan-text">Revenue Over Time</h3>
                     <div className="h-52 sm:h-56">
-                      <Line
-                        data={revenueOverTimeData}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: { legend: { display: false } },
-                          scales: { y: { beginAtZero: true } }
-                        }}
-                      />
+                      {hasRevenueOverTimeData ? (
+                        <Line
+                          data={revenueOverTimeData}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true } }
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-artisan-primary/20 bg-artisan-primary-wash/25 px-6 text-center">
+                          <TrendingUp size={30} className="mb-3 text-artisan-primary-pale" />
+                          <p className="font-semibold text-artisan-text">No revenue data for this range</p>
+                          <p className="mt-1 text-sm text-artisan-text-muted">Choose a date range that includes completed orders.</p>
+                        </div>
+                      )}
                     </div>
                     <p className="mt-3 text-xs text-artisan-text-muted">
                       Based on completed orders in the selected time range.
@@ -237,7 +249,7 @@ const AdminAnalyticsTab = (props) => {
                         {productStats.slice(0, 10).map((p, i) => (
                           <div
                             key={p.id}
-                            className="flex items-center justify-between rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/35 p-3 text-sm transition hover:bg-artisan-primary-wash/70"
+                            className="flex items-center justify-between rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/35 p-3 text-sm transition-colors duration-200 hover:bg-artisan-primary-wash/70"
                           >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <span className="w-6 shrink-0 text-lg font-bold text-artisan-primary-pale">#{i + 1}</span>
@@ -297,15 +309,23 @@ const AdminAnalyticsTab = (props) => {
                   <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
                     <h3 className="mb-4 font-artisan-display text-2xl font-bold text-artisan-text">Revenue by Product (Top 10)</h3>
                     <div className="h-52 sm:h-56">
-                      <Bar
-                        data={revenueChartData}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: { legend: { display: false } },
-                          scales: { y: { beginAtZero: true } }
-                        }}
-                      />
+                      {hasProductRevenueData ? (
+                        <Bar
+                          data={revenueChartData}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true } }
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-artisan-primary/20 bg-artisan-primary-wash/25 px-6 text-center">
+                          <Award size={30} className="mb-3 text-artisan-primary-pale" />
+                          <p className="font-semibold text-artisan-text">No product revenue to compare</p>
+                          <p className="mt-1 text-sm text-artisan-text-muted">This chart will populate after completed product sales.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

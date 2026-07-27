@@ -258,8 +258,8 @@ const PricelistsPage = () => {
         <title>Pricelists - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
+      <div className="relative min-h-screen" style={{ background: 'var(--artisan-gradient-bg)' }}>
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none" style={{ isolation: 'isolate' }}>
           <Grainient
             color1="#5C2D91"
             color2="#7B3FA0"
@@ -330,7 +330,10 @@ const PricelistsPage = () => {
             </motion.section>
 
             {/* Quick nav stays in normal place first, then sticks on scroll */}
-            <div className="sticky top-20 z-40 mb-8">
+            <nav
+              aria-label="Price list categories"
+              className="sticky top-20 z-40 mb-8"
+            >
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -348,7 +351,7 @@ const PricelistsPage = () => {
                           whileHover={{ y: -1 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => scrollToSection(item.id)}
-                          className={`shrink-0 px-4 py-2 rounded-full transition text-sm font-medium ${
+                          className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ${
                             isActive
                               ? 'bg-[#5C2D91] text-white shadow'
                               : 'bg-white/85 text-[#3B2947] hover:bg-[#F0E6F7] hover:text-[#5C2D91]'
@@ -361,7 +364,7 @@ const PricelistsPage = () => {
                   </div>
                 </div>
               </motion.div>
-            </div>
+            </nav>
 
             <motion.section
               variants={fadeUp}

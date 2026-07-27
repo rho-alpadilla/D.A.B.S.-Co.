@@ -260,7 +260,7 @@ const PendingOrdersPage = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
+        <div className="h-16 w-16 animate-spin rounded-full border-4 border-artisan-primary-pale border-t-artisan-primary" aria-label="Loading orders"></div>
       </div>
     );
   }
@@ -465,7 +465,7 @@ const PendingOrdersPage = () => {
                   onClick={() => setCancelModalOpen(false)}
                   type="button"
                   aria-label="Close cancellation dialog"
-                  className="absolute right-4 top-4 rounded-full p-2 text-artisan-text-muted transition hover:bg-artisan-primary-wash hover:text-artisan-primary"
+                  className="absolute right-4 top-4 rounded-full p-2 text-artisan-text-muted transition-colors duration-200 hover:bg-artisan-primary-wash hover:text-artisan-primary"
                 >
                   <X size={24} />
                 </button>
@@ -483,7 +483,7 @@ const PendingOrdersPage = () => {
                   <p className="mb-3 font-semibold text-artisan-text">Please select a reason:</p>
                   <div className="space-y-3">
                     {CANCEL_REASONS.map((reason) => (
-                      <label key={reason} className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-artisan-primary-wash/70">
+                      <label key={reason} className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition-colors duration-200 hover:bg-artisan-primary-wash/70">
                         <input
                           type="radio"
                           name="cancelReason"
@@ -567,7 +567,7 @@ const OrderTable = ({
         </thead>
         <tbody>
           {orders.map((order) => (
-            <tr key={order.id} className="border-t border-artisan-primary/10 transition hover:bg-artisan-primary-wash/30">
+            <tr key={order.id} className="border-t border-artisan-primary/10 transition-colors duration-200 hover:bg-artisan-primary-wash/30">
               <td className="p-5 font-semibold text-artisan-text">#{order.id.slice(0, 8)}</td>
               <td className="p-5 text-artisan-text-muted">
                 {order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}

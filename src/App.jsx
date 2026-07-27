@@ -95,7 +95,7 @@ const ProtectedRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-artisan-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -211,30 +211,15 @@ const RoleBasedHome = () => {
 
 function AppContent() {
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundColor: '#FAF8F1',
-        backgroundImage: `
-          radial-gradient(circle at 20% 20%, rgba(17,140,140,0.35), transparent 45%),
-          radial-gradient(circle at 80% 30%, rgba(242,187,22,0.30), transparent 45%),
-          radial-gradient(circle at 40% 80%, rgba(17,140,140,0.25), transparent 50%),
-          linear-gradient(
-            180deg,
-            #dff1ef 0%,
-            #eaf6f3 30%,
-            #f6f2dc 60%,
-            #faf8f1 100%
-          )
-        `,
-        backgroundAttachment: 'fixed',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
+    <div className="min-h-screen flex flex-col artisan-page-bg">
       <ScrollToHash />
       <Header />
 
-      <main className="flex-grow">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+
+      <main id="main-content" className="flex-grow" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<RoleBasedHome />} />
           <Route path="/highlights" element={<HighlightsPage />} />

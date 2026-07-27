@@ -267,7 +267,7 @@ const ProductDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="artisan-page-bg min-h-screen flex items-center justify-center">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-[#5C2D91] border-t-transparent"></div>
       </div>
     );
@@ -275,7 +275,7 @@ const ProductDetailPage = () => {
 
   if (!product) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="artisan-page-bg min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-red-600 mb-4">Product Not Found</h1>
           <Link to="/gallery">
@@ -307,10 +307,10 @@ const ProductDetailPage = () => {
     <>
       <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
 
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto max-w-6xl px-5 py-2 sm:px-6 lg:px-8">
-          <div className="mb-8 flex items-center justify-between border-b border-[#E6DDEB] pb-5">
-            <Link to="/gallery" className="inline-flex items-center gap-2 font-semibold text-[#5C2D91] transition-colors hover:text-[#4A2578] hover:underline">
+      <div className="min-h-screen py-10 sm:py-16">
+        <div className="container mx-auto max-w-6xl px-5 sm:px-6 lg:px-8">
+          <header className="mb-8 flex items-center justify-between gap-4 border-b border-white/70 pb-5">
+            <Link to="/gallery" className="inline-flex items-center gap-2 rounded-full bg-white/65 px-4 py-2 font-semibold text-[#5C2D91] shadow-sm backdrop-blur-sm transition-colors hover:text-[#4A2578] hover:underline">
               <ArrowLeft size={20} /> Back to Gallery
             </Link>
             {isAdmin && !editing && (
@@ -318,10 +318,10 @@ const ProductDetailPage = () => {
                 <Edit className="mr-2" /> Edit Product
               </Button>
             )}
-          </div>
+          </header>
 
           {/* MAIN PRODUCT CARD */}
-          <div className="mb-12 grid grid-cols-1 overflow-hidden rounded-[2rem] border border-[#E6DDEB] bg-white shadow-2xl shadow-[#2D0E5A]/15 md:grid-cols-[1.05fr_0.95fr]">
+          <article className="mb-12 grid grid-cols-1 overflow-hidden rounded-[2rem] border border-white/60 bg-white/95 shadow-2xl shadow-[#2D0E5A]/15 backdrop-blur-md md:grid-cols-[1.05fr_0.95fr]">
             {/* Images Section */}
             <div className="relative">
               {/* Main Image */}
@@ -443,10 +443,10 @@ const ProductDetailPage = () => {
                 </>
               ) : (
                 <>
-                  <span className="mb-3 text-sm font-bold uppercase tracking-wider text-[#7B3FA0]">
+                  <span className="mb-3 inline-flex w-fit rounded-full bg-[#F0E6F7] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#7B3FA0]">
                     {product.category}
                   </span>
-                  <h1 className="mb-6 font-artisan-display text-4xl font-bold text-[#2A1739] md:text-5xl">
+                  <h1 className="mb-6 font-artisan-display text-4xl font-bold leading-[0.98] tracking-[-0.03em] text-[#2A1739] md:text-5xl">
                     {product.name}
                   </h1>
 
@@ -471,7 +471,7 @@ const ProductDetailPage = () => {
               )}
 
               <div className="py-6">
-                <span className="text-5xl font-bold text-[#7B3FA0]">
+                <span className="text-5xl font-bold tabular-nums text-[#7B3FA0]">
                   {formatPrice(product.price)}
                 </span>
               </div>
@@ -502,11 +502,11 @@ const ProductDetailPage = () => {
                 Product ID: {product.id}
               </p>
             </div>
-          </div>
+          </article>
 
           {/* REVIEWS SECTION */}
           {totalReviews > 0 && (
-            <div className="mb-12 mt-12 rounded-[2rem] border border-[#E6DDEB] bg-white p-7 shadow-xl shadow-[#2D0E5A]/10 md:p-10">
+            <section className="mb-12 mt-12 rounded-[2rem] border border-white/60 bg-white/95 p-7 shadow-xl shadow-[#2D0E5A]/10 backdrop-blur-md md:p-10">
               <h2 className="mb-8 font-artisan-display text-4xl font-bold text-[#2A1739]">Customer Reviews</h2>
               <div className="space-y-8">
                 {reviews.slice(0, visibleReviewCount).map(review => (
@@ -595,12 +595,12 @@ const ProductDetailPage = () => {
                   </div>
                 )}
               </div>
-            </div>
+            </section>
           )}
 
           {/* UNIFIED "YOU MAY ALSO LIKE" CAROUSEL */}
           {recommended.length > 0 && (
-            <div className="mt-16 rounded-[2rem] border border-[#E6DDEB] bg-white p-7 shadow-2xl shadow-[#2D0E5A]/15 md:p-10">
+            <section className="mt-16 rounded-[2rem] border border-white/60 bg-white/95 p-7 shadow-2xl shadow-[#2D0E5A]/15 backdrop-blur-md md:p-10">
               <h2 className="mb-12 text-center font-artisan-display text-4xl font-bold text-[#2A1739]">
                 You May Also Like
               </h2>
@@ -617,7 +617,7 @@ const ProductDetailPage = () => {
                         to={`/product/${item.id}`}
                         className="flex-shrink-0 w-full sm:w-1/2 lg:w-1/3 xl:w-1/4 group"
                       >
-                        <div className="bg-gray-50 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100">
+                        <div className="artisan-card-hover overflow-hidden rounded-2xl border border-[#E6DDEB] bg-[#FAF6FC] shadow-lg">
                           <div className="aspect-square relative">
                             {item.imageUrl ? (
                               <img 
@@ -677,7 +677,7 @@ const ProductDetailPage = () => {
                   </>
                 )}
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>

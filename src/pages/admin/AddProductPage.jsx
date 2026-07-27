@@ -19,7 +19,7 @@ const CATEGORIES = [
 ];
 
 const FIELD_LABEL_CLASS = 'mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted';
-const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
+const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
 
 const AddProductPage = () => {
   const { user } = useAuth();
@@ -182,7 +182,7 @@ const AddProductPage = () => {
                   <h1 className="mt-2 font-artisan-display text-4xl font-bold sm:text-5xl">Add New Product</h1>
                   <p className="mt-3 max-w-xl text-sm text-white/80 sm:text-base">Create a product listing with pricing, stock information, images, and a clear customer-facing description.</p>
                 </div>
-              <Button variant="outline" onClick={() => navigate('/pricelists')} className="border-white/35 bg-white/10 text-white hover:border-white/60 hover:bg-white/20 hover:text-white">
+              <Button variant="outline" onClick={() => navigate('/pricelists')} className="border-white/65 bg-white/90 text-artisan-primary hover:border-white hover:bg-white hover:text-artisan-primary">
                 <ArrowLeft size={20} className="mr-2" /> Back to Pricelists
               </Button>
               </div>
@@ -276,7 +276,7 @@ const AddProductPage = () => {
                           type="button"
                           onClick={() => removePreview(index)}
                           aria-label={`Remove preview ${index + 1}`}
-                          className="absolute right-2 top-2 rounded-full bg-red-500 p-1.5 text-white opacity-100 shadow-sm transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                          className="absolute right-2 top-2 rounded-full bg-red-500 p-1.5 text-white opacity-100 shadow-sm transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100"
                         >
                           <Trash2 size={16} />
                         </button>

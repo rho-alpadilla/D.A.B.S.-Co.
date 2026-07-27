@@ -123,9 +123,6 @@ const Particles = ({
       renderer.setSize(width, height);
       camera.perspective({ aspect: gl.canvas.width / gl.canvas.height });
     };
-    window.addEventListener('resize', resize, false);
-    resize();
-
     const handleMouseMove = e => {
       const rect = container.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -180,12 +177,38 @@ const Particles = ({
 
     const particles = new Mesh(gl, { mode: gl.POINTS, geometry, program });
 
-    let animationFrameId;
-    let lastTime = performance.now();
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let animationFrameId = null;
+    let isDocumentVisible = !document.hidden;
+    let isIntersecting = true;
+    let prefersReducedMotion = reducedMotionQuery.matches;
+    let lastTime = null;
     let elapsed = 0;
 
-    const update = t => {
-      animationFrameId = requestAnimationFrame(update);
+    const shouldAnimate = () => isDocumentVisible && isIntersecting && !prefersReducedMotion;
+
+    const renderStaticFrame = () => {
+      renderer.render({ scene: particles, camera });
+    };
+
+    const pause = () => {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    };
+
+    const renderFrame = t => {
+      animationFrameId = null;
+
+      if (!shouldAnimate()) {
+        renderStaticFrame();
+        return;
+      }
+
+      if (lastTime === null) {
+        lastTime = t;
+      }
       const delta = t - lastTime;
       lastTime = t;
       elapsed += delta * speed;
@@ -207,16 +230,60 @@ const Particles = ({
       }
 
       renderer.render({ scene: particles, camera });
+
+      if (shouldAnimate()) {
+        animationFrameId = requestAnimationFrame(renderFrame);
+      }
     };
 
-    animationFrameId = requestAnimationFrame(update);
+    const resume = () => {
+      if (animationFrameId !== null || !shouldAnimate()) return;
+      lastTime = null;
+      animationFrameId = requestAnimationFrame(renderFrame);
+    };
+
+    const syncAnimationState = () => {
+      if (shouldAnimate()) {
+        resume();
+      } else {
+        pause();
+        renderStaticFrame();
+      }
+    };
+
+    const intersectionObserver = new IntersectionObserver(
+      entries => {
+        isIntersecting = entries[0]?.isIntersecting ?? false;
+        syncAnimationState();
+      },
+      { threshold: 0 }
+    );
+    const handleVisibilityChange = () => {
+      isDocumentVisible = !document.hidden;
+      syncAnimationState();
+    };
+    const handleReducedMotionChange = event => {
+      prefersReducedMotion = event.matches;
+      syncAnimationState();
+    };
+
+    window.addEventListener('resize', resize, false);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    reducedMotionQuery.addEventListener('change', handleReducedMotionChange);
+    intersectionObserver.observe(container);
+    resize();
+    renderStaticFrame();
+    syncAnimationState();
 
     return () => {
       window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      reducedMotionQuery.removeEventListener('change', handleReducedMotionChange);
+      intersectionObserver.disconnect();
       if (moveParticlesOnHover) {
         container.removeEventListener('mousemove', handleMouseMove);
       }
-      cancelAnimationFrame(animationFrameId);
+      pause();
       if (container.contains(gl.canvas)) {
         container.removeChild(gl.canvas);
       }

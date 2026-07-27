@@ -210,13 +210,13 @@ const LoginPage = () => {
                       name="email"
                       type="email"
                       required
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFCFA] py-3 pl-11 pr-4 text-[#2A1739] transition focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFCFA] py-3 pl-11 pr-4 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                       placeholder="admin@dabs.co"
                       value={formData.email}
                       onChange={handleChange}
                     />
                   </div>
-                  <p className="text-xs text-gray-400 italic">
+                  <p className="text-xs italic text-artisan-text-muted">
                     Hint: Use &apos;admin@dabs.co&apos; for Admin Panel
                   </p>
                 </div>
@@ -232,7 +232,7 @@ const LoginPage = () => {
                       name="password"
                       type="password"
                       required
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFCFA] py-3 pl-11 pr-4 text-[#2A1739] transition focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFCFA] py-3 pl-11 pr-4 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                       placeholder="••••••••"
                       value={formData.password}
                       onChange={handleChange}
@@ -242,7 +242,7 @@ const LoginPage = () => {
 
                 <Button
                   type="submit"
-                  className="h-14 w-full rounded-2xl text-base font-bold text-white transition-all hover:brightness-110"
+                  className="h-14 w-full rounded-2xl text-base font-bold text-white transition-[transform,filter,box-shadow] duration-200 hover:-translate-y-0.5 hover:brightness-110"
                   style={{ background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)', boxShadow: '0 8px 24px rgba(92,45,145,0.28)' }}
                   disabled={loading}
                 >

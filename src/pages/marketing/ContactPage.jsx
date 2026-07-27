@@ -93,7 +93,7 @@ const ContactPage = () => {
 
   // Shared input style
   const inputCls =
-    'w-full rounded-xl border border-[#D9C9E3] bg-[#FFFCFA] px-4 py-3 text-[#22152D] shadow-sm transition placeholder:text-[#766880] focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15 disabled:cursor-not-allowed disabled:border-[#E6DDEB] disabled:bg-[#F2EDF5] disabled:text-[#51445D]';
+    'w-full rounded-xl border border-[#D9C9E3] bg-[#FFFDFF] px-4 py-3 text-[#22152D] shadow-sm transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-[#766880] focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15 disabled:cursor-not-allowed disabled:border-[#E6DDEB] disabled:bg-[#F2EDF5] disabled:text-[#51445D]';
   const labelCls = 'text-sm font-semibold text-[#342342]';
 
   return (
@@ -129,7 +129,7 @@ const ContactPage = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: 'easeOut' }}
+            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             className="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 shadow-2xl shadow-[#2D0E5A]/30 backdrop-blur-md"
           >
             {/* ── Form header ── */}
@@ -167,7 +167,7 @@ const ContactPage = () => {
                   <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle size={32} />
                   </div>
-                  <h2 className="text-2xl font-bold text-artisan-text mb-2">Message Received!</h2>
+                  <h2 className="text-2xl font-bold text-artisan-text mb-2">Message received</h2>
                   <p className="text-artisan-text-muted mb-6">
                     Thank you for reaching out. Your message is now in the admin support inbox.
                   </p>

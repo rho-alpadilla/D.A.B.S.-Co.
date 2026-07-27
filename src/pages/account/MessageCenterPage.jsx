@@ -445,7 +445,7 @@ await addDoc(collection(db, 'messages'), {
                     isMine
                       ? 'border-white/20 bg-white/10 hover:bg-white/15'
                       : 'border-artisan-primary/10 bg-artisan-primary-wash/35 hover:bg-artisan-primary-wash'
-                  } transition`}
+                  } transition-[background-color,border-color,box-shadow] duration-200`}
                 >
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -572,7 +572,7 @@ await addDoc(collection(db, 'messages'), {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search customer, email, subject..."
-                        className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                        className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                       />
                     </div>
                   ) : (
@@ -611,7 +611,7 @@ await addDoc(collection(db, 'messages'), {
                         <button
                           key={convo.key}
                           onClick={() => setSelectedConvo(convo)}
-                          className={`w-full rounded-2xl border px-3 py-3 text-left transition shadow-sm ${
+                          className={`w-full rounded-2xl border px-3 py-3 text-left transition-[background-color,border-color,box-shadow] duration-200 shadow-sm ${
                             isActive
                               ? 'border-artisan-primary/35 bg-white shadow-artisan-sm'
                               : 'border-transparent bg-white/60 hover:border-artisan-primary/20 hover:bg-white'
@@ -791,7 +791,7 @@ await addDoc(collection(db, 'messages'), {
                                 sendSupportReply({ text: replyInput });
                               }
                             }}
-                            className="flex-1 rounded-2xl border border-artisan-border bg-white px-4 py-3 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                            className="flex-1 rounded-2xl border border-artisan-border bg-white px-4 py-3 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                             disabled={sending || uploading}
                           />
 

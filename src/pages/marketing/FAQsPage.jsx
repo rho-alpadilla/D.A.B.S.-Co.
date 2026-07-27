@@ -46,7 +46,7 @@ const FAQsPage = () => {
           <motion.aside
             initial={{ opacity: 0, x: -24 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.55, ease: 'easeOut' }}
+            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             className="h-fit text-white lg:sticky lg:top-24"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] backdrop-blur-sm">
@@ -82,8 +82,7 @@ const FAQsPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.05 }}
-                whileHover={{ y: -4 }}
-                className="group grid gap-5 rounded-2xl border border-white/50 bg-white/95 p-6 shadow-lg shadow-[#2D0E5A]/15 transition-shadow hover:shadow-xl sm:grid-cols-[3.5rem_1fr] sm:p-7"
+                className="artisan-card-hover group grid gap-5 rounded-2xl border border-white/50 bg-white/95 p-6 shadow-lg shadow-[#2D0E5A]/15 sm:grid-cols-[3.5rem_1fr] sm:p-7"
               >
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F0E6F7] font-bold text-[#5C2D91]">
                   {String(index + 1).padStart(2, '0')}

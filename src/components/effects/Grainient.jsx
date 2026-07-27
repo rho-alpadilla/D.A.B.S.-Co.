@@ -177,6 +177,62 @@ const Grainient = ({
 
     const mesh = new Mesh(gl, { geometry, program });
 
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let animationFrameId = null;
+    let isDocumentVisible = !document.hidden;
+    let isIntersecting = true;
+    let prefersReducedMotion = reducedMotionQuery.matches;
+    let elapsedTime = 0;
+    let lastFrameTime = null;
+
+    const shouldAnimate = () => isDocumentVisible && isIntersecting && !prefersReducedMotion;
+
+    const renderStaticFrame = () => {
+      renderer.render({ scene: mesh });
+    };
+
+    const pause = () => {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    };
+
+    const renderFrame = timestamp => {
+      animationFrameId = null;
+
+      if (!shouldAnimate()) {
+        renderStaticFrame();
+        return;
+      }
+
+      if (lastFrameTime !== null) {
+        elapsedTime += timestamp - lastFrameTime;
+      }
+      lastFrameTime = timestamp;
+      program.uniforms.iTime.value = elapsedTime * 0.001;
+      renderer.render({ scene: mesh });
+
+      if (shouldAnimate()) {
+        animationFrameId = requestAnimationFrame(renderFrame);
+      }
+    };
+
+    const resume = () => {
+      if (animationFrameId !== null || !shouldAnimate()) return;
+      lastFrameTime = null;
+      animationFrameId = requestAnimationFrame(renderFrame);
+    };
+
+    const syncAnimationState = () => {
+      if (shouldAnimate()) {
+        resume();
+      } else {
+        pause();
+        renderStaticFrame();
+      }
+    };
+
     const setSize = () => {
       const rect = container.getBoundingClientRect();
       const width = Math.max(1, Math.floor(rect.width));
@@ -185,24 +241,39 @@ const Grainient = ({
       const res = program.uniforms.iResolution.value;
       res[0] = gl.drawingBufferWidth;
       res[1] = gl.drawingBufferHeight;
+      renderStaticFrame();
     };
 
-    const ro = new ResizeObserver(setSize);
-    ro.observe(container);
+    const resizeObserver = new ResizeObserver(setSize);
+    const intersectionObserver = new IntersectionObserver(
+      entries => {
+        isIntersecting = entries[0]?.isIntersecting ?? false;
+        syncAnimationState();
+      },
+      { threshold: 0 }
+    );
+    const handleVisibilityChange = () => {
+      isDocumentVisible = !document.hidden;
+      syncAnimationState();
+    };
+    const handleReducedMotionChange = event => {
+      prefersReducedMotion = event.matches;
+      syncAnimationState();
+    };
+
+    resizeObserver.observe(container);
+    intersectionObserver.observe(container);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    reducedMotionQuery.addEventListener('change', handleReducedMotionChange);
     setSize();
-
-    let raf = 0;
-    const t0 = performance.now();
-    const loop = t => {
-      program.uniforms.iTime.value = (t - t0) * 0.001;
-      renderer.render({ scene: mesh });
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
+    syncAnimationState();
 
     return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
+      pause();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      reducedMotionQuery.removeEventListener('change', handleReducedMotionChange);
+      intersectionObserver.disconnect();
+      resizeObserver.disconnect();
       try {
         container.removeChild(canvas);
       } catch {

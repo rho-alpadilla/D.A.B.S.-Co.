@@ -30,7 +30,7 @@ const ALL_COUNTRIES = [
 ];
 
 const FIELD_LABEL_CLASS = 'mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-artisan-text-muted';
-const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
+const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
 const FIELD_VALUE_CLASS = 'min-h-12 rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/35 px-4 py-3 text-base font-semibold text-artisan-text';
 
 const ProfilePage = () => {
@@ -182,8 +182,8 @@ const ProfilePage = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">Please log in to view your profile</p>
+      <div className="flex min-h-screen items-center justify-center px-5" style={{ background: 'var(--artisan-gradient-bg)' }}>
+        <p className="rounded-2xl border border-white/60 bg-white/95 px-6 py-5 text-center text-xl font-semibold text-artisan-text shadow-xl shadow-[#2D0E5A]/15">Please log in to view your profile</p>
       </div>
     );
   }
@@ -261,7 +261,7 @@ const ProfilePage = () => {
                   onClick={() => fileInputRef.current?.click()}
                   type="button"
                   aria-label="Upload a new profile photo"
-                  className="absolute -bottom-1 -right-1 rounded-full border-2 border-white bg-artisan-primary-pale p-3 text-artisan-text shadow-lg transition hover:scale-105 hover:bg-white"
+                  className="absolute -bottom-1 -right-1 rounded-full border-2 border-white bg-artisan-primary-pale p-3 text-artisan-text shadow-lg transition-[transform,background-color] duration-200 hover:scale-105 hover:bg-white"
                 >
                   <Camera size={20} />
                 </button>
@@ -341,7 +341,7 @@ const ProfilePage = () => {
                         <button
                           type="button"
                           onClick={() => setIsPhoneCountryOpen(!isPhoneCountryOpen)}
-                          className="flex h-12 w-full items-center gap-2 rounded-xl border border-artisan-border bg-white px-3 text-artisan-text shadow-sm transition hover:border-artisan-primary sm:w-auto"
+                          className="flex h-12 w-full items-center gap-2 rounded-xl border border-artisan-border bg-white px-3 text-artisan-text shadow-sm transition-[border-color] duration-200 hover:border-artisan-primary sm:w-auto"
                         >
                           <img src={profile.phoneCountry?.flag || ALL_COUNTRIES[0].flag} alt="" className="h-5 w-7 rounded" />
                           <span className="font-medium">{profile.phoneCountry?.callingCode || "+63"}</span>
@@ -369,7 +369,7 @@ const ProfilePage = () => {
                                   setIsPhoneCountryOpen(false);
                                   setPhoneCountrySearch("");
                                 }}
-                                className="flex w-full items-center gap-4 px-5 py-3 text-left text-artisan-text transition hover:bg-artisan-primary-wash"
+                                className="flex w-full items-center gap-4 px-5 py-3 text-left text-artisan-text transition-colors duration-200 hover:bg-artisan-primary-wash"
                               >
                                 <img src={country.flag} alt="" className="w-10 h-7 rounded" />
                                 <span className="flex-1">{country.name}</span>
@@ -492,7 +492,7 @@ const ProfilePage = () => {
                         <button
                           type="button"
                           onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
-                          className="flex w-full items-center justify-between rounded-xl border border-artisan-border bg-white px-4 py-3 text-left text-artisan-text shadow-sm transition hover:border-artisan-primary"
+                          className="flex w-full items-center justify-between rounded-xl border border-artisan-border bg-white px-4 py-3 text-left text-artisan-text shadow-sm transition-[border-color] duration-200 hover:border-artisan-primary"
                         >
                           <div className="flex items-center gap-3">
                             <img src={profile.address.countryObj.flag} alt="" className="h-6 w-9 rounded" />
@@ -522,7 +522,7 @@ const ProfilePage = () => {
                                   setIsAddressCountryOpen(false);
                                   setAddressCountrySearch("");
                                 }}
-                                className="flex w-full items-center gap-4 px-5 py-3 text-left text-artisan-text transition hover:bg-artisan-primary-wash"
+                                className="flex w-full items-center gap-4 px-5 py-3 text-left text-artisan-text transition-colors duration-200 hover:bg-artisan-primary-wash"
                               >
                                 <img src={country.flag} alt="" className="w-10 h-7 rounded" />
                                 <span>{country.name}</span>

@@ -276,7 +276,7 @@ const RegisterPage = () => {
                       <button
                         type="button"
                         onClick={() => setIsPhoneCountryOpen(!isPhoneCountryOpen)}
-                        className="flex items-center gap-3 rounded-xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-5 py-4 text-[#2A1739] transition hover:bg-[#F0E6F7]"
+                        className="flex items-center gap-3 rounded-xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-5 py-4 text-[#2A1739] transition-[background-color,border-color] duration-200 hover:border-artisan-primary/40 hover:bg-[#F0E6F7]"
                       >
                         <img src={selectedPhoneCountry.flag} alt="" className="w-8 h-6 rounded" />
                         <span className="font-medium">{selectedPhoneCountry.callingCode}</span>
@@ -319,7 +319,7 @@ const RegisterPage = () => {
                       name="phone"
                       type="tel"
                       required
-                      className="flex-1 rounded-xl border-2 border-[#DCCBE7] bg-[#FFFCFA] px-5 py-4 text-[#2A1739] transition focus:border-[#5C2D91] focus:outline-none"
+                      className="flex-1 rounded-xl border-2 border-[#DCCBE7] bg-[#FFFCFA] px-5 py-4 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-2 focus:ring-[#5C2D91]/15"
                       placeholder="912 345 6789"
                       value={formData.phone}
                       onChange={handleChange}
@@ -379,7 +379,7 @@ const RegisterPage = () => {
                       <button
                         type="button"
                         onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
-                        className="flex w-full items-center justify-between rounded-xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-6 py-5 text-left text-[#2A1739] transition hover:bg-[#F0E6F7]"
+                        className="flex w-full items-center justify-between rounded-xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-6 py-5 text-left text-[#2A1739] transition-[background-color,border-color] duration-200 hover:border-artisan-primary/40 hover:bg-[#F0E6F7]"
                       >
                         <div className="flex items-center gap-4">
                           <img src={selectedAddressCountry.flag} alt="" className="w-10 h-7 rounded" />
@@ -449,7 +449,7 @@ const RegisterPage = () => {
                         type={showPassword ? "text" : "password"}
                         required
                         minLength="6"
-                        className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                        className="w-full rounded-xl border-2 border-gray-300 px-5 py-4 pr-14 text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                         placeholder="••••••••"
                         value={formData.password}
                         onChange={handleChange}
@@ -457,7 +457,7 @@ const RegisterPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowPassword(prev => !prev)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-artisan-text-muted transition-colors duration-200 hover:text-artisan-primary"
                         aria-label={showPassword ? "Hide password" : "Show password"}
                       >
                         {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
@@ -475,7 +475,7 @@ const RegisterPage = () => {
                         name="confirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
                         required
-                        className="w-full px-5 py-4 pr-14 border-2 border-gray-300 rounded-xl focus:border-[#118C8C] transition"
+                        className="w-full rounded-xl border-2 border-gray-300 px-5 py-4 pr-14 text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                         placeholder="••••••••"
                         value={formData.confirmPassword}
                         onChange={handleChange}
@@ -483,7 +483,7 @@ const RegisterPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(prev => !prev)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-artisan-text-muted transition-colors duration-200 hover:text-artisan-primary"
                         aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                       >
                         {showConfirmPassword ? <EyeOff size={22} /> : <Eye size={22} />}
@@ -494,7 +494,7 @@ const RegisterPage = () => {
 
                 <Button
                   type="submit"
-                  className="h-14 w-full rounded-2xl bg-[#5C2D91] px-5 py-0 text-lg font-bold text-white hover:bg-[#4A2578] sm:text-xl"
+                  className="h-14 w-full rounded-2xl bg-[#5C2D91] px-5 py-0 text-lg font-bold text-white transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-[#4A2578] sm:text-xl"
                   disabled={loading}
                 >
                   {loading ? 'Creating Account...' : 'Create Account'}
@@ -502,7 +502,7 @@ const RegisterPage = () => {
               </form>
 
               <div className="mt-10 text-center">
-                <p className="text-gray-600 text-lg">
+                <p className="text-lg text-artisan-text-muted">
                   Already have an account?{' '}
                   <Link to="/login" className="text-xl font-bold text-[#5C2D91] hover:underline">
                     Log In

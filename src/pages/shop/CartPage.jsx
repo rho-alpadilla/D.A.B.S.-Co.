@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Trash2, ArrowRight, ShoppingBag, Square, CheckSquare, Sparkles } from 'lucide-react';
+import { Trash2, ArrowRight, ShoppingBag, Square, CheckSquare } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import Grainient from '@/components/effects/Grainient';
 import Particles from '@/components/effects/Particles';
+import PurchasePageHero from '@/components/shop/PurchasePageHero';
 
 const CartPage = () => {
   const { cartItems, removeFromCart, updateQuantity } = useCart();
@@ -105,35 +106,24 @@ const CartPage = () => {
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto min-h-[60vh] max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
+        <div className="relative z-10 container mx-auto min-h-[60vh] max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 18 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mb-8 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
+            transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#F0E6F7] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#5C2D91]">
-                  <Sparkles size={14} />
-                  Your Cart
-                </div>
-
-                <h1 className="font-artisan-display text-4xl font-bold text-[#2A1739] md:text-5xl">
-                  Your Shopping Cart
-                </h1>
-
-                <p className="text-gray-600 mt-2">
-                  Review your selected handmade items before checkout.
-                </p>
-              </div>
-
-              <Link to="/pending-orders" className="w-full sm:w-auto">
-                <Button className="h-12 w-full rounded-2xl bg-[#5C2D91] px-5 py-0 text-white hover:bg-[#4A2578]">
-                  View My Orders
-                </Button>
-              </Link>
-            </div>
+            <PurchasePageHero
+              eyebrow="Your cart"
+              title="Your shopping cart"
+              description="Review the handmade pieces you want to order, then continue when you are ready."
+              action={(
+                <Link to="/pending-orders" className="block w-full md:w-auto">
+                  <Button variant="outline" className="h-12 w-full rounded-2xl px-5 md:w-auto">
+                    View my orders
+                  </Button>
+                </Link>
+              )}
+            />
           </motion.div>
 
           {cartItems.length === 0 ? (
@@ -183,7 +173,7 @@ const CartPage = () => {
                     <motion.div
                       layout
                       key={item.id}
-                      className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-4 rounded-3xl border border-white/45 bg-white/95 p-4 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md sm:flex sm:p-5"
+                      className="artisan-card-hover grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-4 rounded-3xl border border-white/45 bg-white/95 p-4 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md sm:flex sm:p-5"
                     >
                       <button onClick={() => toggleSelect(item.id)}>
                         {isSelected ? (
@@ -212,7 +202,8 @@ const CartPage = () => {
                           <h3 className="font-artisan-display text-xl font-bold text-[#2A1739]">{item.name}</h3>
                           <button
                             onClick={() => removeFromCart(item.id)}
-                            className="text-red-400 hover:text-red-600"
+                            className="rounded-lg p-1 text-red-400 transition-colors hover:text-red-600"
+                            aria-label={`Remove ${item.name} from cart`}
                           >
                             <Trash2 size={18} />
                           </button>
@@ -237,7 +228,7 @@ const CartPage = () => {
                             />
                           </div>
 
-                          <p className="font-bold text-[#5C2D91]">
+                          <p className="font-bold tabular-nums text-[#5C2D91]">
                             {formatPrice(item.price * item.quantity)}
                           </p>
                         </div>
@@ -253,7 +244,7 @@ const CartPage = () => {
                 <div className="mb-6 space-y-3 border-b border-white/20 pb-6">
                   <div className="flex justify-between text-white/85">
                     <span>Subtotal (selected)</span>
-                    <span>{formatPrice(selectedTotal)}</span>
+                    <span className="tabular-nums">{formatPrice(selectedTotal)}</span>
                   </div>
                   <div className="flex justify-between text-white/85">
                     <span>Shipping</span>
@@ -263,7 +254,7 @@ const CartPage = () => {
 
                 <div className="mb-6 flex justify-between text-xl font-bold text-white">
                   <span>Total (est.)</span>
-                  <span>{formatPrice(selectedTotal)}</span>
+                  <span className="tabular-nums">{formatPrice(selectedTotal)}</span>
                 </div>
 
                 <Button

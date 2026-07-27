@@ -124,6 +124,12 @@ const AdminOrdersTab = (props) => {
   }, [filteredOrders, visibleCount]);
 
   const hasMore = filteredOrders.length > visibleCount;
+  const hasActiveFilters = Boolean(orderSearch.trim()) || orderStatusFilter !== 'all';
+
+  const clearFilters = () => {
+    setOrderSearch('');
+    setOrderStatusFilter('all');
+  };
 
   return (
               <div className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/95 shadow-xl shadow-[#2D0E5A]/10">
@@ -184,7 +190,7 @@ const AdminOrdersTab = (props) => {
                 <div>
                   <div className="hidden max-h-[42rem] overflow-auto md:block">
                   <table className="w-full min-w-[940px]">
-                    <thead className="border-b border-artisan-primary/10 bg-artisan-primary-wash/45 text-artisan-text">
+                    <thead className="sticky top-0 z-10 border-b border-artisan-primary/10 bg-artisan-primary-wash/95 text-artisan-text shadow-sm">
                       <tr>
                         <th className="p-4 text-left text-sm font-bold">Date Ordered</th>
                         <th className="p-4 text-left text-sm font-bold">Order ID</th>
@@ -200,7 +206,7 @@ const AdminOrdersTab = (props) => {
                       {visibleOrders.map(order => (
                         <tr
                           key={order.id}
-                          className="cursor-pointer border-t border-artisan-primary/10 text-artisan-text transition hover:bg-artisan-primary-wash/30"
+                          className="cursor-pointer border-t border-artisan-primary/10 text-artisan-text transition-colors duration-200 hover:bg-artisan-primary-wash/30"
                           onClick={() => !isAwaitingReview(order.status) && setSelectedOrder(order)}
                         >
                           <td className="p-4 text-sm text-artisan-text-muted">
@@ -321,7 +327,7 @@ const AdminOrdersTab = (props) => {
                         key={order.id}
                         onClick={() => !isAwaitingReview(order.status) && setSelectedOrder(order)}
                         className={`rounded-2xl border border-artisan-primary/10 bg-white p-5 shadow-sm ${
-                          isAwaitingReview(order.status) ? '' : 'cursor-pointer transition hover:border-artisan-primary/30 hover:shadow-md'
+                          isAwaitingReview(order.status) ? '' : 'cursor-pointer transition-[border-color,box-shadow] duration-200 hover:border-artisan-primary/30 hover:shadow-md'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -383,6 +389,9 @@ const AdminOrdersTab = (props) => {
                       <p className="mt-1 text-sm">
                         Try a different search term or change the status filter.
                       </p>
+                      <Button variant="outline" size="sm" onClick={clearFilters} className="mt-5">
+                        Clear filters
+                      </Button>
                     </div>
                   )}
 
@@ -390,6 +399,11 @@ const AdminOrdersTab = (props) => {
                     {hasMore && (
                       <Button variant="outline" onClick={() => setVisibleCount((count) => count + 5)}>
                         Load 5 more orders
+                      </Button>
+                    )}
+                    {hasActiveFilters && visibleOrders.length > 0 && (
+                      <Button variant="outline" onClick={clearFilters}>
+                        Clear filters
                       </Button>
                     )}
                   </div>

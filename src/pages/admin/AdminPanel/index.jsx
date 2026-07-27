@@ -469,8 +469,8 @@ const AdminPanel = () => {
       datasets: [{
         label: 'Revenue',
         data: top.map(p => p.revenue),
-        backgroundColor: 'rgba(17, 140, 140, 0.8)',
-        borderColor: '#118C8C',
+        backgroundColor: 'rgba(92, 45, 145, 0.78)',
+        borderColor: '#5C2D91',
         borderWidth: 2
       }]
     };
@@ -494,8 +494,8 @@ const AdminPanel = () => {
       datasets: [{
         label: "Daily Revenue",
         data: values,
-        borderColor: "#118C8C",
-        backgroundColor: "rgba(17, 140, 140, 0.15)",
+        borderColor: "#5C2D91",
+        backgroundColor: "rgba(92, 45, 145, 0.15)",
         tension: 0.3,
         fill: true
       }]
@@ -850,12 +850,14 @@ const AdminPanel = () => {
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="mb-8 grid h-auto w-full grid-cols-2 gap-2 border border-white/55 bg-white/80 p-2 shadow-lg shadow-[#2D0E5A]/10 sm:grid-cols-4">
-              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger value="orders">Orders</TabsTrigger>
-              <TabsTrigger value="users">Users</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            </TabsList>
+            <div className="sticky top-[4.5rem] z-30 mb-8 -mx-2 overflow-x-auto px-2">
+              <TabsList aria-label="Admin workspace sections" className="!flex h-auto w-max min-w-max justify-start gap-2 rounded-[1.25rem] border border-white/65 bg-white/90 p-2 shadow-lg shadow-[#2D0E5A]/15 backdrop-blur-md sm:w-full sm:min-w-0 sm:justify-center">
+                <TabsTrigger value="dashboard" className="min-w-[8.5rem] flex-1">Dashboard</TabsTrigger>
+                <TabsTrigger value="orders" className="min-w-[8.5rem] flex-1">Orders</TabsTrigger>
+                <TabsTrigger value="users" className="min-w-[8.5rem] flex-1">Users</TabsTrigger>
+                <TabsTrigger value="analytics" className="min-w-[8.5rem] flex-1">Analytics</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="dashboard">
               <AdminOverviewTab {...adminState} />
@@ -913,7 +915,7 @@ const AdminPanel = () => {
                   onClick={() => setSelectedOrder(null)}
                   type="button"
                   aria-label="Close order details"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/20"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition-colors duration-200 hover:bg-white/20"
                 >
                   <CloseIcon size={18} />
                 </button>

@@ -227,7 +227,7 @@ const AdminOverviewTab = (props) => {
                         recentOrders.map(order => (
                           <div
                             key={order.id}
-                            className="rounded-2xl border border-artisan-primary/10 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-artisan-primary/25 hover:shadow-md md:p-5"
+                            className="rounded-2xl border border-artisan-primary/10 bg-white p-4 shadow-sm transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-artisan-primary/25 hover:shadow-md md:p-5"
                           >
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                               <div className="flex-1 min-w-0">
@@ -406,10 +406,10 @@ const AdminOverviewTab = (props) => {
                           </div>
                         ))
                       ) : (
-                        <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-12 text-center text-gray-500">
-                          <ShoppingCart size={56} className="mx-auto mb-4 text-gray-300" />
-                          <p className="text-lg font-semibold text-gray-700">No recent orders yet</p>
-                          <p className="text-sm mt-1">New customer orders will show up here automatically.</p>
+                        <div className="rounded-3xl border border-dashed border-artisan-primary/20 bg-artisan-primary-wash/20 p-12 text-center text-artisan-text-muted">
+                          <ShoppingCart size={56} className="mx-auto mb-4 text-artisan-primary-pale" />
+                          <p className="text-lg font-semibold text-artisan-text">No recent orders yet</p>
+                          <p className="mt-1 text-sm">New customer orders will show up here automatically.</p>
                         </div>
                       )}
                     </div>

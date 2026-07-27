@@ -11,7 +11,7 @@ import React from 'react';
 // link      → purple underline
 // destructive → unchanged (red — correct for error actions)
 const buttonVariants = cva(
-	'inline-flex max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary/60 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-safe:hover:-translate-y-px',
+	'inline-flex max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold ring-offset-background transition-[transform,box-shadow,background-color,border-color,color,filter] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary/60 focus-visible:ring-offset-2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transform-none',
 	{
 		variants: {
 			variant: {

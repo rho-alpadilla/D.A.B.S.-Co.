@@ -131,12 +131,9 @@ const BuyerDashboard = () => {
 
           {/* ── Order Summary Cards ── */}
           <div className="mb-10">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-                <Package className="text-amber-300" size={28} />
-                Order Summary
-              </h2>
-              <Button asChild>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <DashboardSectionHeading icon={Package} title="Order Summary" />
+              <Button asChild className="w-full sm:w-auto">
                 <Link to="/pending-orders">
                   View My Orders <ArrowRight size={18} className="ml-2" />
                 </Link>
@@ -153,16 +150,13 @@ const BuyerDashboard = () => {
 
           {/* ── Cart Preview ── */}
           <div className="mb-10">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-                <ShoppingBag className="text-artisan-primary-pale" size={28} />
-                My Cart ({cartCount} items)
-              </h2>
-              <div className="flex items-center gap-3">
-                <Button asChild>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <DashboardSectionHeading icon={ShoppingBag} title={`My Cart (${cartCount} items)`} />
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                <Button asChild className="w-full sm:w-auto">
                   <Link to="/cart">Go to Cart <ArrowRight size={18} className="ml-2" /></Link>
                 </Button>
-                <Button asChild variant="outline" className="border-2 border-white/40 bg-white/10 text-white hover:bg-white/20">
+                <Button asChild variant="outline" className="w-full border-white/65 bg-white/90 text-artisan-primary hover:border-white hover:bg-white sm:w-auto">
                   <Link to="/gallery">Continue Shopping</Link>
                 </Button>
               </div>
@@ -205,10 +199,9 @@ const BuyerDashboard = () => {
 
           {/* ── Quick Actions ── */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-              <UserIcon className="text-artisan-primary-pale" size={28} />
-              Quick Actions
-            </h2>
+            <div className="mb-6">
+              <DashboardSectionHeading icon={UserIcon} title="Quick Actions" />
+            </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <ActionCard title="View My Orders" desc="Track status, request cancellation, view history." icon={<Package size={22} className="text-artisan-primary" />} to="/pending-orders" />
               <ActionCard title="Edit Profile" desc="Update your name, username, and info." icon={<UserIcon size={22} className="text-artisan-primary" />} to="/profile" />
@@ -231,8 +224,17 @@ const BuyerDashboard = () => {
   );
 };
 
+const DashboardSectionHeading = ({ icon: Icon, title }) => (
+  <div className="inline-flex w-fit items-center gap-3 rounded-2xl border border-white/40 bg-[#2D0E5A]/90 px-4 py-3 text-white shadow-lg shadow-[#2D0E5A]/25 backdrop-blur-sm">
+    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/12">
+      <Icon size={20} className="text-artisan-primary-pale" aria-hidden="true" />
+    </span>
+    <h2 className="font-artisan-display text-2xl font-bold tracking-tight">{title}</h2>
+  </div>
+);
+
 const SummaryCard = ({ title, value, icon, bg, to, subtitle, accentColor }) => (
-  <Link to={to} className={`block rounded-2xl border border-white/60 p-6 shadow-lg shadow-[#2D0E5A]/10 transition hover:-translate-y-1 hover:shadow-xl ${bg} artisan-card-hover`}>
+  <Link to={to} className={`block rounded-2xl border border-white/60 p-6 shadow-lg shadow-[#2D0E5A]/10 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-xl ${bg} artisan-card-hover`}>
     <div className="flex items-start justify-between">
       <div>
         <p className="text-sm text-artisan-text-mid font-medium">{title}</p>
@@ -250,7 +252,7 @@ const SummaryCard = ({ title, value, icon, bg, to, subtitle, accentColor }) => (
 );
 
 const ActionCard = ({ title, desc, icon, to }) => (
-  <Link to={to} className="block rounded-2xl border border-white/45 bg-white/95 p-6 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md transition hover:-translate-y-1 hover:shadow-xl artisan-card-hover">
+  <Link to={to} className="block rounded-2xl border border-white/45 bg-white/95 p-6 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-xl artisan-card-hover">
     <div className="flex items-center gap-3 mb-3">
       <div className="w-10 h-10 rounded-xl bg-artisan-primary-wash flex items-center justify-center">
         {icon}

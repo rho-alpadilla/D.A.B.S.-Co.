@@ -4,8 +4,8 @@
 //   • Scroll-progress listener (requestAnimationFrame-throttled)
 //   • onSnapshot auth + role detection (isAdmin, photoURL)
 //   • Buyer notification listener (onSnapshot → buyerNotifications)
-//   • Admin alert listeners (orders + messages → adminAlerts)
-//   • markAllNotifsRead / handleNotifClick (Firestore updateDoc)
+//   • Per-account staff alert history (backfill + live order/message alerts)
+//   • Clear-all / read-state actions (Firestore notification documents)
 //   • handleLogout (signOut + reset all dropdowns)
 //   • goToHighlight / goToHighlightsHome (smooth scroll + nav)
 //   • Currency switcher (useCurrency, CURRENCIES, setCurrency, searchQuery)
@@ -46,7 +46,7 @@ import {
   Package,
   MessageSquareText,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -56,16 +56,26 @@ import {
   doc,
   onSnapshot,
   collection,
+  getDocs,
   limit,
   query,
   orderBy,
+  startAfter,
   updateDoc,
   where,
 } from 'firebase/firestore';
 import CircularText from '@/components/effects/CircularText';
 import dabsLogo from '@/assets/dabs-logo-square.png';
+import {
+  backfillAdminAlertHistory,
+  clearAdminAlertHistory,
+  createLiveMessageAlert,
+  createLiveOrderAlert,
+  persistNewAdminAlert,
+} from '@/lib/adminAlertHistory';
 
 const MAX_VISIBLE_NOTIFICATIONS = 20;
+const ARTISAN_EASE_OUT = [0.23, 1, 0.32, 1];
 
 const Header = () => {
   // ── STATE ──────────────────────────────────────────────────────────────
@@ -79,21 +89,44 @@ const Header = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [photoURL, setPhotoURL] = useState('');
   const [scrollPct, setScrollPct] = useState(0);
-  const [adminNotifSeenAt, setAdminNotifSeenAt] = useState(null);
+  const [adminAlertHistoryBackfilledAt, setAdminAlertHistoryBackfilledAt] =
+    useState(null);
+  const [adminAlertsClearedAt, setAdminAlertsClearedAt] = useState(null);
 
   const [buyerNotifications, setBuyerNotifications] = useState([]);
   const [adminAlerts, setAdminAlerts] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [adminAlertCursor, setAdminAlertCursor] = useState(null);
+  const [hasMoreAdminAlerts, setHasMoreAdminAlerts] = useState(false);
+  const [loadingMoreAdminAlerts, setLoadingMoreAdminAlerts] = useState(false);
+  const [isAdminHistoryInitialising, setIsAdminHistoryInitialising] =
+    useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
   const rafRef = useRef(null);
+  const headerRef = useRef(null);
 
   const authData = useAuth();
   const user = authData?.user || null;
   const loading = authData?.loading || false;
   const { cartCount } = useCart();
   const { currency, setCurrency, CURRENCIES } = useCurrency();
+  const shouldReduceMotion = useReducedMotion();
+
+  const desktopPopoverMotion = shouldReduceMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.12, ease: ARTISAN_EASE_OUT },
+      }
+    : {
+        initial: { opacity: 0, transform: 'translateY(-8px) scale(0.96)' },
+        animate: { opacity: 1, transform: 'translateY(0) scale(1)' },
+        exit: { opacity: 0, transform: 'translateY(-8px) scale(0.96)' },
+        transition: { duration: 0.18, ease: ARTISAN_EASE_OUT },
+      };
 
   const homeLabel = isAdmin ? 'Dashboard' : 'Home';
   const homePath = '/';
@@ -136,10 +169,49 @@ const Header = () => {
   }, []);
 
   useEffect(() => {
+    const closeHeaderOverlays = () => {
+      setIsMenuOpen(false);
+      setIsCurrencyOpen(false);
+      setIsUserMenuOpen(false);
+      setIsHighlightsOpen(false);
+      setIsNotifOpen(false);
+    };
+
+    const handlePointerDown = (event) => {
+      if (!headerRef.current?.contains(event.target)) {
+        closeHeaderOverlays();
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeHeaderOverlays();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsCurrencyOpen(false);
+    setIsUserMenuOpen(false);
+    setIsHighlightsOpen(false);
+    setIsNotifOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (!user) {
       setPhotoURL('');
       setIsAdmin(false);
-      setAdminNotifSeenAt(null);
+      setAdminAlertHistoryBackfilledAt(null);
+      setAdminAlertsClearedAt(null);
+      setIsAdminHistoryInitialising(false);
       return;
     }
 
@@ -148,7 +220,8 @@ const Header = () => {
         const d = snap.data();
         setPhotoURL(d.photoURL || '');
         setIsAdmin(d.role === 'admin' || d.role === 'sub-admin');
-        setAdminNotifSeenAt(d.adminNotifSeenAt || null);
+        setAdminAlertHistoryBackfilledAt(d.adminAlertHistoryBackfilledAt || null);
+        setAdminAlertsClearedAt(d.adminAlertsClearedAt || null);
       }
     });
 
@@ -187,110 +260,141 @@ const Header = () => {
   useEffect(() => {
     if (!user?.uid || !isAdmin) {
       setAdminAlerts([]);
+      setAdminAlertCursor(null);
+      setHasMoreAdminAlerts(false);
+      setIsAdminHistoryInitialising(false);
       return;
     }
 
     setNotifLoading(true);
-    const seenMs = toMillis(adminNotifSeenAt);
+    setAdminAlerts([]);
+    setAdminAlertCursor(null);
+    setHasMoreAdminAlerts(false);
 
-    const unsubOrders = onSnapshot(
-      query(
-        collection(db, 'orders'),
-        where('status', '==', 'pending'),
-        orderBy('createdAt', 'desc'),
-        limit(MAX_VISIBLE_NOTIFICATIONS)
-      ),
-      (orderSnap) => {
-        const pendingOrders = orderSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter(
-            (order) =>
-              order.status === 'pending' && toMillis(order.createdAt) > seenMs
-          )
-          .slice(0, MAX_VISIBLE_NOTIFICATIONS);
+    const notifQuery = query(
+      collection(db, 'users', user.uid, 'notifications'),
+      orderBy('createdAt', 'desc'),
+      limit(MAX_VISIBLE_NOTIFICATIONS)
+    );
 
-        setAdminAlerts((prev) => {
-          const nonOrderAlerts = prev.filter((item) => item.alertType !== 'order');
-
-          const orderAlerts = pendingOrders.map((order) => ({
-            id: `order-${order.id}`,
-            alertType: 'order',
-            title: 'New Order Received',
-            body: `Order #${order.id.slice(0, 8)} from ${
-              order.buyerEmail || order.buyerName || 'a buyer'
-            }.`,
-            createdAt: order.createdAt,
-            link: '/admin-panel',
-            read: false,
-          }));
-
-          return [...orderAlerts, ...nonOrderAlerts]
-            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-            .slice(0, MAX_VISIBLE_NOTIFICATIONS);
-        });
-
+    const unsub = onSnapshot(
+      notifQuery,
+      (snap) => {
+        setAdminAlerts(snap.docs.map((notification) => ({
+          id: notification.id,
+          ...notification.data(),
+        })));
+        setAdminAlertCursor(snap.docs.at(-1) || null);
+        setHasMoreAdminAlerts(snap.size === MAX_VISIBLE_NOTIFICATIONS);
         setNotifLoading(false);
       },
       (err) => {
-        console.error('Admin order alert listener failed:', err);
+        console.error('Admin alert history listener failed:', err);
         setNotifLoading(false);
       }
     );
 
-    const unsubMessages = onSnapshot(
-      query(
-        collection(db, 'messages'),
-        where('status', '==', 'unread'),
-        where('isAdminReply', '==', false),
-        orderBy('createdAt', 'desc'),
-        limit(MAX_VISIBLE_NOTIFICATIONS)
-      ),
-      (msgSnap) => {
-        const unreadBuyerMessages = msgSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter(
-            (msg) =>
-              msg.status === 'unread' &&
-              msg.isAdminReply === false &&
-              toMillis(msg.createdAt) > seenMs
-          )
-          .slice(0, MAX_VISIBLE_NOTIFICATIONS);
+    return () => unsub();
+  }, [user?.uid, isAdmin]);
 
-        setAdminAlerts((prev) => {
-          const nonMessageAlerts = prev.filter(
-            (item) => item.alertType !== 'message'
-          );
+  useEffect(() => {
+    if (!user?.uid || !isAdmin) return undefined;
 
-          const messageAlerts = unreadBuyerMessages.map((msg) => ({
-            id: `message-${msg.id}`,
-            alertType: 'message',
-            title: 'New Customer Message',
-            body: `${msg.buyerName || msg.buyerEmail || 'A customer'} sent a message in "${
-              msg.subject || 'General Support'
-            }".`,
-            createdAt: msg.createdAt,
-            link: '/message-center',
-            read: false,
-          }));
+    let cancelled = false;
+    let unsubOrders = () => {};
+    let unsubMessages = () => {};
 
-          return [...messageAlerts, ...nonMessageAlerts]
-            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-            .slice(0, MAX_VISIBLE_NOTIFICATIONS);
-        });
+    const saveLiveAlert = (alert) => {
+      void persistNewAdminAlert({
+        uid: user.uid,
+        alert,
+        clearedAt: adminAlertsClearedAt,
+      }).catch((err) => {
+        console.error('Failed to save an admin alert:', err);
+      });
+    };
 
-        setNotifLoading(false);
-      },
-      (err) => {
-        console.error('Admin message alert listener failed:', err);
-        setNotifLoading(false);
+    const startLiveListeners = () => {
+      const listenerStartedAt = Date.now();
+
+      unsubOrders = onSnapshot(
+        query(
+          collection(db, 'orders'),
+          where('status', '==', 'pending'),
+          orderBy('createdAt', 'desc'),
+          limit(MAX_VISIBLE_NOTIFICATIONS)
+        ),
+        (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            const order = { id: change.doc.id, ...change.doc.data() };
+            if (
+              change.type === 'added' &&
+              toMillis(order.createdAt) > listenerStartedAt
+            ) {
+              saveLiveAlert(createLiveOrderAlert(order));
+            }
+          });
+        },
+        (err) => console.error('Admin order alert listener failed:', err)
+      );
+
+      unsubMessages = onSnapshot(
+        query(
+          collection(db, 'messages'),
+          where('status', '==', 'unread'),
+          where('isAdminReply', '==', false),
+          orderBy('createdAt', 'desc'),
+          limit(MAX_VISIBLE_NOTIFICATIONS)
+        ),
+        (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            const message = { id: change.doc.id, ...change.doc.data() };
+            if (
+              change.type === 'added' &&
+              toMillis(message.createdAt) > listenerStartedAt
+            ) {
+              saveLiveAlert(createLiveMessageAlert(message));
+            }
+          });
+        },
+        (err) => console.error('Admin message alert listener failed:', err)
+      );
+    };
+
+    const initialiseAlertHistory = async () => {
+      try {
+        if (!adminAlertHistoryBackfilledAt) {
+          setIsAdminHistoryInitialising(true);
+          setNotifLoading(true);
+          await backfillAdminAlertHistory({
+            uid: user.uid,
+            clearedAt: adminAlertsClearedAt,
+          });
+        }
+      } catch (err) {
+        console.error('Admin alert history backfill failed:', err);
+      } finally {
+        if (!cancelled) {
+          setIsAdminHistoryInitialising(false);
+          setNotifLoading(false);
+          startLiveListeners();
+        }
       }
-    );
+    };
+
+    void initialiseAlertHistory();
 
     return () => {
+      cancelled = true;
       unsubOrders();
       unsubMessages();
     };
-  }, [user?.uid, isAdmin, adminNotifSeenAt]);
+  }, [
+    user?.uid,
+    isAdmin,
+    adminAlertHistoryBackfilledAt,
+    adminAlertsClearedAt,
+  ]);
 
   const visibleNotifications = useMemo(
     () => (isAdmin ? adminAlerts : buyerNotifications),
@@ -298,9 +402,8 @@ const Header = () => {
   );
 
   const unreadNotifCount = useMemo(() => {
-    if (isAdmin) return visibleNotifications.length;
     return visibleNotifications.filter((n) => !n.read).length;
-  }, [isAdmin, visibleNotifications]);
+  }, [visibleNotifications]);
 
   const formatNotifTime = (ts) => {
     const ms = toMillis(ts);
@@ -353,7 +456,7 @@ const Header = () => {
   // ── EVENT HANDLERS ─────────────────────────────────────────────────────
   const handleNotifClick = async (notif) => {
     try {
-      if (!isAdmin && !notif.read && user?.uid) {
+      if (!notif.read && user?.uid) {
         await updateDoc(doc(db, 'users', user.uid, 'notifications', notif.id), {
           read: true,
         });
@@ -370,13 +473,6 @@ const Header = () => {
     if (!user?.uid) return;
 
     try {
-      if (isAdmin) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          adminNotifSeenAt: new Date(),
-        });
-        return;
-      }
-
       const unread = buyerNotifications.filter((n) => !n.read);
       await Promise.all(
         unread.map((notif) =>
@@ -387,6 +483,67 @@ const Header = () => {
       );
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err);
+    }
+  };
+
+  const clearAllAdminAlerts = async () => {
+    if (!user?.uid || isAdminHistoryInitialising) return;
+
+    try {
+      setNotifLoading(true);
+      await clearAdminAlertHistory(user.uid);
+      setAdminAlerts([]);
+      setAdminAlertCursor(null);
+      setHasMoreAdminAlerts(false);
+    } catch (err) {
+      console.error('Failed to clear admin alert history:', err);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const loadMoreAdminAlerts = async () => {
+    if (
+      !user?.uid ||
+      !isAdmin ||
+      !adminAlertCursor ||
+      !hasMoreAdminAlerts ||
+      loadingMoreAdminAlerts
+    ) {
+      return;
+    }
+
+    try {
+      setLoadingMoreAdminAlerts(true);
+      const nextPage = await getDocs(
+        query(
+          collection(db, 'users', user.uid, 'notifications'),
+          orderBy('createdAt', 'desc'),
+          startAfter(adminAlertCursor),
+          limit(MAX_VISIBLE_NOTIFICATIONS)
+        )
+      );
+
+      const olderAlerts = nextPage.docs.map((notification) => ({
+        id: notification.id,
+        ...notification.data(),
+      }));
+
+      setAdminAlerts((currentAlerts) => {
+        const alertsById = new Map(
+          [...currentAlerts, ...olderAlerts].map((alert) => [alert.id, alert])
+        );
+
+        return [...alertsById.values()].sort(
+          (first, second) => toMillis(second.createdAt) - toMillis(first.createdAt)
+        );
+      });
+      setAdminAlertCursor(nextPage.docs.at(-1) || adminAlertCursor);
+      setHasMoreAdminAlerts(nextPage.size === MAX_VISIBLE_NOTIFICATIONS);
+    } catch (err) {
+      console.error('Failed to load older admin alerts:', err);
+    } finally {
+      setLoadingMoreAdminAlerts(false);
     }
   };
 
@@ -514,21 +671,24 @@ const Header = () => {
           </div>
           <p className="text-sm font-medium text-artisan-text">All caught up</p>
           <p className="text-xs text-artisan-text-muted mt-1">
-            {isAdmin ? 'No new admin alerts right now.' : 'No notifications yet.'}
+            {isAdmin ? 'No saved admin alerts yet.' : 'No notifications yet.'}
           </p>
         </div>
       ) : (
         <div className="p-2 space-y-2">
-          {visibleNotifications.slice(0, mobile ? 10 : 12).map((notif) => {
+          {(isAdmin
+            ? visibleNotifications
+            : visibleNotifications.slice(0, mobile ? 10 : 12)
+          ).map((notif) => {
             const meta = getNotifMeta(notif);
-            const isUnreadBuyerNotif = !isAdmin && !notif.read;
+            const isUnreadNotification = !notif.read;
 
             return (
               <button
                 key={notif.id}
                 onClick={() => handleNotifClick(notif)}
                 className={`w-full text-left rounded-2xl border px-3 py-3 transition ${
-                  isUnreadBuyerNotif
+                  isUnreadNotification
                     ? 'bg-artisan-primary-wash/50 border-artisan-primary-light/20 hover:bg-artisan-primary-wash'
                     : 'bg-white border-gray-100 hover:bg-gray-50'
                 }`}
@@ -552,7 +712,7 @@ const Header = () => {
                           >
                             {meta.chip}
                           </span>
-                          {isUnreadBuyerNotif && (
+                          {isUnreadNotification && (
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-artisan-primary-pale/30 text-artisan-primary">
                               New
                             </span>
@@ -573,6 +733,17 @@ const Header = () => {
               </button>
             );
           })}
+
+          {isAdmin && hasMoreAdminAlerts && (
+            <button
+              type="button"
+              onClick={loadMoreAdminAlerts}
+              disabled={loadingMoreAdminAlerts}
+              className="w-full rounded-xl border border-artisan-primary-light/25 px-3 py-2 text-xs font-semibold text-artisan-primary transition hover:bg-artisan-primary-wash disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingMoreAdminAlerts ? 'Loading older alerts...' : 'Load older alerts'}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -782,6 +953,7 @@ const Header = () => {
       `}</style>
 
       <header
+        ref={headerRef}
         className="hdr"
         style={{
           background: hdrBg,
@@ -844,10 +1016,11 @@ const Header = () => {
                     <AnimatePresence>
                       {isHighlightsOpen && (
                         <motion.div
-                          initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                          transition={{ duration: 0.18 }}
+                          initial={desktopPopoverMotion.initial}
+                          animate={desktopPopoverMotion.animate}
+                          exit={desktopPopoverMotion.exit}
+                          transition={desktopPopoverMotion.transition}
+                          style={{ transformOrigin: 'top center' }}
                           className="hdr-dropdown absolute left-1/2 top-full mt-3 w-64 -translate-x-1/2 z-[9999] p-2"
                         >
                           {[
@@ -933,10 +1106,11 @@ const Header = () => {
               <AnimatePresence>
                 {isCurrencyOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                    transition={{ duration: 0.18 }}
+                    initial={desktopPopoverMotion.initial}
+                    animate={desktopPopoverMotion.animate}
+                    exit={desktopPopoverMotion.exit}
+                    transition={desktopPopoverMotion.transition}
+                    style={{ transformOrigin: 'top right' }}
                     className="hdr-dropdown absolute right-0 top-full mt-2.5 w-80 z-50"
                   >
                     {/* Search */}
@@ -1029,10 +1203,11 @@ const Header = () => {
                 <AnimatePresence>
                   {isNotifOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                      transition={{ duration: 0.18 }}
+                      initial={desktopPopoverMotion.initial}
+                      animate={desktopPopoverMotion.animate}
+                      exit={desktopPopoverMotion.exit}
+                      transition={desktopPopoverMotion.transition}
+                      style={{ transformOrigin: 'top right' }}
                       className="hdr-dropdown absolute right-0 top-full mt-2.5 w-[26rem] z-[9999]"
                     >
                       {/* Notif header */}
@@ -1044,18 +1219,21 @@ const Header = () => {
                             </p>
                             <p className="text-xs text-artisan-text-muted mt-0.5">
                               {isAdmin
-                                ? `${visibleNotifications.length} active alerts`
+                                ? `${unreadNotifCount} unread alert${
+                                    unreadNotifCount === 1 ? '' : 's'
+                                  }`
                                 : `${unreadNotifCount} unread`}
                             </p>
                           </div>
 
                           {visibleNotifications.length > 0 && (
                             <button
-                              onClick={markAllNotifsRead}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-artisan-primary hover:underline shrink-0"
+                              onClick={isAdmin ? clearAllAdminAlerts : markAllNotifsRead}
+                              disabled={isAdmin && isAdminHistoryInitialising}
+                              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-artisan-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <CheckCheck size={14} />
-                              Mark all as read
+                              {isAdmin ? 'Clear all' : 'Mark all as read'}
                             </button>
                           )}
                         </div>
@@ -1126,10 +1304,11 @@ const Header = () => {
                 <AnimatePresence>
                   {isUserMenuOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                      transition={{ duration: 0.18 }}
+                      initial={desktopPopoverMotion.initial}
+                      animate={desktopPopoverMotion.animate}
+                      exit={desktopPopoverMotion.exit}
+                      transition={desktopPopoverMotion.transition}
+                      style={{ transformOrigin: 'top right' }}
                       className="hdr-dropdown absolute right-0 top-full mt-2.5 w-60 z-[9999]"
                     >
                       {/* User info header */}
@@ -1283,18 +1462,21 @@ const Header = () => {
                         </p>
                         <p className="text-xs text-artisan-text-muted mt-0.5">
                           {isAdmin
-                            ? `${visibleNotifications.length} active alerts`
+                            ? `${unreadNotifCount} unread alert${
+                                unreadNotifCount === 1 ? '' : 's'
+                              }`
                             : `${unreadNotifCount} unread`}
                         </p>
                       </div>
 
                       {visibleNotifications.length > 0 && (
                         <button
-                          onClick={markAllNotifsRead}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-artisan-primary hover:underline shrink-0"
+                          onClick={isAdmin ? clearAllAdminAlerts : markAllNotifsRead}
+                          disabled={isAdmin && isAdminHistoryInitialising}
+                          className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-artisan-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <CheckCheck size={14} />
-                          Mark all as read
+                          {isAdmin ? 'Clear all' : 'Mark all as read'}
                         </button>
                       )}
                     </div>

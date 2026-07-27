@@ -83,6 +83,9 @@ const AdminUsersTab = (props) => {
 
   const visibleUsers = filteredUsers.slice(0, visibleCount);
   const hasMore = filteredUsers.length > visibleCount;
+  const hasActiveSearch = Boolean(userSearch.trim());
+
+  const clearSearch = () => setUserSearch('');
 
   return (
               <div className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/95 shadow-xl shadow-[#2D0E5A]/10">
@@ -120,7 +123,7 @@ const AdminUsersTab = (props) => {
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
                       placeholder="Search loaded users by name, email, or role..."
-                      className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                      className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                     />
                   </div>
                 </div>
@@ -134,7 +137,7 @@ const AdminUsersTab = (props) => {
                     <>
                     <div className="hidden max-h-[42rem] overflow-auto md:block">
                     <table className="w-full min-w-[720px]">
-                      <thead className="border-b border-artisan-primary/10 bg-artisan-primary-wash/45 text-artisan-text">
+                      <thead className="sticky top-0 z-10 border-b border-artisan-primary/10 bg-artisan-primary-wash/95 text-artisan-text shadow-sm">
                         <tr>
                           <th className="p-4 text-left text-sm font-bold">Name</th>
                           <th className="p-4 text-left text-sm font-bold">Email</th>
@@ -150,7 +153,7 @@ const AdminUsersTab = (props) => {
                           const isCurrentUser = u.id === user?.uid;
 
                           return (
-                            <tr key={u.id} className="border-t border-artisan-primary/10 transition hover:bg-artisan-primary-wash/30">
+                            <tr key={u.id} className="border-t border-artisan-primary/10 transition-colors duration-200 hover:bg-artisan-primary-wash/30">
                               <td className="p-4 font-medium text-artisan-text">
                                 <div className="flex flex-col">
                                   <span>{displayName}</span>
@@ -238,6 +241,9 @@ const AdminUsersTab = (props) => {
                       <Search size={56} className="mx-auto mb-4 text-artisan-primary-pale" />
                       <p className="text-lg font-semibold text-artisan-text">No matching users</p>
                       <p className="text-sm mt-1">Search only includes the users loaded so far. Try another term or load more users.</p>
+                      <Button variant="outline" size="sm" onClick={clearSearch} className="mt-5">
+                        Clear search
+                      </Button>
                     </div>
                   )}
 
@@ -251,6 +257,11 @@ const AdminUsersTab = (props) => {
                     {visibleCount > 5 && (
                       <Button variant="outline" onClick={() => setVisibleCount(5)}>
                         Show fewer users
+                      </Button>
+                    )}
+                    {hasActiveSearch && visibleUsers.length > 0 && (
+                      <Button variant="outline" onClick={clearSearch}>
+                        Clear search
                       </Button>
                     )}
                   </div>

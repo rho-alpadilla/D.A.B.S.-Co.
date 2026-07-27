@@ -13,7 +13,6 @@ import {
   Edit,
   AlertTriangle,
   ChevronDown,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
@@ -36,6 +35,7 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import Grainient from '@/components/effects/Grainient';
 import Particles from '@/components/effects/Particles';
 import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
+import PurchasePageHero from '@/components/shop/PurchasePageHero';
 // ALL COUNTRIES (copied from ProfilePage)
 const ALL_COUNTRIES = [
   { name: 'Philippines', code: 'PH', flag: 'https://flagcdn.com/ph.svg', callingCode: '+63' },
@@ -500,20 +500,17 @@ const CheckoutPage = () => {
           </div>
         </div>
 
-        <div className="relative z-10 container mx-auto max-w-7xl px-5 py-14 sm:px-6 lg:px-8">
+        <div className="relative z-10 container mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 18 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mb-8 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
+            transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#F0E6F7] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#5C2D91]">
-              <Sparkles size={14} />
-              Secure Checkout
-            </div>
-
-            <h1 className="mb-2 font-artisan-display text-4xl font-bold text-[#2A1739] md:text-5xl">Checkout</h1>
-            <p className="text-gray-600">Confirm your shipping details, payment method, and order.</p>
+            <PurchasePageHero
+              eyebrow="Secure checkout"
+              title="Confirm your order"
+              description="Add your delivery details, choose a payment method, and review every item before placing your order."
+            />
           </motion.div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
@@ -540,7 +537,7 @@ const CheckoutPage = () => {
                       placeholder="First Name"
                       value={formData.firstName}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-2xl focus:border-[#118C8C] focus:outline-none"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                     />
                     <input
                       type="text"
@@ -548,7 +545,7 @@ const CheckoutPage = () => {
                       placeholder="Last Name"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-2xl focus:border-[#118C8C] focus:outline-none"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                     />
                     <input
                       type="text"
@@ -556,7 +553,7 @@ const CheckoutPage = () => {
                       placeholder="Phone Number"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-2xl focus:border-[#118C8C] focus:outline-none md:col-span-2"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15 md:col-span-2"
                     />
                     <input
                       type="text"
@@ -564,7 +561,7 @@ const CheckoutPage = () => {
                       placeholder="Street Address"
                       value={formData.street}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-2xl focus:border-[#118C8C] focus:outline-none md:col-span-2"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15 md:col-span-2"
                     />
                     <input
                       type="text"
@@ -572,7 +569,7 @@ const CheckoutPage = () => {
                       placeholder="City"
                       value={formData.city}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-2xl focus:border-[#118C8C] focus:outline-none"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                     />
                     <input
                       type="text"
@@ -580,7 +577,7 @@ const CheckoutPage = () => {
                       placeholder="State / Province"
                       value={formData.stateProvince}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-2xl focus:border-[#118C8C] focus:outline-none"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                     />
                     <input
                       type="text"
@@ -588,7 +585,7 @@ const CheckoutPage = () => {
                       placeholder="Postal / ZIP Code"
                       value={formData.postalCode}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-2xl focus:border-[#118C8C] focus:outline-none"
+                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                     />
 
                     <div className="md:col-span-2 relative">
@@ -613,7 +610,7 @@ const CheckoutPage = () => {
                               placeholder="Search country..."
                               value={addressCountrySearch}
                               onChange={(e) => setAddressCountrySearch(e.target.value)}
-                              className="w-full rounded-2xl border border-[#DCCBE7] px-4 py-3 text-[#2A1739] focus:border-[#5C2D91] focus:outline-none"
+                              className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
                               autoFocus
                             />
                           </div>
@@ -662,7 +659,7 @@ const CheckoutPage = () => {
                   <h3 className="font-semibold mb-3">Delivery Option</h3>
                   <div className="space-y-4">
                     <label
-                      className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
+                      className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
                         deliveryMethod === 'courier'
                           ? 'border-[#5C2D91] bg-[#F0E6F7]'
                           : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -685,7 +682,7 @@ const CheckoutPage = () => {
                     </label>
 
                     <label
-                      className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
+                      className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
                         deliveryMethod === 'pickup'
                           ? 'border-[#5C2D91] bg-[#F0E6F7]'
                           : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -784,7 +781,7 @@ const CheckoutPage = () => {
 
                 <div className="space-y-4">
                   <label
-                    className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
+                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
                       paymentMethod === 'bank'
                         ? 'border-[#5C2D91] bg-[#F0E6F7]'
                         : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -806,7 +803,7 @@ const CheckoutPage = () => {
                   </label>
 
                   <label
-                    className={`flex items-center gap-4 p-4 border rounded-2xl cursor-pointer transition-all ${
+                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
                       paymentMethod === 'paypal'
                         ? 'border-[#5C2D91] bg-[#F0E6F7]'
                         : 'border-[#E6DDEB] hover:border-[#C992D8]'

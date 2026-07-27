@@ -53,6 +53,10 @@
     --artisan-shadow-md:  0 8px 30px rgba(92, 45, 145, 0.22);
     --artisan-shadow-lg:  0 20px 60px rgba(92, 45, 145, 0.30);
 
+    /* Shared interaction tokens keep routine navigation responsive. */
+    --artisan-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --artisan-focus-ring: rgba(92, 45, 145, 0.72);
+
     /* ── Artisan Border Radius ──────────────────────────── */
     --artisan-radius-card:   22px;
     --artisan-radius-pill:   50px;
@@ -99,6 +103,26 @@
       'Droid Sans', 'Helvetica Neue', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    min-width: 320px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100%;
+  }
+
+  ::selection {
+    background: var(--artisan-primary-pale);
+    color: var(--artisan-text);
+  }
+
+  :where(a, button, input, select, textarea, summary, [tabindex='0']):focus-visible {
+    outline: 3px solid var(--artisan-focus-ring);
+    outline-offset: 3px;
   }
 }
 
@@ -157,15 +181,40 @@
 
   /* ── Artisan card hover (shared bounce-up) ── */
   .artisan-card-hover {
-    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
-                box-shadow 0.4s ease,
-                border-color 0.3s ease;
+    transition: transform 200ms var(--artisan-ease-out),
+                box-shadow 200ms ease,
+                border-color 200ms ease;
   }
 
-  .artisan-card-hover:hover {
-    transform: translateY(-10px);
-    box-shadow: var(--artisan-shadow-lg);
-    border-color: var(--artisan-border-strong);
+  @media (hover: hover) and (pointer: fine) {
+    .artisan-card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--artisan-shadow-lg);
+      border-color: var(--artisan-border-strong);
+    }
+  }
+
+  .artisan-card-hover:active {
+    transform: translateY(-1px) scale(0.99);
+  }
+
+  .skip-link {
+    position: fixed;
+    z-index: 100;
+    top: 0.75rem;
+    left: 50%;
+    transform: translate(-50%, -160%);
+    border-radius: var(--artisan-radius-pill);
+    background: var(--artisan-primary);
+    color: #fff;
+    padding: 0.625rem 1rem;
+    font-weight: 600;
+    box-shadow: var(--artisan-shadow-md);
+    transition: transform 160ms var(--artisan-ease-out);
+  }
+
+  .skip-link:focus {
+    transform: translate(-50%, 0);
   }
 }
 
@@ -214,4 +263,19 @@
   .animate-artisan-badge     { animation: artisan-badge-float   5s ease-in-out infinite; }
   .animate-artisan-pulse     { animation: artisan-dot-pulse     2.5s ease-in-out infinite; }
   .animate-artisan-rotate    { animation: artisan-rotate-slow  20s linear infinite; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
