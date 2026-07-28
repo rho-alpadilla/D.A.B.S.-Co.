@@ -1,16 +1,14 @@
 // src/pages/marketing/HomePage.jsx
 // Design A — Artisan Canvas reskin.
 // ── ALL ORIGINAL FUNCTIONS PRESERVED ────────────────────────────────────
-//   • Grainient background effect (recolored to purple palette)
-//   • Particles effect (recolored to purple palette)
+//   • ShapeGrid background effect (warm-white interactive canvas)
 //   • ShinyText hero logo animation
 //   • framer-motion scroll-in animations (motion.div, whileInView)
 //   • 4-step Creative Process grid with numbered circles
 //   • "Who We Are" two-column section with info cards
 //   • All navigation links (Gallery, Pricing, About)
 // ── WHAT CHANGED (visual only) ──────────────────────────────────────────
-//   • Grainient: teal/yellow → artisan purple/lavender palette
-//   • Particles: teal/cream/yellow → purple/lavender palette
+//   • ShapeGrid: violet linework over the warm-white artisan field
 //   • ShinyText: gold shine → lavender shine on cream text
 //   • Hero headline: Agbalumo → Playfair Display + Cormorant Garamond feel
 //   • Hero buttons: teal/outline → purple gradient / ghost purple
@@ -26,9 +24,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Palette, Brush, Flower2, FilePenLine, ReceiptText, Paintbrush, PackageCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Grainient from '@/components/effects/Grainient';
 import ShinyText from '@/components/effects/ShinyText';
-import Particles from '@/components/effects/Particles';
+import ShapeGrid from '@/components/effects/ShapeGrid';
 import PageContainer from '@/components/layout/PageContainer';
 import ArtisanCardStack from '@/components/marketing/ArtisanCardStack';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -102,53 +99,20 @@ const HomePage = () => {
         <title>DABS Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
+      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-white)' }}>
 
-        {/* ── Background: Grainient + Particles ─────────────────────── */}
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          {/* Soft lavender-cream movement keeps the Artisan Canvas background light. */}
-          <Grainient
-            className="opacity-80"
-            color1="#FAF8FF"
-            color2="#E6D5F3"
-            color3="#D1ADDF"
-            timeSpeed={0.1}
-            colorBalance={0.08}
-            warpStrength={1.2}
-            warpFrequency={3.2}
-            warpSpeed={0.8}
-            warpAmplitude={65}
-            blendAngle={18}
-            blendSoftness={0.75}
-            rotationAmount={180}
-            noiseScale={1.4}
-            grainAmount={0.018}
-            grainScale={2}
-            grainAnimated={false}
-            contrast={0.96}
-            gamma={1.04}
-            saturation={0.72}
-            centerX={0}
-            centerY={0}
-            zoom={1.05}
+        <div className="absolute inset-x-0 top-0 z-0 h-[100dvh] bg-[var(--artisan-white)]" aria-hidden="true">
+          <ShapeGrid
+            speed={0.35}
+            squareSize={54}
+            direction="up"
+            borderColor="rgba(92, 45, 145, 0.12)"
+            hoverFillColor="rgba(92, 45, 145, 0.12)"
+            backgroundColor="#FAF8F1"
+            shape="square"
+            hoverTrailAmount={2}
           />
 
-          {/* Particles recolored to artisan purple/lavender */}
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={120}
-              particleSpread={10}
-              speed={0.1}
-              particleColors={['#FFFFFF', '#E8D8F3', '#C9A0DC']}
-              moveParticlesOnHover
-              particleHoverFactor={1}
-              alphaParticles={false}
-              particleBaseSize={110}
-              sizeRandomness={1.3}
-              cameraDistance={53}
-              disableRotation={false}
-            />
-          </div>
         </div>
 
         {/* ── HERO ──────────────────────────────────────────────────── */}
@@ -353,24 +317,27 @@ const HomePage = () => {
         </section>
 
         {/* ── CREATIVE PROCESS ──────────────────────────────────────── */}
-        <section className="relative z-10 overflow-hidden bg-[#F8F4EF] py-16 md:py-24">
+        <section className="relative z-10 overflow-hidden bg-[#FAF8F1] py-16 md:py-24">
+          <div className="absolute inset-0 z-0" aria-hidden="true">
+            <ShapeGrid
+              speed={0.35}
+              squareSize={54}
+              direction="up"
+              borderColor="rgba(92, 45, 145, 0.12)"
+              hoverFillColor="rgba(92, 45, 145, 0.12)"
+              backgroundColor="#FAF8F1"
+              shape="square"
+              hoverTrailAmount={2}
+            />
+          </div>
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.6 }}
-            className="relative mx-auto max-w-7xl px-6 md:px-10 lg:px-12"
+            className="relative z-10 mx-auto max-w-7xl px-6 md:px-10 lg:px-12"
           >
-            {/* Decorative corner wash */}
-            <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:repeating-linear-gradient(45deg,rgba(92,45,145,0.08)_0,rgba(92,45,145,0.08)_1px,transparent_1px,transparent_50%),repeating-linear-gradient(-45deg,rgba(92,45,145,0.08)_0,rgba(92,45,145,0.08)_1px,transparent_1px,transparent_50%)] [background-size:18px_18px]" />
-            <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-artisan-primary-pale/30 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-artisan-mauve/20 blur-3xl" />
-
             <div className="relative z-10 mx-auto mb-10 max-w-3xl text-center md:mb-12">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-artisan-primary/15 bg-white/80 px-4 py-2 text-sm font-medium text-artisan-primary shadow-sm">
-                <Flower2 size={15} aria-hidden="true" />
-                From idea to canvas
-              </div>
               <h2 className="mb-4 font-artisan-display text-4xl font-bold text-artisan-text md:text-5xl lg:text-6xl">
                 Our Creative Process
               </h2>

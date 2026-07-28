@@ -65,6 +65,9 @@ module.exports = {
         // ── Design A — Artisan Canvas purple palette ────────────
         // Usage: bg-artisan-primary, text-artisan-text, border-artisan-border, etc.
         artisan: {
+          // Warm white page base
+          white:         '#FAF8F1',
+
           // Core purples
           primary:       '#5C2D91', // deep violet — CTAs, icons
           'primary-mid': '#7B3FA0', // mid violet — hover, gradients
@@ -78,7 +81,7 @@ module.exports = {
           'mauve-deep':  '#5A2848',
 
           // Backgrounds (light — never dark)
-          bg:            '#FAF8FF', // page base
+          bg:            '#FAF8F1', // page base
           'bg-mid':      '#F4EEFF', // mid wash
           'bg-deep':     '#EDE0F9', // deepest tint
 
