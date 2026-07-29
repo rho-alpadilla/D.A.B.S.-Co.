@@ -9,7 +9,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Agbalumo&display=Permanent+Marker&family=Playball&family=Poppins:wght@300;400;500;600;700&display=swap');
 
 /* ── Design A — Artisan Canvas fonts ─────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Dancing+Script:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Dancing+Script:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -199,6 +199,55 @@
     transform: translateY(-1px) scale(0.99);
   }
 
+  /* Home hero: restrained depth makes the brand mark and primary actions
+     stand out from the illustrated grid without turning the page into neon. */
+  .home-wordmark-glow {
+    filter:
+      drop-shadow(0 3px 0 rgba(45, 14, 90, 0.12))
+      drop-shadow(0 0 14px rgba(123, 63, 160, 0.22));
+  }
+
+  .home-hero-cta {
+    transition:
+      transform 180ms var(--artisan-ease-out),
+      box-shadow 180ms ease,
+      border-color 180ms ease,
+      background-color 180ms ease;
+  }
+
+  .home-hero-cta--primary {
+    box-shadow: 0 8px 20px rgba(92, 45, 145, 0.24);
+  }
+
+  .home-hero-cta--secondary {
+    box-shadow: 0 3px 10px rgba(45, 14, 90, 0.06);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .home-hero-cta:hover {
+      transform: translateY(-2px);
+    }
+
+    .home-hero-cta--primary:hover {
+      background-color: #4A247B;
+      box-shadow:
+        0 12px 26px rgba(92, 45, 145, 0.28),
+        0 0 22px rgba(123, 63, 160, 0.26);
+    }
+
+    .home-hero-cta--secondary:hover {
+      border-color: rgba(142, 91, 135, 0.84);
+      background-color: #FAF8F1;
+      box-shadow:
+        0 10px 22px rgba(45, 14, 90, 0.09),
+        0 0 18px rgba(123, 63, 160, 0.14);
+    }
+  }
+
+  .home-hero-cta:active {
+    transform: translateY(0) scale(0.97);
+  }
+
   .skip-link {
     position: fixed;
     z-index: 100;
@@ -221,6 +270,52 @@
 
 /* ── Design A — Keyframe Animations ─────────────────────────────────── */
 @layer utilities {
+  @keyframes home-service-marquee {
+    from {
+      transform: translate3d(-50%, 0, 0);
+    }
+
+    to {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  .home-service-marquee__track {
+    display: flex;
+    width: max-content;
+    backface-visibility: hidden;
+    contain: paint;
+    transform: translate3d(-50%, 0, 0);
+    will-change: transform;
+    animation: home-service-marquee 30s linear infinite;
+  }
+
+  .home-service-marquee__group {
+    display: flex;
+    flex: none;
+    gap: 2rem;
+    padding-right: 2rem;
+  }
+
+  .home-service-marquee__item {
+    flex: none;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .home-service-marquee:hover .home-service-marquee__track {
+      animation-play-state: paused;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-service-marquee__track {
+      animation: none;
+      transform: none;
+    }
+  }
+
   /* Floating orb (hero background decoration) */
   @keyframes artisan-float-orb {
     0%, 100% { transform: translate(0, 0) scale(1); }

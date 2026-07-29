@@ -1,48 +1,96 @@
 // src/pages/marketing/HomePage.jsx
 // Design A — Artisan Canvas reskin.
 // ── ALL ORIGINAL FUNCTIONS PRESERVED ────────────────────────────────────
-//   • ShapeGrid background effect (warm-white interactive canvas)
-//   • ShinyText hero logo animation
+//   • Hero artwork with a transparent ShapeGrid overlay
 //   • framer-motion scroll-in animations (motion.div, whileInView)
 //   • 4-step Creative Process grid with numbered circles
 //   • "Who We Are" two-column section with info cards
 //   • All navigation links (Gallery, Pricing, About)
 // ── WHAT CHANGED (visual only) ──────────────────────────────────────────
-//   • ShapeGrid: violet linework over the warm-white artisan field
-//   • ShinyText: gold shine → lavender shine on cream text
-//   • Hero headline: Agbalumo → Playfair Display + Cormorant Garamond feel
-//   • Hero buttons: teal/outline → purple gradient / ghost purple
+//   • Hero: supplied botanical artwork, Archivo Black wordmark, and Lora tagline
+//   • Hero buttons: teal/outline → violet and ivory action pair
 //   • "Who We Are" card: teal borders → artisan purple borders
 //   • Info sub-cards: teal/amber → purple/mauve/lavender
 //   • Step circles: teal → artisan primary purple
 //   • Section backgrounds: teal wash → artisan lavender wash
 //   • Hero eyebrow label: artsy cross-stitch dot + Dancing Script style
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Palette, Brush, Flower2, FilePenLine, ReceiptText, Paintbrush, PackageCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import ShinyText from '@/components/effects/ShinyText';
 import ShapeGrid from '@/components/effects/ShapeGrid';
+import CircularGallery from '@/components/effects/CircularGallery';
 import PageContainer from '@/components/layout/PageContainer';
-import ArtisanCardStack from '@/components/marketing/ArtisanCardStack';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useCurrency } from '@/context/CurrencyContext';
+import homeHeroBackground from '@/assets/home/home-hero-background.png';
+import homeHeroForeground from '@/assets/home/home-hero-foreground.png';
+
+const getProductImage = (product) => product.imageUrls?.[0] || product.imageUrl || null;
+const serviceMarqueeText = 'Needlepoint Canvas  •  Crochet  •  Portraiture  •  Canvas Paintings';
 
 const HomePage = () => {
   const [recentWorks, setRecentWorks] = useState([]);
   const [recentWorksLoading, setRecentWorksLoading] = useState(true);
   const [recentWorksError, setRecentWorksError] = useState(false);
-  const { formatPrice } = useCurrency();
+  const [isWordmarkReady, setIsWordmarkReady] = useState(false);
+  const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const revealWordmark = () => {
+      if (isMounted) setIsWordmarkReady(true);
+    };
+
+    // Keep the wordmark hidden until Archivo Black is available. Rendering the
+    // fallback first changes its width when the web font arrives, which causes
+    // the visible "shrink" during a refresh.
+    if (!document.fonts?.load) {
+      revealWordmark();
+      return undefined;
+    }
+
+    document.fonts.load('1em "Archivo Black"').then(revealWordmark, revealWordmark);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const recentWorkItems = useMemo(
+    () => recentWorks
+      .map((work) => {
+        const image = getProductImage(work);
+
+        return image
+          ? {
+              id: work.id,
+              image,
+              text: work.name || 'Recent work',
+            }
+          : null;
+      })
+      .filter(Boolean),
+    [recentWorks],
+  );
+
+  const handleRecentWorkSelect = useCallback((work) => {
+    if (work?.id) {
+      navigate(`/product/${work.id}`);
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const recentWorksQuery = query(
       collection(db, 'pricelists'),
       orderBy('createdAt', 'desc'),
-      limit(3),
+      limit(8),
     );
 
     const unsubscribe = onSnapshot(
@@ -101,117 +149,146 @@ const HomePage = () => {
 
       <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-white)' }}>
 
-        <div className="absolute inset-x-0 top-0 z-0 h-[100dvh] bg-[var(--artisan-white)]" aria-hidden="true">
-          <ShapeGrid
-            speed={0.35}
-            squareSize={54}
-            direction="up"
-            borderColor="rgba(92, 45, 145, 0.12)"
-            hoverFillColor="rgba(92, 45, 145, 0.12)"
-            backgroundColor="#FAF8F1"
-            shape="square"
-            hoverTrailAmount={2}
+        <div className="absolute inset-x-0 top-0 z-0 h-[calc(100svh-4.5rem)] min-h-[42rem] overflow-hidden bg-[#FAF8F1]" aria-hidden="true">
+          <img
+            src={homeHeroBackground}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-center opacity-55"
           />
-
+          <div className="absolute inset-0 z-10">
+            <ShapeGrid
+              speed={0.3}
+              squareSize={54}
+              direction="up"
+              borderColor="rgba(92, 45, 145, 0.20)"
+              hoverFillColor="rgba(92, 45, 145, 0.10)"
+              backgroundColor="transparent"
+              shape="square"
+              hoverTrailAmount={2}
+            />
+          </div>
+          <img
+            src={homeHeroForeground}
+            alt=""
+            className="pointer-events-none absolute inset-0 z-20 h-full w-full object-cover object-center"
+          />
         </div>
 
         {/* ── HERO ──────────────────────────────────────────────────── */}
-        <section className="relative flex min-h-[92vh] items-center">
-          <PageContainer size="wide" className="relative z-10 grid items-center gap-12 py-16 text-center lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-20 lg:text-left">
-            <div>
-
-            {/* Artsy eyebrow label */}
-            <div className="mb-6 inline-flex items-center gap-3">
-              <span
-                className="h-px w-10 bg-gradient-to-r from-artisan-primary to-transparent"
-              />
-              <span
-                className="font-artisan-script text-lg text-artisan-primary"
-              >
-                Artisan Needlepoint Studio
-              </span>
-            </div>
-
-            {/* Main headline */}
-            <h1
-              className="relative inline-block whitespace-nowrap font-artisan-display text-5xl font-bold leading-none tracking-tight text-artisan-text sm:text-6xl md:text-7xl lg:text-8xl"
+        <section className="relative flex min-h-[calc(100svh-4.5rem)] items-center">
+          <PageContainer size="full" className="relative z-10 flex min-h-[calc(100svh-4.5rem)] items-center justify-center py-16 text-center sm:py-20 lg:py-24">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+              className="flex w-full max-w-6xl flex-col items-center"
             >
-              {/* Shadow layer */}
-              <span
-                className="absolute inset-0"
-                style={{
-                  color: '#2D0E5A',
-                  textShadow: '0 8px 22px rgba(92,45,145,0.14)',
-                }}
+              <h1
+                className="home-wordmark-glow whitespace-nowrap font-home-brand text-[clamp(3.25rem,10.6vw,9.5rem)] leading-[0.86] tracking-[-0.065em] text-artisan-primary"
+                style={{ opacity: isWordmarkReady ? 1 : 0 }}
               >
-                DABS Co.
-              </span>
-
-              {/* ShinyText layer — lavender shine on cream */}
-              <span className="relative z-10">
                 <ShinyText
                   text="DABS Co."
-                  speed={5}
-                  delay={0}
-                  color="#2D0E5A"
-                  shineColor="#A87DC8"
-                  spread={120}
+                  speed={6}
+                  delay={5}
+                  color="#5C2D91"
+                  shineColor="#FAF8F1"
+                  spread={110}
                   direction="left"
-                  yoyo={false}
-                  pauseOnHover={false}
-                  disabled={false}
+                  disabled={shouldReduceMotion}
                 />
-              </span>
-            </h1>
+              </h1>
 
-            {/* Tagline */}
-            <p
-              className="mt-6 max-w-xl text-base leading-relaxed text-artisan-text-mid md:text-lg"
-              style={{ fontFamily: "'Cormorant Garamond', serif" }}
-            >
-              "Transforming Your Needlepoint Designs into Stitch Ready Canvases"
-            </p>
+              <p className="mt-5 max-w-none font-home-editorial text-[clamp(0.8rem,1.45vw,1.4rem)] italic leading-snug text-[#5C2D91] sm:mt-7 sm:whitespace-nowrap">
+                &ldquo;Transforming Your Needlepoint Designs into Stitch Ready Canvases&rdquo;
+              </p>
 
-            {/* CTA buttons */}
-            <div className="flex flex-col justify-center gap-3 pt-8 sm:flex-row lg:justify-start">
-              <Link to="/gallery" className="w-full max-w-[310px] self-center sm:w-[310px] lg:self-auto">
-                <Button
-                  size="lg"
-                  className="h-14 w-full rounded-full px-6 py-0 text-base font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:brightness-110"
-                  style={{
-                    background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)',
-                    boxShadow: '0 8px 28px rgba(92,45,145,0.45)',
-                  }}
-                >
-                  <Palette className="mr-2" size={20} />
-                  Explore Gallery
-                  <ArrowRight className="ml-2" size={18} />
-                </Button>
-              </Link>
+              <div className="mt-8 flex w-full max-w-xl flex-col justify-center gap-3 sm:mt-10 sm:flex-row">
+                <Link to="/gallery" className="w-full sm:w-1/2">
+                  <Button
+                    size="lg"
+                    className="home-hero-cta home-hero-cta--primary h-14 w-full rounded-lg bg-artisan-primary px-5 py-0 text-base font-semibold text-white"
+                  >
+                    <Palette className="mr-2" size={19} />
+                    Explore Gallery
+                    <ArrowRight className="ml-2" size={18} />
+                  </Button>
+                </Link>
 
-              <Link to="/pricelists" className="w-full max-w-[310px] self-center sm:w-[310px] lg:self-auto">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 w-full rounded-full border-artisan-primary/25 bg-white/70 px-6 py-0 text-base font-semibold text-artisan-primary backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-artisan-primary/55 hover:bg-white"
-                >
-                  <Brush className="mr-2" size={20} />
-                  View Pricing
-                </Button>
-              </Link>
+                <Link to="/pricelists" className="w-full sm:w-1/2">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="home-hero-cta home-hero-cta--secondary h-14 w-full rounded-lg border-[#B998B3]/70 bg-[#FAF8F1]/75 px-5 py-0 text-base font-semibold text-artisan-primary backdrop-blur-[2px]"
+                  >
+                    <Brush className="mr-2" size={19} />
+                    View Pricing
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+
+          </PageContainer>
+        </section>
+
+        <section
+          className="home-service-marquee relative z-10 overflow-hidden bg-artisan-primary py-3 text-[#FAF8F1] sm:py-4"
+          aria-label="Services: Needlepoint Canvas, Crochet, Portraiture, and Canvas Paintings"
+        >
+          <div className="home-service-marquee__track" aria-hidden="true">
+            {[0, 1].map((groupIndex) => (
+              <div className="home-service-marquee__group" key={groupIndex}>
+                {[0, 1, 2].map((itemIndex) => (
+                  <p
+                    className="home-service-marquee__item font-home-brand text-[clamp(1.15rem,2.25vw,2.25rem)] leading-none tracking-[-0.025em]"
+                    key={itemIndex}
+                  >
+                    {serviceMarqueeText}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Firebase-backed recent works. The gallery is deliberately full-bleed
+            so the curved row remains the focus, while each work stays clickable. */}
+        <section className="relative z-10 overflow-hidden bg-[#FAF8F1] py-12 sm:py-16 lg:py-20">
+          <PageContainer size="wide" className="flex flex-col items-center">
+            <h2 className="mb-8 font-home-brand text-3xl tracking-[-0.04em] text-artisan-primary sm:mb-10 sm:text-4xl">
+              Our Recent Works
+            </h2>
+          </PageContainer>
+
+          {recentWorksLoading ? (
+            <div
+              aria-label="Loading recent works"
+              className="mx-auto h-[300px] w-full max-w-6xl animate-pulse rounded-2xl bg-artisan-primary/10 sm:h-[390px] lg:h-[480px]"
+            />
+          ) : recentWorksError || recentWorkItems.length === 0 ? (
+            <div className="mx-auto flex h-[300px] w-[min(100%-2rem,72rem)] items-center justify-center rounded-2xl border border-artisan-primary/15 bg-white/65 p-8 text-center text-artisan-text-muted shadow-artisan-card sm:h-[390px] lg:h-[480px]">
+              Recent works are currently unavailable.
             </div>
-
-            </div>
-
-            <div className="flex items-center justify-center lg:justify-end">
-              <ArtisanCardStack
-                recentWorks={recentWorks}
-                isLoading={recentWorksLoading}
-                error={recentWorksError}
-                formatPrice={formatPrice}
+          ) : (
+            <div className="home-recent-works-gallery h-[300px] w-full sm:h-[390px] lg:h-[480px]">
+              <CircularGallery
+                items={recentWorkItems}
+                bend={1}
+                textColor="#01243A"
+                borderRadius={0.07}
+                showTitles={false}
+                itemScale={1.45}
+                itemGap={1.1}
+                scrollEase={0.05}
+                scrollSpeed={3.5}
+                onItemSelect={handleRecentWorkSelect}
               />
             </div>
-          </PageContainer>
+          )}
+
+          <p className="mt-4 px-6 text-center font-home-editorial text-sm italic text-[#5C2D91] sm:mt-6 sm:text-base">
+            &ldquo;Transforming Your Needlepoint Designs into Stitch Ready Canvases&rdquo;
+          </p>
         </section>
 
         {/* ── WHO WE ARE ────────────────────────────────────────────── */}

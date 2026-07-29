@@ -135,6 +135,8 @@ module.exports = {
         script:          ['"Dancing Script"', 'cursive'],
         'serif-display': ['"Cormorant Garamond"', 'Georgia', 'serif'],
         ui:              ['Inter', 'Poppins', 'sans-serif'],
+        'home-brand':    ['"Archivo Black"', 'Arial Black', 'sans-serif'],
+        'home-editorial':['Lora', 'Georgia', 'serif'],
       },
 
       // ─────────────────────────────────────────────────────────
