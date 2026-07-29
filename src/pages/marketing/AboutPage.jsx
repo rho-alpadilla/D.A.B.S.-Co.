@@ -6,8 +6,6 @@ import { motion } from 'framer-motion';
 import { Paintbrush, Heart, PenTool, ArrowRight, Flower2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 import CircularText from '@/components/effects/CircularText';
 import ShinyText from '@/components/effects/ShinyText';
 
@@ -37,29 +35,7 @@ const AboutPage = () => {
         <meta name="description" content="Learn about the story, creative process, and mission behind D.A.B.S. Co. artisan crafts." />
       </Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        {/* Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient
-            className="opacity-55"
-            color1="#FAF8FF" color2="#E6D5F3" color3="#D1ADDF"
-            timeSpeed={0.1} colorBalance={0.08} warpStrength={1.2}
-            warpFrequency={3.2} warpSpeed={0.8} warpAmplitude={65}
-            blendAngle={18} blendSoftness={0.75} rotationAmount={180}
-            noiseScale={1.4} grainAmount={0.018} grainScale={2}
-            grainAnimated={false} contrast={0.96} gamma={1.04}
-            saturation={0.72} centerX={0} centerY={0} zoom={1.05}
-          />
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={110} particleSpread={10} speed={0.1}
-              particleColors={['#FFFFFF', '#E8D8F3', '#C9A0DC']}
-              moveParticlesOnHover particleHoverFactor={1}
-              alphaParticles={false} particleBaseSize={110}
-              sizeRandomness={1.3} cameraDistance={53} disableRotation={false}
-            />
-          </div>
-        </div>
+      <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-12 sm:px-6 md:py-16 lg:px-8">
 

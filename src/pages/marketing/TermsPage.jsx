@@ -4,8 +4,6 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { FileText } from 'lucide-react';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 
 const TermsPage = () => {
   const sectionHeadingCls = 'mb-3 font-artisan-display text-2xl font-bold text-[#2A1739]';
@@ -20,28 +18,7 @@ const TermsPage = () => {
         />
       </Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        {/* Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient
-            color1="#5C2D91" color2="#7B3FA0" color3="#C9A0DC"
-            timeSpeed={0.25} colorBalance={-0.06} warpStrength={1.5}
-            warpFrequency={3.8} warpSpeed={2} warpAmplitude={50}
-            blendAngle={0} blendSoftness={1} rotationAmount={500}
-            noiseScale={2} grainAmount={0.1} grainScale={2}
-            grainAnimated={false} contrast={1.5} gamma={1}
-            saturation={1} centerX={0} centerY={0} zoom={0.9}
-          />
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={400} particleSpread={10} speed={0.1}
-              particleColors={['#FAF8FF', '#A87DC8', '#C9A0DC']}
-              moveParticlesOnHover particleHoverFactor={1}
-              alphaParticles={false} particleBaseSize={150}
-              sizeRandomness={1.7} cameraDistance={53} disableRotation={false}
-            />
-          </div>
-        </div>
+      <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 
         <div className="relative z-10 container mx-auto px-5 py-14 md:px-8 md:py-20">
           <motion.div
@@ -50,21 +27,21 @@ const TermsPage = () => {
             transition={{ duration: 0.55, ease: 'easeOut' }}
             className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-start lg:gap-16"
           >
-            <aside className="h-fit text-white lg:sticky lg:top-24">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-sm">
-                <FileText className="text-artisan-primary-pale" size={14} />
+            <aside className="h-fit text-[#2D0E5A] lg:sticky lg:top-24">
+              <div className="inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-artisan-primary backdrop-blur-sm">
+                <FileText className="text-artisan-primary" size={14} />
                 Legal Information
               </div>
               <div className="mt-6 flex items-center gap-3">
-                <FileText className="text-artisan-primary-pale" size={34} />
+                <FileText className="text-artisan-primary" size={34} />
                 <h1
-                  className="font-artisan-display text-5xl font-bold leading-[0.95] text-white md:text-6xl"
+                  className="font-artisan-display text-5xl font-bold leading-[0.95] text-artisan-primary md:text-6xl"
                   style={{ fontFamily: "'Playfair Display', serif" }}
                 >
                   Terms of Service
                 </h1>
               </div>
-              <p className="mt-6 border-y border-white/25 py-5 text-sm text-white/85">
+              <p className="mt-6 border-y border-artisan-primary/20 py-5 text-sm text-artisan-text-mid">
                 Last Updated: {new Date().toLocaleDateString()}
               </p>
             </aside>

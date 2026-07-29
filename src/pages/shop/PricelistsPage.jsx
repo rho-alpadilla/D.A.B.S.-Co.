@@ -22,8 +22,6 @@ import {
 } from 'lucide-react';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useNavigate } from 'react-router-dom';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 
 const PricelistsPage = () => {
   const { user } = useAuth();
@@ -229,12 +227,12 @@ const PricelistsPage = () => {
 
   const SectionHeader = ({ icon: Icon, title, subtitle }) => (
     <div className="flex items-start gap-4 mb-6">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/12 text-artisan-primary-pale backdrop-blur-sm">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-artisan-primary/20 bg-white/75 text-artisan-primary backdrop-blur-sm">
         <Icon size={22} />
       </div>
       <div>
-        <h2 className="font-artisan-display text-3xl font-bold text-white">{title}</h2>
-        <p className="mt-1 text-white/90">{subtitle}</p>
+        <h2 className="font-artisan-display text-3xl font-bold text-artisan-primary">{title}</h2>
+        <p className="mt-1 text-artisan-text-mid">{subtitle}</p>
       </div>
     </div>
   );
@@ -258,49 +256,7 @@ const PricelistsPage = () => {
         <title>Pricelists - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient
-            color1="#5C2D91"
-            color2="#7B3FA0"
-            color3="#C9A0DC"
-            timeSpeed={0.25}
-            colorBalance={-0.06}
-            warpStrength={1.5}
-            warpFrequency={3.8}
-            warpSpeed={2}
-            warpAmplitude={50}
-            blendAngle={0}
-            blendSoftness={1}
-            rotationAmount={500}
-            noiseScale={2}
-            grainAmount={0.1}
-            grainScale={2}
-            grainAnimated={false}
-            contrast={1.5}
-            gamma={1}
-            saturation={1}
-            centerX={0}
-            centerY={0}
-            zoom={0.9}
-          />
-
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={180}
-              particleSpread={10}
-              speed={0.1}
-              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
-              moveParticlesOnHover
-              particleHoverFactor={1}
-              alphaParticles={false}
-              particleBaseSize={120}
-              sizeRandomness={1.4}
-              cameraDistance={53}
-              disableRotation={false}
-            />
-          </div>
-        </div>
+      <div className="artisan-grid-page relative min-h-screen">
 
         <div className="relative z-10">
           <div className="container mx-auto px-4 pt-8 pb-5 md:pt-10 md:pb-10">

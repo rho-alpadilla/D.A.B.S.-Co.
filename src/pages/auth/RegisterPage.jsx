@@ -19,8 +19,6 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -154,49 +152,7 @@ const RegisterPage = () => {
     <>
       <Helmet><title>Register - D.A.B.S. Co.</title></Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient
-            color1="#5C2D91"
-            color2="#7B3FA0"
-            color3="#C9A0DC"
-            timeSpeed={0.25}
-            colorBalance={-0.06}
-            warpStrength={1.5}
-            warpFrequency={3.8}
-            warpSpeed={2}
-            warpAmplitude={50}
-            blendAngle={0}
-            blendSoftness={1}
-            rotationAmount={500}
-            noiseScale={2}
-            grainAmount={0.1}
-            grainScale={2}
-            grainAnimated={false}
-            contrast={1.5}
-            gamma={1}
-            saturation={1}
-            centerX={0}
-            centerY={0}
-            zoom={0.9}
-          />
-
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={180}
-              particleSpread={10}
-              speed={0.1}
-              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
-              moveParticlesOnHover
-              particleHoverFactor={1}
-              alphaParticles={false}
-              particleBaseSize={120}
-              sizeRandomness={1.4}
-              cameraDistance={53}
-              disableRotation={false}
-            />
-          </div>
-        </div>
+      <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 
         <div className="relative z-10 container mx-auto min-h-screen px-4 py-8 sm:px-6 sm:py-12">
           <motion.div

@@ -267,7 +267,7 @@ const ProductDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="artisan-page-bg min-h-screen flex items-center justify-center">
+      <div className="artisan-grid-page min-h-screen flex items-center justify-center">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-[#5C2D91] border-t-transparent"></div>
       </div>
     );
@@ -275,7 +275,7 @@ const ProductDetailPage = () => {
 
   if (!product) {
     return (
-      <div className="artisan-page-bg min-h-screen flex items-center justify-center">
+      <div className="artisan-grid-page min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-red-600 mb-4">Product Not Found</h1>
           <Link to="/gallery">
@@ -307,7 +307,7 @@ const ProductDetailPage = () => {
     <>
       <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
 
-      <div className="min-h-screen py-10 sm:py-16">
+      <div className="artisan-grid-page min-h-screen py-10 sm:py-16">
         <div className="container mx-auto max-w-6xl px-5 sm:px-6 lg:px-8">
           <header className="mb-8 flex items-center justify-between gap-4 border-b border-white/70 pb-5">
             <Link to="/gallery" className="inline-flex items-center gap-2 rounded-full bg-white/65 px-4 py-2 font-semibold text-[#5C2D91] shadow-sm backdrop-blur-sm transition-colors hover:text-[#4A2578] hover:underline">

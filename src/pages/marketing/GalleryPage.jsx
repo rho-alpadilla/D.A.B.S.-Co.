@@ -11,8 +11,6 @@ import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useAuth } from '@/lib/firebase';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 
 const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
@@ -97,24 +95,18 @@ const GalleryPage = () => {
     <>
       <Helmet><title>Gallery - D.A.B.S. Co.</title></Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient color1="#5C2D91" color2="#7B3FA0" color3="#C9A0DC" timeSpeed={0.25} colorBalance={-0.06} warpStrength={1.5} warpFrequency={3.8} warpSpeed={2} warpAmplitude={50} blendAngle={0} blendSoftness={1} rotationAmount={500} noiseScale={2} grainAmount={0.1} grainScale={2} grainAnimated={false} contrast={1.5} gamma={1} saturation={1} centerX={0} centerY={0} zoom={0.9} />
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles particleCount={180} particleSpread={10} speed={0.1} particleColors={['#FAF8FF','#E8D8F3','#C9A0DC']} moveParticlesOnHover particleHoverFactor={1} alphaParticles={false} particleBaseSize={120} sizeRandomness={1.4} cameraDistance={53} disableRotation={false} />
-          </div>
-        </div>
+      <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-12 sm:px-6 md:py-16 lg:px-8">
           <div className="py-4 md:py-8">
             <motion.div initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.45 }} className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white backdrop-blur-sm">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-white/75 px-4 py-2 text-xs font-bold uppercase tracking-widest text-artisan-primary backdrop-blur-sm">
                 Discover Handmade Creations
               </div>
-              <h1 className="mb-4 text-4xl font-bold tracking-tight text-white md:text-5xl" style={{ fontFamily: "'Playfair Display', serif" }}>
+              <h1 className="mb-4 text-4xl font-bold tracking-tight text-artisan-primary md:text-5xl" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Discover our crafted gallery
               </h1>
-              <p className="text-base leading-relaxed text-white/85 md:text-lg">
+              <p className="text-base leading-relaxed text-artisan-text-mid md:text-lg">
                 Browse handmade pieces designed with care — from needlepoint and crochet to portraits and canvas paintings.
               </p>
             </motion.div>
@@ -172,8 +164,8 @@ const GalleryPage = () => {
                 <TabsContent key={cat.id} value={cat.id} className="mt-0">
                   {loading ? (
                     <div className="text-center py-24">
-                      <div className="w-14 h-14 border-4 border-white/40 border-t-artisan-primary-pale rounded-full animate-spin mx-auto" />
-                       <p className="mt-4 text-white/85">Loading gallery...</p>
+                      <div className="w-14 h-14 border-4 border-artisan-primary/20 border-t-artisan-primary rounded-full animate-spin mx-auto" />
+                       <p className="mt-4 text-artisan-text-mid">Loading gallery...</p>
                     </div>
                   ) : getCategoryItems(cat.id).length > 0 ? (
                     <div>
@@ -199,7 +191,7 @@ const GalleryPage = () => {
                                 {currentImage ? (
                                   <img src={currentImage} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center"><ShoppingBag size={42} className="text-artisan-primary-pale" /></div>
+                                  <div className="w-full h-full flex items-center justify-center"><ShoppingBag size={42} className="text-artisan-primary" /></div>
                                 )}
                                 {allImages.length > 1 && (
                                   <>
@@ -253,8 +245,8 @@ const GalleryPage = () => {
                     </div>
                   ) : (
                     <div className="text-center py-24">
-                      <div className="w-20 h-20 rounded-full bg-white/80 flex items-center justify-center mx-auto mb-5 backdrop-blur-sm"><ShoppingBag size={38} className="text-artisan-primary-pale" /></div>
-                       <p className="text-lg text-white/85">{searchQuery ? 'No products found matching your search.' : 'No items in this category yet.'}</p>
+                      <div className="w-20 h-20 rounded-full bg-white/80 flex items-center justify-center mx-auto mb-5 backdrop-blur-sm"><ShoppingBag size={38} className="text-artisan-primary" /></div>
+                       <p className="text-lg text-artisan-text-mid">{searchQuery ? 'No products found matching your search.' : 'No items in this category yet.'}</p>
                     </div>
                   )}
                 </TabsContent>

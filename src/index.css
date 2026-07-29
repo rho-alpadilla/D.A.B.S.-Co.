@@ -270,6 +270,15 @@
 
 /* ── Design A — Keyframe Animations ─────────────────────────────────── */
 @layer utilities {
+  .artisan-grid-page {
+    background-color: #FAF8F1;
+    background-image:
+      linear-gradient(rgba(92, 45, 145, 0.18) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(92, 45, 145, 0.18) 1px, transparent 1px);
+    background-position: -1px -1px;
+    background-size: 54px 54px;
+  }
+
   @keyframes home-service-marquee {
     from {
       transform: translate3d(-50%, 0, 0);

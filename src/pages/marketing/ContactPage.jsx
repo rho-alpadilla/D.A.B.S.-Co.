@@ -17,8 +17,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 
 const ContactPage = () => {
   const { toast } = useToast();
@@ -102,28 +100,7 @@ const ContactPage = () => {
         <title>Contact Us - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        {/* Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient
-            color1="#5C2D91" color2="#7B3FA0" color3="#C9A0DC"
-            timeSpeed={0.25} colorBalance={-0.06} warpStrength={1.5}
-            warpFrequency={3.8} warpSpeed={2} warpAmplitude={50}
-            blendAngle={0} blendSoftness={1} rotationAmount={500}
-            noiseScale={2} grainAmount={0.1} grainScale={2}
-            grainAnimated={false} contrast={1.5} gamma={1}
-            saturation={1} centerX={0} centerY={0} zoom={0.9}
-          />
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={400} particleSpread={10} speed={0.1}
-              particleColors={['#FAF8FF', '#A87DC8', '#C9A0DC']}
-              moveParticlesOnHover particleHoverFactor={1}
-              alphaParticles={false} particleBaseSize={150}
-              sizeRandomness={1.7} cameraDistance={53} disableRotation={false}
-            />
-          </div>
-        </div>
+      <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 
         <div className="relative z-10 container mx-auto px-5 py-14 md:px-8 md:py-20">
           <motion.div
