@@ -1,7 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Paintbrush, Heart, PenTool, ArrowRight, Sparkles } from 'lucide-react';
+import { Paintbrush, Heart, PenTool, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import Grainient from '@/components/ui-bits/Grainient';
@@ -85,7 +85,6 @@ const AboutPage = () => {
             className="text-center max-w-4xl mx-auto mb-16 md:mb-20"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/20 backdrop-blur-sm px-4 py-1.5 text-sm font-medium text-[#FAF8F1] mb-5">
-              <Sparkles size={15} />
               About D.A.B.S. Co.
             </div>
 

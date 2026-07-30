@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Trash2, ArrowRight, ShoppingBag, Square, CheckSquare, Sparkles } from 'lucide-react';
+import { Trash2, ArrowRight, ShoppingBag, Square, CheckSquare } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
@@ -115,7 +115,6 @@ const CartPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#118C8C] mb-3">
-                  <Sparkles size={14} />
                   Your Cart
                 </div>
 

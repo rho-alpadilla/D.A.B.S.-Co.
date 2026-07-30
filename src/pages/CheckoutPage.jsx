@@ -13,7 +13,6 @@ import {
   Edit,
   AlertTriangle,
   ChevronDown,
-  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
@@ -508,7 +507,6 @@ const CheckoutPage = () => {
             className="mb-8 rounded-3xl bg-white/90 backdrop-blur-md border border-white/30 shadow-lg p-6 md:p-8"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#118C8C] mb-3">
-              <Sparkles size={14} />
               Secure Checkout
             </div>
 

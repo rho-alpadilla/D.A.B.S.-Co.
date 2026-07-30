@@ -50,7 +50,7 @@ const RegisterPage = () => {
   const [phoneCountrySearch, setPhoneCountrySearch] = useState("");
   const [addressCountrySearch, setAddressCountrySearch] = useState("");
 
-  // 👁️ Password visibility toggles
+  // Password visibility toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 

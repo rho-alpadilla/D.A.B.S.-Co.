@@ -11,7 +11,6 @@ import {
   Pencil,
   X,
   ArrowRight,
-  Sparkles,
   MessageCircle,
   Palette,
   Scissors,
@@ -274,7 +273,6 @@ const PricelistsPage = () => {
 
               <div className="relative z-10 max-w-3xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold mb-4">
-                  <Sparkles size={16} />
                   Handmade Pricing Guide
                 </div>
                 <h1 className="mb-3 font-artisan-display text-4xl font-bold leading-tight md:text-6xl">Our Pricelists</h1>
@@ -486,9 +484,6 @@ const PricelistsPage = () => {
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <h3 className="text-xl font-semibold text-[#5C2D91]">{item.item}</h3>
-                      <div className="text-[#F2BB16] shrink-0">
-                        <Sparkles size={18} />
-                      </div>
                     </div>
                     <div className="text-2xl font-bold text-[#F2BB16] mb-3">
                       <EditablePrice section="crochet" index={i} field="price" value={item.price} />
@@ -651,7 +646,6 @@ const PricelistsPage = () => {
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div className="max-w-2xl">
                   <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#F0E6F7] px-4 py-2 text-sm font-semibold text-[#5C2D91]">
-                    <Sparkles size={16} />
                     Need inspiration first?
                   </div>
                   <h2 className="mb-3 font-artisan-display text-3xl font-bold text-[#2A1739] md:text-4xl">
@@ -714,7 +708,6 @@ const PricelistsPage = () => {
 
               <div className="relative z-10 max-w-3xl mx-auto text-center">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/20 px-4 py-2 text-sm font-semibold mb-5">
-                  <Sparkles size={16} />
                   Custom Commissions Available
                 </div>
 

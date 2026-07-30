@@ -13,7 +13,7 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import {
   ShoppingBag, Package, LogOut, ArrowRight, Clock, CheckCircle,
-  AlertCircle, XCircle, User as UserIcon, MapPin, MessageCircle, Sparkles,
+  AlertCircle, XCircle, User as UserIcon, MapPin, MessageCircle,
 } from 'lucide-react';
 import Grainient from '@/components/effects/Grainient';
 import Particles from '@/components/effects/Particles';
@@ -119,7 +119,6 @@ const BuyerDashboard = () => {
             </div>
             <div className="relative z-10">
               <div className="inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-artisan-primary-wash px-4 py-1.5 text-sm font-medium text-artisan-primary mb-4">
-                <Sparkles size={14} />
                 My Account
               </div>
               <h1 className="font-artisan-display text-4xl font-bold text-[#2A1739] md:text-5xl" style={{ fontFamily: "'Playfair Display', serif" }}>

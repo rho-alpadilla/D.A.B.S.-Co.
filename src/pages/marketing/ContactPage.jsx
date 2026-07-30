@@ -12,7 +12,7 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Send, CheckCircle, Sparkles } from 'lucide-react';
+import { Send, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -122,7 +122,6 @@ const ContactPage = () => {
 
               <div className="relative z-10">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-xs font-semibold uppercase tracking-wider mb-4">
-                  <Sparkles size={14} />
                   Contact D.A.B.S. Co.
                 </div>
                 <h1

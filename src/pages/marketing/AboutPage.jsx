@@ -90,8 +90,8 @@ const AboutPage = () => {
                 onHover="speedUp"
                 className="!text-artisan-primary"
               />
-              <div className="absolute flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-artisan-primary to-artisan-primary-mid text-3xl text-white shadow-artisan-md">
-                ✿
+              <div className="absolute flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-artisan-primary to-artisan-primary-mid text-white shadow-artisan-md">
+                <Flower2 size={31} strokeWidth={1.8} aria-hidden="true" />
               </div>
             </motion.div>
           </motion.section>

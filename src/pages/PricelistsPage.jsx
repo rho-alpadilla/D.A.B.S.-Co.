@@ -11,7 +11,6 @@ import {
   Pencil,
   X,
   ArrowRight,
-  Sparkles,
   MessageCircle,
   Palette,
   Scissors,
@@ -318,7 +317,6 @@ const PricelistsPage = () => {
 
               <div className="relative z-10 max-w-3xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold mb-4">
-                  <Sparkles size={16} />
                   Handmade Pricing Guide
                 </div>
                 <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-3">Our Pricelists</h1>
@@ -527,9 +525,6 @@ const PricelistsPage = () => {
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <h3 className="text-xl font-semibold text-[#118C8C]">{item.item}</h3>
-                      <div className="text-[#F2BB16] shrink-0">
-                        <Sparkles size={18} />
-                      </div>
                     </div>
                     <div className="text-2xl font-bold text-[#F2BB16] mb-3">
                       <EditablePrice section="crochet" index={i} field="price" value={item.price} />
@@ -692,7 +687,6 @@ const PricelistsPage = () => {
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div className="max-w-2xl">
                   <div className="inline-flex items-center gap-2 rounded-full bg-[#118C8C]/10 text-[#118C8C] px-4 py-2 text-sm font-semibold mb-4">
-                    <Sparkles size={16} />
                     Need inspiration first?
                   </div>
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
@@ -755,7 +749,6 @@ const PricelistsPage = () => {
 
               <div className="relative z-10 max-w-3xl mx-auto text-center">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/20 px-4 py-2 text-sm font-semibold mb-5">
-                  <Sparkles size={16} />
                   Custom Commissions Available
                 </div>
 

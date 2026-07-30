@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import {
   ArrowRight,
   Star,
-  Sparkles,
   Palette,
   Heart,
 } from 'lucide-react';
@@ -187,7 +186,6 @@ const HighlightsPage = () => {
           <section className="py-16 md:py-20">
             <div className="mx-auto max-w-6xl px-6 text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 border border-white/30 backdrop-blur-sm text-[#FAF8F1] text-xs font-bold uppercase tracking-widest mb-6">
-                <Sparkles size={14} className="text-[#F2BB16]" />
                 DABS Highlights
               </div>
 

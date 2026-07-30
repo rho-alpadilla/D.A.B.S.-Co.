@@ -4,7 +4,6 @@ import {
   X,
   Send,
   Plus,
-  Sparkles,
   Headphones,
   ShieldCheck,
   LogIn,

@@ -4,7 +4,6 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { faqs } from '@/data/faqs';
-import { Sparkles } from 'lucide-react';
 
 const FAQsPage = () => {
   return (
@@ -27,7 +26,6 @@ const FAQsPage = () => {
             className="h-fit text-[#2D0E5A] lg:sticky lg:top-24"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] backdrop-blur-sm">
-              <Sparkles size={14} className="text-artisan-primary" />
               Help Center
             </div>
             <h1 className="mt-6 font-artisan-display text-5xl font-bold leading-[0.95] text-artisan-primary md:text-6xl">

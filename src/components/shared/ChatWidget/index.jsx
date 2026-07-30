@@ -5,7 +5,6 @@ import {
   X,
   Send,
   Plus,
-  Sparkles,
   Headphones,
   ShieldCheck,
   LogIn,
@@ -1421,7 +1420,6 @@ const ChatWidget = () => {
                       : 'text-gray-600 hover:bg-white/80'
                   }`}
                 >
-                  <Sparkles size={16} />
                   Ask Questions
                 </button>
               )}

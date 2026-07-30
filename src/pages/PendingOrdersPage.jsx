@@ -25,7 +25,6 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   Eye
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -307,7 +306,6 @@ const PendingOrdersPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#118C8C] mb-3">
-                  <Sparkles size={14} />
                   Order Tracking
                 </div>
 

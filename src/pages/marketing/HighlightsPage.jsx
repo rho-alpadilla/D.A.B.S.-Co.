@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Star, Sparkles, Palette, Heart } from 'lucide-react';
+import { ArrowRight, Star, Palette, Heart } from 'lucide-react';
 
 const HighlightsPage = () => {
   const { user } = useAuth();
@@ -129,7 +129,6 @@ const HighlightsPage = () => {
           <section className="py-16 md:py-20">
             <div className="container mx-auto max-w-6xl px-4 text-center">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/75 border border-artisan-primary/20 backdrop-blur-sm text-artisan-primary text-xs font-bold uppercase tracking-widest mb-6">
-                <Sparkles size={14} className="text-artisan-primary" />
                 DABS Highlights
               </div>
               <h1 className="font-artisan-display text-5xl font-bold leading-[0.95] text-artisan-primary md:text-6xl">

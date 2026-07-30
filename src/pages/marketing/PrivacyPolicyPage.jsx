@@ -3,7 +3,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Sparkles, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 const PrivacyPolicyPage = () => {
   const sectionHeadingCls =
@@ -30,7 +30,6 @@ const PrivacyPolicyPage = () => {
           >
             <aside className="h-fit text-[#2D0E5A] lg:sticky lg:top-24">
               <div className="inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-artisan-primary backdrop-blur-sm">
-                <Sparkles size={14} />
                 Legal Information
               </div>
               <div className="mt-6 flex items-center gap-3">

@@ -23,7 +23,6 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   Eye,
   ShoppingBag,
   ArrowRight,
@@ -331,7 +330,6 @@ const PendingOrdersPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="relative">
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-artisan-primary-wash px-4 py-2 text-xs font-semibold uppercase tracking-wider text-artisan-primary">
-                  <Sparkles size={14} />
                   Order Tracking
                 </div>
 

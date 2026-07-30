@@ -7,7 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Mail, Lock, Sparkles } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 
 const LoginPage = () => {
@@ -138,7 +138,6 @@ const LoginPage = () => {
 
               <div className="relative z-10 my-auto">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-xs font-semibold uppercase tracking-wider mb-4">
-                  <Sparkles size={14} />
                   Welcome Back
                 </div>
 

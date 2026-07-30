@@ -1,7 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Sparkles, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import Grainient from '@/components/ui-bits/Grainient';
 import Particles from '@/components/ui-bits/Particles';
 
@@ -69,7 +69,6 @@ const PrivacyPolicyPage = () => {
           >
             <div className="mb-8 rounded-3xl bg-white/90 backdrop-blur-md border border-white/30 shadow-lg p-6 md:p-8">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#118C8C]/15 bg-[#118C8C]/8 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#118C8C] mb-4">
-                <Sparkles size={14} />
                 Legal Information
               </div>
 
