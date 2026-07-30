@@ -4,32 +4,40 @@ import { Toaster } from '@/components/ui/toaster';
 import { useAuth, db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
-// Layout
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import ChatWidget from '@/components/ChatWidget';
+// Layout & Shared Components
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import ChatWidget from '@/components/shared/ChatWidget';
 
-// Pages
-import HomePage from '@/pages/HomePage';
-import HighlightsPage from '@/pages/HighlightsPage';
-import GalleryPage from '@/pages/GalleryPage';
-import ProductDetailPage from '@/pages/ProductDetailPage';
-import PricelistsPage from '@/pages/PricelistsPage';
-import AddProductPage from '@/pages/AddProductPage';
-import AboutPage from '@/pages/AboutPage';
-import ContactPage from '@/pages/ContactPage';
-import CartPage from '@/pages/CartPage';
-import CheckoutPage from '@/pages/CheckoutPage';
-import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage';
-import TermsPage from '@/pages/TermsPage';
-import FAQsPage from '@/pages/FAQsPage';
-import LoginPage from '@/pages/LoginPage';
-import RegisterPage from '@/pages/RegisterPage';
-import BuyerDashboard from '@/pages/BuyerDashboard';
-import ProfilePage from '@/pages/ProfilePage';
-import AdminPanel from '@/pages/AdminPanel';
-import PendingOrdersPage from '@/pages/PendingOrdersPage';
-import MessageCenterPage from '@/pages/MessageCenterPage';
+// Marketing Pages
+import HomePage from '@/pages/marketing/HomePage';
+import HighlightsPage from '@/pages/marketing/HighlightsPage';
+import GalleryPage from '@/pages/marketing/GalleryPage';
+import AboutPage from '@/pages/marketing/AboutPage';
+import ContactPage from '@/pages/marketing/ContactPage';
+import FAQsPage from '@/pages/marketing/FAQsPage';
+import PrivacyPolicyPage from '@/pages/marketing/PrivacyPolicyPage';
+import TermsPage from '@/pages/marketing/TermsPage';
+
+// Shop Pages
+import ProductDetailPage from '@/pages/shop/ProductDetailPage';
+import PricelistsPage from '@/pages/shop/PricelistsPage';
+import CartPage from '@/pages/shop/CartPage';
+import CheckoutPage from '@/pages/shop/CheckoutPage';
+
+// Auth Pages
+import LoginPage from '@/pages/auth/LoginPage';
+import RegisterPage from '@/pages/auth/RegisterPage';
+
+// Account Pages
+import BuyerDashboard from '@/pages/account/BuyerDashboard';
+import ProfilePage from '@/pages/account/ProfilePage';
+import PendingOrdersPage from '@/pages/account/PendingOrdersPage';
+import MessageCenterPage from '@/pages/account/MessageCenterPage';
+
+// Admin Pages
+import AdminPanel from '@/pages/admin/AdminPanel';
+import AddProductPage from '@/pages/admin/AddProductPage';
 
 const ScrollToHash = () => {
   const location = useLocation();
@@ -87,7 +95,7 @@ const ProtectedRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#118C8C] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-artisan-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -203,30 +211,15 @@ const RoleBasedHome = () => {
 
 function AppContent() {
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundColor: '#FAF8F1',
-        backgroundImage: `
-          radial-gradient(circle at 20% 20%, rgba(17,140,140,0.35), transparent 45%),
-          radial-gradient(circle at 80% 30%, rgba(242,187,22,0.30), transparent 45%),
-          radial-gradient(circle at 40% 80%, rgba(17,140,140,0.25), transparent 50%),
-          linear-gradient(
-            180deg,
-            #dff1ef 0%,
-            #eaf6f3 30%,
-            #f6f2dc 60%,
-            #faf8f1 100%
-          )
-        `,
-        backgroundAttachment: 'fixed',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
+    <div className="min-h-screen flex flex-col artisan-page-bg">
       <ScrollToHash />
       <Header />
 
-      <main className="flex-grow">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+
+      <main id="main-content" className="flex-grow" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<RoleBasedHome />} />
           <Route path="/highlights" element={<HighlightsPage />} />
@@ -242,8 +235,22 @@ function AppContent() {
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route
+            path="/buyer-dashboard"
+            element={
+              <ProtectedRoute>
+                <BuyerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/checkout"

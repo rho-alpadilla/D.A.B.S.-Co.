@@ -1,0 +1,758 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Helmet } from 'react-helmet';
+import { motion } from 'framer-motion';
+import { useAuth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import {
+  Plus,
+  Save,
+  Pencil,
+  X,
+  ArrowRight,
+  Sparkles,
+  MessageCircle,
+  Palette,
+  Scissors,
+  Frame,
+  Brush,
+  Info,
+  ChevronRight,
+} from 'lucide-react';
+import { useCurrency } from '@/context/CurrencyContext';
+import { useNavigate } from 'react-router-dom';
+
+const PricelistsPage = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.email?.includes('admin');
+  const { formatPrice } = useCurrency();
+  const navigate = useNavigate();
+
+  const sectionRefs = useRef({});
+  const [activeSection, setActiveSection] = useState('');
+
+  const registerRef = (id) => (el) => {
+    if (el) sectionRefs.current[id] = el;
+  };
+
+  // Scroll to section while accounting for header + sticky quick nav
+  const scrollToSection = useCallback((sectionId) => {
+    const el = sectionRefs.current[sectionId];
+    if (!el) return;
+
+    const NAV_OFFSET = 165;
+    const top = el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
+
+    window.scrollTo({ top, behavior: 'smooth' });
+    setActiveSection(sectionId);
+  }, []);
+
+  useEffect(() => {
+    const NAV_OFFSET = 185;
+
+    const handleScroll = () => {
+      const ids = ['needlepoint', 'crochet', 'portraiture', 'canvas', 'custom-orders'];
+      let current = '';
+
+      for (const id of ids) {
+        const el = sectionRefs.current[id];
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top <= NAV_OFFSET + 10) {
+          current = id;
+        }
+      }
+
+      setActiveSection(current);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const defaultPricing = {
+    needlepoint: [
+      { size: 'Small (up to 5x7")', mesh13: 2610, mesh18: 3190, complexity: 'Simple designs' },
+      { size: 'Medium (8x10")', mesh13: 4350, mesh18: 5510, complexity: 'Moderate detail' },
+      { size: 'Large (11x14")', mesh13: 6960, mesh18: 8700, complexity: 'Complex patterns' },
+      { size: 'Extra Large (16x20")', mesh13: 10440, mesh18: 12760, complexity: 'Highly detailed' },
+    ],
+    crochet: [
+      { item: 'Mini Keychains', price: 464, details: 'Various designs available' },
+      { item: 'Standard Keychains', price: 870, details: 'More intricate patterns' },
+      { item: 'Winter Scarves', price: 2030, details: 'Length and pattern varies' },
+      { item: 'Summer Shawls', price: 2610, details: 'Lightweight and elegant' },
+      { item: 'Baby Clothes', price: 2320, details: 'Sizes newborn to 12 months' },
+      { item: 'Adult Cardigans', price: 6960, details: 'Custom sizing available' },
+    ],
+    portraiture: [
+      { subjects: '1 Person', paper: 8700, canvas: 11600, framed: 2900 },
+      { subjects: '2 People', paper: 14500, canvas: 18560, framed: 4060 },
+      { subjects: '3 People', paper: 20300, canvas: 26100, framed: 5220 },
+      { subjects: '4+ People', paper: 29000, canvas: 37700, framed: 6960 },
+    ],
+    canvas: [
+      { size: 'Small (11x14")', price: 10440, details: 'Simple compositions' },
+      { size: 'Medium (16x20")', price: 17400, details: 'Standard detail level' },
+      { size: 'Large (24x36")', price: 31900, details: 'Complex compositions' },
+      { size: 'Custom Sizes', price: 0, details: 'Contact for pricing' },
+    ],
+  };
+
+  const [pricing, setPricing] = useState(defaultPricing);
+  const [editing, setEditing] = useState({ section: null, index: null, field: null });
+  const [tempValue, setTempValue] = useState('');
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'pricelists'), (snap) => {
+      if (snap.exists()) {
+        setPricing(snap.data().data || defaultPricing);
+      } else {
+        setPricing(defaultPricing);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const startEdit = (section, index, field, value) => {
+    setEditing({ section, index, field });
+    setTempValue(String(value ?? ''));
+  };
+
+  const confirmEdit = () => {
+    if (editing.section === null) return;
+
+    const parsedValue = Number(tempValue);
+    if (Number.isNaN(parsedValue)) {
+      alert('Please enter a valid number.');
+      return;
+    }
+
+    const newPricing = structuredClone(pricing);
+    newPricing[editing.section][editing.index][editing.field] = parsedValue;
+    setPricing(newPricing);
+    setEditing({ section: null, index: null, field: null });
+    setTempValue('');
+  };
+
+  const cancelEdit = () => {
+    setEditing({ section: null, index: null, field: null });
+    setTempValue('');
+  };
+
+  const savePricing = async () => {
+    try {
+      await setDoc(doc(db, 'settings', 'pricelists'), { data: pricing }, { merge: true });
+      setEditing({ section: null, index: null, field: null });
+      alert('Prices updated!');
+    } catch (err) {
+      alert('Save failed: ' + err.message);
+    }
+  };
+
+  const isEditingField = (section, index, field) =>
+    editing.section === section && editing.index === index && editing.field === field;
+
+  const EditablePrice = ({ section, index, field, value, prefix = '', isCustom = false }) => {
+    const active = isEditingField(section, index, field);
+
+    if (isAdmin && active) {
+      return (
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={tempValue}
+            onChange={(e) => setTempValue(e.target.value)}
+            className="w-32 px-3 py-2 border rounded-lg text-sm"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') confirmEdit();
+              if (e.key === 'Escape') cancelEdit();
+            }}
+            autoFocus
+          />
+          <Button size="sm" onClick={confirmEdit} className="px-2">
+            <Save size={14} />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={cancelEdit} className="px-2">
+            <X size={14} />
+          </Button>
+        </div>
+      );
+    }
+
+    if (isCustom || value === 0) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-[#F2BB16]/15 text-[#8e6c00] px-3 py-1 text-sm font-semibold">
+            Custom Quote
+          </span>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => startEdit(section, index, field, value)}
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 p-1 text-gray-500 hover:bg-gray-100 hover:text-[#118C8C] transition"
+              title="Edit price"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">
+          {prefix}
+          {formatPrice(value)}
+        </span>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => startEdit(section, index, field, value)}
+            className="inline-flex items-center justify-center rounded-md border border-gray-300 p-1 text-gray-500 hover:bg-gray-100 hover:text-[#118C8C] transition"
+            title="Edit price"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const SectionHeader = ({ icon: Icon, title, subtitle }) => (
+    <div className="flex items-start gap-4 mb-6">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-artisan-primary/20 bg-white/75 text-artisan-primary backdrop-blur-sm">
+        <Icon size={22} />
+      </div>
+      <div>
+        <h2 className="font-artisan-display text-3xl font-bold text-artisan-primary">{title}</h2>
+        <p className="mt-1 text-artisan-text-mid">{subtitle}</p>
+      </div>
+    </div>
+  );
+
+  const quickNavItems = [
+    { label: 'Needlepoint', id: 'needlepoint' },
+    { label: 'Crochet', id: 'crochet' },
+    { label: 'Portraiture', id: 'portraiture' },
+    { label: 'Canvas', id: 'canvas' },
+    { label: 'Custom Orders', id: 'custom-orders' },
+  ];
+
+  const fadeUp = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.4 } },
+  };
+
+  return (
+    <>
+      <Helmet>
+        <title>Pricelists - D.A.B.S. Co.</title>
+      </Helmet>
+
+      <div className="artisan-grid-page relative min-h-screen">
+
+        <div className="relative z-10">
+          <div className="container mx-auto px-4 pt-8 pb-5 md:pt-10 md:pb-10">
+            {/* Hero */}
+            <motion.section
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className="relative mb-8 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#2D0E5A] via-[#5C2D91] to-[#7B3FA0] px-6 py-9 text-white shadow-2xl shadow-[#2D0E5A]/35 md:px-10 md:py-12"
+            >
+              <div className="absolute inset-0 opacity-15">
+                <div className="absolute -top-10 right-0 w-48 h-48 bg-white rounded-full blur-3xl" />
+                <div className="absolute -bottom-16 -left-6 w-64 h-64 bg-[#F2BB16] rounded-full blur-3xl" />
+              </div>
+
+              <div className="relative z-10 max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold mb-4">
+                  <Sparkles size={16} />
+                  Handmade Pricing Guide
+                </div>
+                <h1 className="mb-3 font-artisan-display text-4xl font-bold leading-tight md:text-6xl">Our Pricelists</h1>
+                <p className="text-sm md:text-base text-white/90 max-w-2xl leading-relaxed">
+                  Explore current pricing for custom needlepoint, crochet, portraiture, and canvas
+                  work.
+                </p>
+              </div>
+            </motion.section>
+
+            {/* Quick nav stays in normal place first, then sticks on scroll */}
+            <nav
+              aria-label="Price list categories"
+              className="sticky top-20 z-40 mb-8"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                className="mx-auto max-w-5xl"
+              >
+                <div className="rounded-2xl border border-white/45 bg-white/95 px-3 py-2 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md">
+                  <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar justify-start md:justify-center">
+                    {quickNavItems.map((item) => {
+                      const isActive = activeSection === item.id;
+                      return (
+                        <motion.button
+                          key={item.id}
+                          type="button"
+                          whileHover={{ y: -1 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => scrollToSection(item.id)}
+                          className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ${
+                            isActive
+                              ? 'bg-[#5C2D91] text-white shadow'
+                              : 'bg-white/85 text-[#3B2947] hover:bg-[#F0E6F7] hover:text-[#5C2D91]'
+                          }`}
+                        >
+                          {item.label}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            </nav>
+
+            <motion.section
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className="mb-12 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F0E6F7] text-[#5C2D91]">
+                  <Info size={22} />
+                </div>
+                <div>
+                  <h2 className="mb-2 font-artisan-display text-3xl font-bold text-[#2A1739]">How pricing works</h2>
+                  <div className="grid gap-4 text-sm text-[#5B4C66] md:grid-cols-3">
+                    <div className="rounded-2xl bg-[#FAF6FC] p-4">
+                      <p className="mb-1 font-semibold text-[#342342]">Starting estimates</p>
+                      <p>
+                        Prices listed here are starting points for standard requests and common
+                        sizes.
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-[#FAF6FC] p-4">
+                      <p className="mb-1 font-semibold text-[#342342]">Custom adjustments</p>
+                      <p>
+                        Final cost may change depending on detail level, materials, framing, and
+                        requested revisions.
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-[#FAF6FC] p-4">
+                      <p className="mb-1 font-semibold text-[#342342]">Need something unique?</p>
+                      <p>
+                        Use the Contact page for a personalized quote and tell us exactly what you
+                        have in mind.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.section>
+
+            {isAdmin && (
+              <div className="text-center mb-12">
+                <Button
+                  onClick={savePricing}
+                  className="rounded-2xl bg-[#5C2D91] px-8 py-4 text-lg text-white hover:bg-[#4A2578]"
+                >
+                  <Save className="mr-2" /> Save All Price Changes
+                </Button>
+              </div>
+            )}
+
+            <motion.section
+              ref={registerRef('needlepoint')}
+              id="needlepoint"
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="mb-16 scroll-mt-40"
+            >
+              <SectionHeader
+                icon={Palette}
+                title="Hand-Painted Needlepoint Canvases"
+                subtitle="Choose by size, mesh count, and design detail."
+              />
+
+              <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#5C2D91] text-white">
+                      <tr>
+                        <th className="px-6 py-4 text-left">Canvas Size</th>
+                        <th className="px-6 py-4 text-left">13-Mesh</th>
+                        <th className="px-6 py-4 text-left">18-Mesh</th>
+                        <th className="px-6 py-4 text-left">Complexity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pricing.needlepoint.map((item, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-gray-50/90' : 'bg-white/90'}>
+                          <td className="px-6 py-4 font-medium text-gray-900">{item.size}</td>
+                          <td className="px-6 py-4 text-gray-700">
+                            <EditablePrice
+                              section="needlepoint"
+                              index={i}
+                              field="mesh13"
+                              value={item.mesh13}
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-gray-700">
+                            <EditablePrice
+                              section="needlepoint"
+                              index={i}
+                              field="mesh18"
+                              value={item.mesh18}
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">{item.complexity}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid md:hidden gap-4">
+                {pricing.needlepoint.map((item, i) => (
+                  <div
+                    key={i}
+                  className="rounded-2xl border border-white/45 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
+                  >
+                    <h3 className="mb-3 text-lg font-semibold text-[#5C2D91]">{item.size}</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-600">13-Mesh</span>
+                        <EditablePrice
+                          section="needlepoint"
+                          index={i}
+                          field="mesh13"
+                          value={item.mesh13}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-600">18-Mesh</span>
+                        <EditablePrice
+                          section="needlepoint"
+                          index={i}
+                          field="mesh18"
+                          value={item.mesh18}
+                        />
+                      </div>
+                      <div className="pt-2 border-t text-gray-600">
+                        <span className="font-medium text-gray-800">Complexity:</span>{' '}
+                        {item.complexity}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.section>
+
+            <motion.section
+              ref={registerRef('crochet')}
+              id="crochet"
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="mb-16 scroll-mt-40"
+            >
+              <SectionHeader
+                icon={Scissors}
+                title="Crocheted Products"
+                subtitle="Handmade crochet pieces for gifts, wearables, and custom requests."
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pricing.crochet.map((item, i) => (
+                  <motion.div
+                    key={i}
+                    whileHover={{ y: -5, scale: 1.01 }}
+                    className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <h3 className="text-xl font-semibold text-[#5C2D91]">{item.item}</h3>
+                      <div className="text-[#F2BB16] shrink-0">
+                        <Sparkles size={18} />
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-[#F2BB16] mb-3">
+                      <EditablePrice section="crochet" index={i} field="price" value={item.price} />
+                    </div>
+                    <p className="text-gray-600 leading-relaxed">{item.details}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.section>
+
+            <motion.section
+              ref={registerRef('portraiture')}
+              id="portraiture"
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="mb-16 scroll-mt-40"
+            >
+              <SectionHeader
+                icon={Frame}
+                title="Portraiture Pricing"
+                subtitle="Portrait options for paper, canvas, and framed commissions."
+              />
+
+              <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#5C2D91] text-white">
+                      <tr>
+                        <th className="px-6 py-4 text-left">Number of Subjects</th>
+                        <th className="px-6 py-4 text-left">Paper</th>
+                        <th className="px-6 py-4 text-left">Canvas</th>
+                        <th className="px-6 py-4 text-left">Framed Option</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pricing.portraiture.map((item, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-gray-50/90' : 'bg-white/90'}>
+                          <td className="px-6 py-4 font-medium text-gray-900">{item.subjects}</td>
+                          <td className="px-6 py-4 text-gray-700">
+                            <EditablePrice
+                              section="portraiture"
+                              index={i}
+                              field="paper"
+                              value={item.paper}
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-gray-700">
+                            <EditablePrice
+                              section="portraiture"
+                              index={i}
+                              field="canvas"
+                              value={item.canvas}
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-gray-700">
+                            <EditablePrice
+                              section="portraiture"
+                              index={i}
+                              field="framed"
+                              value={item.framed}
+                              prefix="+"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid md:hidden gap-4">
+                {pricing.portraiture.map((item, i) => (
+                  <div
+                    key={i}
+                  className="rounded-2xl border border-white/45 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
+                  >
+                    <h3 className="mb-3 text-lg font-semibold text-[#5C2D91]">{item.subjects}</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-600">Paper</span>
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="paper"
+                          value={item.paper}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-600">Canvas</span>
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="canvas"
+                          value={item.canvas}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-gray-600">Framed Option</span>
+                        <EditablePrice
+                          section="portraiture"
+                          index={i}
+                          field="framed"
+                          value={item.framed}
+                          prefix="+"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.section>
+
+            <motion.section
+              ref={registerRef('canvas')}
+              id="canvas"
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="mb-16 scroll-mt-40"
+            >
+              <SectionHeader
+                icon={Brush}
+                title="Painting on Canvas"
+                subtitle="Canvas-based work for decorative, custom, and expressive pieces."
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {pricing.canvas.map((item, i) => (
+                  <motion.div
+                    key={i}
+                    whileHover={{ y: -5, scale: 1.01 }}
+                    className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
+                  >
+                    <h3 className="mb-2 text-xl font-semibold text-[#5C2D91]">{item.size}</h3>
+                    <div className="text-2xl font-bold text-[#F2BB16] mb-3">
+                      <EditablePrice
+                        section="canvas"
+                        index={i}
+                        field="price"
+                        value={item.price}
+                        isCustom={item.size === 'Custom Sizes'}
+                      />
+                    </div>
+                    <p className="text-gray-600 leading-relaxed">{item.details}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.section>
+
+            <motion.section
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="mb-16 rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-8"
+            >
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div className="max-w-2xl">
+                  <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#F0E6F7] px-4 py-2 text-sm font-semibold text-[#5C2D91]">
+                    <Sparkles size={16} />
+                    Need inspiration first?
+                  </div>
+                  <h2 className="mb-3 font-artisan-display text-3xl font-bold text-[#2A1739] md:text-4xl">
+                    See finished works before you request a quote
+                  </h2>
+                  <p className="leading-relaxed text-[#5B4C66]">
+                    Browse our gallery to get a better feel for styles, detail levels, and the kind
+                    of handmade work we create. It's the best place to explore ideas before
+                    ordering.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 lg:w-[320px]">
+                  <div className="h-24 rounded-2xl bg-gradient-to-br from-[#118C8C]/25 to-[#118C8C]/5 border border-[#118C8C]/10" />
+                  <div className="h-24 rounded-2xl bg-gradient-to-br from-[#F2BB16]/25 to-[#F2BB16]/5 border border-[#F2BB16]/10" />
+                  <div className="h-24 rounded-2xl bg-gradient-to-br from-pink-200/40 to-white border border-pink-100" />
+                  <div className="h-24 rounded-2xl bg-gradient-to-br from-purple-200/40 to-white border border-purple-100" />
+                  <div className="h-24 rounded-2xl bg-gradient-to-br from-emerald-200/40 to-white border border-emerald-100" />
+                  <div className="h-24 rounded-2xl bg-gradient-to-br from-sky-200/40 to-white border border-sky-100" />
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Button
+                  onClick={() => navigate('/gallery')}
+                  className="rounded-2xl bg-[#5C2D91] px-8 py-6 text-white hover:bg-[#4A2578]"
+                >
+                  Browse Gallery
+                  <ChevronRight className="ml-2" size={18} />
+                </Button>
+              </div>
+            </motion.section>
+
+            {isAdmin && (
+              <div className="text-center my-20">
+                <Button
+                  size="lg"
+                  onClick={() => navigate('/add-product')}
+                  className="rounded-2xl bg-[#5C2D91] px-12 py-6 text-xl font-bold text-white hover:bg-[#4A2578]"
+                >
+                  <Plus className="mr-3" size={28} />
+                  Add New Product
+                </Button>
+              </div>
+            )}
+
+            <motion.section
+              ref={registerRef('custom-orders')}
+              id="custom-orders"
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-80px' }}
+              className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#2D0E5A] via-[#5C2D91] to-[#7B3FA0] p-8 text-white shadow-2xl shadow-[#2D0E5A]/35 scroll-mt-40 md:p-12"
+            >
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute -top-10 -right-10 w-44 h-44 bg-white rounded-full blur-3xl" />
+                <div className="absolute -bottom-12 -left-10 w-56 h-56 bg-[#F2BB16] rounded-full blur-3xl" />
+              </div>
+
+              <div className="relative z-10 max-w-3xl mx-auto text-center">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/20 px-4 py-2 text-sm font-semibold mb-5">
+                  <Sparkles size={16} />
+                  Custom Commissions Available
+                </div>
+
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  Need something made just for you?
+                </h2>
+
+                <p className="text-base md:text-lg text-white/90 leading-relaxed max-w-2xl mx-auto mb-8">
+                  All prices are starting estimates. Final pricing depends on design complexity,
+                  materials, sizing, and special requests. Reach out to us for a personalized quote
+                  for your custom order.
+                </p>
+
+                <div className="mx-auto grid w-full max-w-[520px] grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Button
+                    onClick={() => navigate('/contact')}
+                    className="h-14 w-full rounded-2xl bg-[#F2BB16] px-6 py-0 text-base font-bold text-gray-900 shadow-lg hover:bg-[#d9a614]"
+                  >
+                    <MessageCircle className="mr-2" size={18} />
+                    Contact Us
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/gallery')}
+                    className="h-14 w-full rounded-2xl border-white/30 bg-white/10 px-6 py-0 text-base text-white hover:bg-white/20 hover:text-white"
+                  >
+                    Browse Gallery
+                    <ArrowRight className="ml-2" size={18} />
+                  </Button>
+                </div>
+              </div>
+            </motion.section>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default PricelistsPage;
