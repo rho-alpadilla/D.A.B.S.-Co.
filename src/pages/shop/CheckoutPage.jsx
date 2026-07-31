@@ -36,6 +36,7 @@ import Grainient from '@/components/effects/Grainient';
 import Particles from '@/components/effects/Particles';
 import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
 import PurchasePageHero from '@/components/shop/PurchasePageHero';
+import { getAvailableStock } from '@/lib/stock';
 // ALL COUNTRIES (copied from ProfilePage)
 const ALL_COUNTRIES = [
   { name: 'Philippines', code: 'PH', flag: 'https://flagcdn.com/ph.svg', callingCode: '+63' },
@@ -58,7 +59,13 @@ const ALL_COUNTRIES = [
 const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
 const CheckoutPage = () => {
-  const { cartItems, updateQuantity, removeFromCart, clearCart } = useCart();
+  const {
+    cartItems,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    validateCartItems,
+  } = useCart();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
@@ -206,12 +213,42 @@ const CheckoutPage = () => {
 
   const grandTotal = selectedTotal;
 
-  const createOrderInFirestore = async (status = 'pending') => {
-    await saveAddressToProfile();
+  const validateSelectedStock = async () => {
+    try {
+      const selectedItems = cartItems.filter((item) => checkedIds.includes(item.id));
+      const validation = await validateCartItems(selectedItems);
 
+      if (!validation.isValid) {
+        toast({
+          title: 'Stock changed',
+          description: validation.issues[0] || 'Please review your cart before placing the order.',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      return validation.items;
+    } catch (error) {
+      console.error('Stock validation failed:', error);
+      toast({
+        title: 'Unable to verify stock',
+        description: 'Please check your connection and try again.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
+  const createOrderInFirestore = async (status = 'pending') => {
     setLoading(true);
     try {
-      const orderedItems = cartItems.filter((item) => checkedIds.includes(item.id));
+      const orderedItems = await validateSelectedStock();
+
+      if (!orderedItems) {
+        return null;
+      }
+
+      await saveAddressToProfile();
 
  const docRef = await addDoc(collection(db, 'orders'), {
   items: orderedItems,
@@ -288,6 +325,10 @@ const CheckoutPage = () => {
         description: 'Order total must be greater than 0.',
         variant: 'destructive',
       });
+      return;
+    }
+
+    if (!(await validateSelectedStock())) {
       return;
     }
 
@@ -714,7 +755,10 @@ const CheckoutPage = () => {
                   <p className="text-gray-500">No items in cart.</p>
                 ) : (
                   <div className="space-y-6">
-                    {cartItems.map((item) => (
+                    {cartItems.map((item) => {
+                      const availableStock = getAvailableStock(item);
+
+                      return (
                       <div key={item.id} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-4 border-b pb-4 sm:flex">
                         <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
                           {item.imageUrl ? (
@@ -729,6 +773,9 @@ const CheckoutPage = () => {
                         <div className="min-w-0 flex-grow">
                           <h3 className="font-semibold">{item.name}</h3>
                           <p className="text-sm text-gray-600">Price: {formatPrice(item.price)}</p>
+                          <p className="mt-1 text-xs text-artisan-text-muted">
+                            {availableStock > 0 ? `${availableStock} available` : 'Sold out'}
+                          </p>
                         </div>
 
                         <div className="col-span-2 flex flex-wrap items-center justify-between gap-4 sm:col-auto sm:justify-end">
@@ -743,7 +790,8 @@ const CheckoutPage = () => {
                             <span className="px-4 font-medium">{item.quantity}</span>
                             <button
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              className="px-3 py-1 text-gray-600 hover:bg-gray-100"
+                              disabled={item.quantity >= availableStock}
+                              className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Plus size={16} />
                             </button>
@@ -758,7 +806,8 @@ const CheckoutPage = () => {
                           </p>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 

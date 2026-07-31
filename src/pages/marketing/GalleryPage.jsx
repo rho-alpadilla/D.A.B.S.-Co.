@@ -11,6 +11,7 @@ import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useAuth } from '@/lib/firebase';
+import { getAvailableStock, getStockLabel } from '@/lib/stock';
 
 const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
@@ -72,9 +73,11 @@ const GalleryPage = () => {
   const getNavIdsForTab = (tabId) => getCategoryItems(tabId).map((p) => p.id);
 
   const getStockText = (product) => {
-    if (!product.inStock || product.stockQuantity === 0) return <span className="text-red-500 font-semibold">Out of stock</span>;
-    if (product.stockQuantity <= 5) return <span className="text-orange-500 font-semibold">Only {product.stockQuantity} left</span>;
-    return <span className="text-emerald-600 font-semibold">{product.stockQuantity} available</span>;
+    const availableStock = getAvailableStock(product);
+
+    if (availableStock === 0) return <span className="text-red-500 font-semibold">{getStockLabel(product)}</span>;
+    if (availableStock <= 5) return <span className="text-orange-500 font-semibold">{getStockLabel(product)}</span>;
+    return <span className="text-emerald-600 font-semibold">{getStockLabel(product)}</span>;
   };
 
   const renderStars = (rating) => (

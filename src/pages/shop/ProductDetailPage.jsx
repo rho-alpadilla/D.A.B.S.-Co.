@@ -1,7 +1,7 @@
 // src/pages/ProductDetailPage.jsx ← FINAL: MULTI-IMAGE EDITING (ADD/REMOVE IMAGES IN ADMIN MODE)
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   doc, onSnapshot, updateDoc, collection, query, where, 
   orderBy, getDocs, limit 
@@ -16,6 +16,7 @@ import {
   Star, MessageCircle, ChevronLeft, ChevronRight, Trash2, Plus 
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { getAvailableStock, isPurchasable } from '@/lib/stock';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -26,6 +27,7 @@ const CATEGORIES = [
 
 const ProductDetailPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.email.includes('admin');
   const { addToCart } = useCart();
@@ -254,15 +256,19 @@ const ProductDetailPage = () => {
   };
 
   const getBuyerStockStatus = () => {
-    if (!product.inStock) return <span className="text-red-600 font-bold">Out of Stock</span>;
-    if (product.stockQuantity > 0 && product.stockQuantity <= 5)
-      return <span className="text-orange-600 font-bold">Only {product.stockQuantity} left!</span>;
-    return <span className="text-green-600 font-bold">In Stock</span>;
+    const availableStock = getAvailableStock(product);
+
+    if (availableStock === 0) return <span className="text-red-600 font-bold">Sold out</span>;
+    if (availableStock <= 5)
+      return <span className="text-orange-600 font-bold">{availableStock} left</span>;
+    return <span className="text-green-600 font-bold">{availableStock} available</span>;
   };
 
   const getAdminStockStatus = () => {
-    if (!product.inStock) return <span className="text-red-600 font-bold">Out of Stock (0)</span>;
-    return <span className="text-gray-800 font-bold">In Stock: {product.stockQuantity}</span>;
+    const availableStock = getAvailableStock(product);
+
+    if (availableStock === 0) return <span className="text-red-600 font-bold">Sold out (0)</span>;
+    return <span className="text-gray-800 font-bold">Stock: {availableStock}</span>;
   };
 
   if (loading) {
@@ -301,6 +307,17 @@ const ProductDetailPage = () => {
 
   const prevImage = () => {
     setMainImageIndex(prev => (prev - 1 + allImages.length) % allImages.length);
+  };
+
+  const handleCustomOrder = () => {
+    const requestedQuantity = Math.max(getAvailableStock(product) + 1, 1);
+    const query = new URLSearchParams({
+      productId: product.id,
+      productName: product.name || 'Selected product',
+      quantity: String(requestedQuantity),
+    });
+
+    navigate(`/contact?${query.toString()}`);
   };
 
   return (
@@ -476,12 +493,19 @@ const ProductDetailPage = () => {
                 </span>
               </div>
 
-              {!isAdmin && !editing && product.inStock && (
+              {!isAdmin && !editing && (
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" onClick={() => addToCart(product)} className="flex-1 bg-[#5C2D91] font-semibold hover:bg-[#4A2578]" disabled={product.stockQuantity === 0}>
-                    {product.stockQuantity === 0 ? "Out of Stock" : "Add to Cart"}
-                  </Button>
-                  <Button size="lg" variant="outline" className="flex-1 border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]">
+                  {isPurchasable(product) && (
+                    <Button size="lg" onClick={() => addToCart(product)} className="flex-1 bg-[#5C2D91] font-semibold hover:bg-[#4A2578]">
+                      Add to Cart
+                    </Button>
+                  )}
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={handleCustomOrder}
+                    className="flex-1 border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]"
+                  >
                     Contact for Custom Order
                   </Button>
                 </div>

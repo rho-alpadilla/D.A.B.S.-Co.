@@ -10,18 +10,25 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Send, CheckCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
+import { sendSupportMessage } from '@/lib/contactMessages';
 
 const ContactPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const customOrderProduct = React.useMemo(() => {
+    const query = new URLSearchParams(location.search);
+    const productId = query.get('productId')?.trim();
+    const productName = query.get('productName')?.trim();
+    const quantity = Math.max(1, Math.floor(Number(query.get('quantity')) || 1));
+    return productId || productName ? { productId, productName: productName || 'Selected product', quantity } : null;
+  }, [location.search]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -41,6 +48,17 @@ const ContactPage = () => {
       email: user.email || prev.email || '',
     }));
   }, [user]);
+
+  useEffect(() => {
+    if (!customOrderProduct) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      subject: 'Custom Order Request',
+      productInterest: 'Commission',
+      message: '',
+    }));
+  }, [customOrderProduct]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -63,20 +81,13 @@ const ContactPage = () => {
     setIsSubmitting(true);
 
     try {
-      await addDoc(collection(db, 'messages'), {
-        buyerEmail: user.email || formData.email,
-        buyerName:
-          formData.name?.trim() ||
-          user.displayName ||
-          user.email?.split('@')[0] ||
-          'Guest Buyer',
-        subject: formData.subject?.trim() || 'General Inquiry',
-        message: formData.message?.trim(),
-        status: 'unread',
-        createdAt: serverTimestamp(),
-        isAdminReply: false,
-        source: 'contact-page',
-        productInterest: formData.productInterest || 'None',
+      await sendSupportMessage({
+        user,
+        ...formData,
+        source: customOrderProduct ? 'product-detail-contact' : 'contact-page',
+        productId: customOrderProduct?.productId,
+        productName: customOrderProduct?.productName,
+        requestedQuantity: customOrderProduct?.quantity,
       });
 
       setIsSuccess(true);
@@ -166,6 +177,16 @@ const ContactPage = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {customOrderProduct && (
+                    <section className="rounded-2xl border border-[#D9C9E3] bg-[#F7F0FA] px-5 py-4" aria-label="Custom order product">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7B3FA0]">Custom order for</p>
+                      <p className="mt-1 font-artisan-display text-2xl font-bold text-[#342342]">{customOrderProduct.productName}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#51445D]">
+                        {customOrderProduct.productId && <span>Product ID: {customOrderProduct.productId}</span>}
+                        <span>Requested quantity: {customOrderProduct.quantity}</span>
+                      </div>
+                    </section>
+                  )}
                   {/* Guest warning */}
                   {!user && (
                     <div className="rounded-xl border border-[#E2B366] bg-[#FFF6E6] px-4 py-3 text-sm leading-6 text-[#6B4100]">

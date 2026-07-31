@@ -8,6 +8,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ChatWidget from '@/components/shared/ChatWidget';
+import CustomOrderDrawer from '@/components/shared/CustomOrderDrawer';
 
 // Marketing Pages
 import HomePage from '@/pages/marketing/HomePage';
@@ -302,6 +303,7 @@ function AppContent() {
 
       <Footer />
       <ChatWidget />
+      <CustomOrderDrawer />
       <Toaster />
     </div>
   );
