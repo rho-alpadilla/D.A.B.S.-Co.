@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { getAvailableStock, isPurchasable } from '@/lib/stock';
+import StickyProductPurchaseSummary from '@/components/shop/StickyProductPurchaseSummary';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -45,6 +46,8 @@ const ProductDetailPage = () => {
   const [form, setForm] = useState({});
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const purchaseActionsRef = useRef(null);
+  const [showStickyPurchase, setShowStickyPurchase] = useState(false);
 
   // Multi-image state
   const [mainImageIndex, setMainImageIndex] = useState(0);
@@ -271,6 +274,25 @@ const ProductDetailPage = () => {
     return <span className="text-gray-800 font-bold">Stock: {availableStock}</span>;
   };
 
+  useEffect(() => {
+    const purchaseActions = purchaseActionsRef.current;
+
+    if (!product || isAdmin || editing || !purchaseActions) {
+      setShowStickyPurchase(false);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowStickyPurchase(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(purchaseActions);
+    return () => observer.disconnect();
+  }, [product?.id, isAdmin, editing]);
+
   if (loading) {
     return (
       <div className="artisan-grid-page min-h-screen flex items-center justify-center">
@@ -325,7 +347,7 @@ const ProductDetailPage = () => {
       <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
 
       <div className="artisan-grid-page min-h-screen py-10 sm:py-16">
-        <div className="container mx-auto max-w-6xl px-5 sm:px-6 lg:px-8">
+        <div className="container mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <header className="mb-8 flex items-center justify-between gap-4 border-b border-white/70 pb-5">
             <Link to="/gallery" className="inline-flex items-center gap-2 rounded-full bg-white/65 px-4 py-2 font-semibold text-[#5C2D91] shadow-sm backdrop-blur-sm transition-colors hover:text-[#4A2578] hover:underline">
               <ArrowLeft size={20} /> Back to Gallery
@@ -338,7 +360,7 @@ const ProductDetailPage = () => {
           </header>
 
           {/* MAIN PRODUCT CARD */}
-          <article className="mb-12 grid grid-cols-1 overflow-hidden rounded-[2rem] border border-white/60 bg-white/95 shadow-2xl shadow-[#2D0E5A]/15 backdrop-blur-md md:grid-cols-[1.05fr_0.95fr]">
+          <article className="mb-12 grid grid-cols-1 overflow-hidden rounded-3xl border border-[#E7DED3] bg-[#FAF8F1]/95 shadow-[0_16px_42px_rgba(36,16,31,0.12)] md:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]">
             {/* Images Section */}
             <div className="relative">
               {/* Main Image */}
@@ -432,7 +454,7 @@ const ProductDetailPage = () => {
             </div>
 
             {/* Details Section */}
-            <div className="flex flex-col justify-center space-y-7 p-7 md:p-10 lg:p-12">
+            <div className="flex flex-col justify-center space-y-6 p-6 sm:p-8 lg:p-10">
               {editing ? (
                 <>
                   <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border-b-2 border-[#DCCBE7] text-4xl font-bold text-[#5C2D91] outline-none focus:border-[#5C2D91] md:text-5xl" required />
@@ -460,43 +482,44 @@ const ProductDetailPage = () => {
                 </>
               ) : (
                 <>
-                  <span className="mb-3 inline-flex w-fit rounded-full bg-[#F0E6F7] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#7B3FA0]">
+                  <span className="mb-2 inline-flex w-fit border-l-2 border-[#88538C] pl-3 text-xs font-bold uppercase tracking-[0.14em] text-[#7B3FA0]">
                     {product.category}
                   </span>
-                  <h1 className="mb-6 font-artisan-display text-4xl font-bold leading-[0.98] tracking-[-0.03em] text-[#2A1739] md:text-5xl">
+                  <h1 className="mb-4 font-artisan-display text-3xl font-bold leading-[1.02] tracking-[-0.03em] text-[#01243A] sm:text-4xl lg:text-5xl">
                     {product.name}
                   </h1>
 
                   {totalReviews > 0 && (
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="mb-2 flex items-center gap-3">
                       {renderStars(Math.round(averageRating))}
                       <span className="text-2xl font-bold text-[#5C2D91]">{averageRating}</span>
                       <span className="text-gray-600">({totalReviews} reviews)</span>
                     </div>
                   )}
 
-                  <p className="text-lg text-gray-700 leading-relaxed mb-10">
+                  <p className="max-w-prose text-base leading-7 text-[#495968] md:text-lg">
                     {product.description}
                   </p>
 
-                  <div className="mb-6">
-                    <p className="text-xl font-bold">
+                  <div className="flex items-center gap-2 pt-1 text-sm">
+                    <span className="font-medium text-[#667482]">Availability</span>
+                    <span className="font-semibold">
                       {isAdmin ? getAdminStockStatus() : getBuyerStockStatus()}
-                    </p>
+                    </span>
                   </div>
                 </>
               )}
 
-              <div className="py-6">
-                <span className="text-5xl font-bold tabular-nums text-[#7B3FA0]">
+              <div className="border-y border-[#E7DED3] py-5">
+                <span className="text-4xl font-bold tabular-nums text-[#47003C] sm:text-5xl">
                   {formatPrice(product.price)}
                 </span>
               </div>
 
               {!isAdmin && !editing && (
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div ref={purchaseActionsRef} className="flex flex-col gap-3 sm:flex-row">
                   {isPurchasable(product) && (
-                    <Button size="lg" onClick={() => addToCart(product)} className="flex-1 bg-[#5C2D91] font-semibold hover:bg-[#4A2578]">
+                    <Button size="lg" onClick={() => addToCart(product)} className="flex-1 rounded-xl bg-[#47003C] font-semibold text-white hover:bg-[#5A124E]">
                       Add to Cart
                     </Button>
                   )}
@@ -504,7 +527,7 @@ const ProductDetailPage = () => {
                     size="lg"
                     variant="outline"
                     onClick={handleCustomOrder}
-                    className="flex-1 border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]"
+                    className="flex-1 rounded-xl border-[#88538C] text-[#47003C] hover:bg-[#F7F0FA]"
                   >
                     Contact for Custom Order
                   </Button>
@@ -522,11 +545,21 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              <p className="text-sm text-gray-500 pt-8 border-t">
+              <p className="border-t border-[#E7DED3] pt-5 text-xs tracking-wide text-[#667482]">
                 Product ID: {product.id}
               </p>
             </div>
           </article>
+
+          {!isAdmin && !editing && showStickyPurchase && (
+            <StickyProductPurchaseSummary
+              product={product}
+              imageUrl={currentImage}
+              formatPrice={formatPrice}
+              onAddToCart={() => addToCart(product)}
+              onCustomOrder={handleCustomOrder}
+            />
+          )}
 
           {/* REVIEWS SECTION */}
           {totalReviews > 0 && (
