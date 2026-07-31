@@ -19,6 +19,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import SocialSignInButtons from '@/components/auth/SocialSignInButtons';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -69,6 +70,10 @@ const RegisterPage = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleSocialSuccess = async () => {
+    navigate('/buyer-dashboard', { replace: true });
+  };
 
   const filteredPhoneCountries = countries.filter(country =>
     country.name.toLowerCase().includes(phoneCountrySearch.toLowerCase()) ||
@@ -172,6 +177,11 @@ const RegisterPage = () => {
                   {error}
                 </div>
               )}
+
+              <SocialSignInButtons onSuccess={handleSocialSuccess} onError={setError} disabled={loading} />
+              <div className="my-8 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#766880] before:h-px before:flex-1 before:bg-[#E6DDEB] after:h-px after:flex-1 after:bg-[#E6DDEB]">
+                Or register with email
+              </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Personal Info */}

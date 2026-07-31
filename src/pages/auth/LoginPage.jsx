@@ -9,6 +9,8 @@ import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore'
 import { Button } from '@/components/ui/button';
 import { Mail, Lock } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import SocialSignInButtons from '@/components/auth/SocialSignInButtons';
+import { getAuthenticationErrorMessage } from '@/lib/authProviders';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -83,33 +85,45 @@ const LoginPage = () => {
     );
   };
 
+  const completeLogin = async (loggedInUser) => {
+    const guestCart = getGuestCart();
+
+    if (guestCart.length > 0 && loggedInUser?.uid) {
+      await mergeAndSaveCart(loggedInUser.uid, guestCart);
+      localStorage.removeItem(LOCAL_CART_KEY);
+    }
+
+    await refreshCart(loggedInUser.uid);
+
+    const isAdmin = loggedInUser.email?.toLowerCase().includes('admin');
+    navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const guestCart = getGuestCart();
-
       const userCredential = await signInWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
 
-      const loggedInUser = userCredential.user;
-
-      if (guestCart.length > 0 && loggedInUser?.uid) {
-        await mergeAndSaveCart(loggedInUser.uid, guestCart);
-        localStorage.removeItem(LOCAL_CART_KEY);
-      }
-
-      await refreshCart(loggedInUser.uid);
-
-      const isAdmin = formData.email.toLowerCase().includes('admin');
-      navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
+      await completeLogin(userCredential.user);
     } catch (err) {
-      setError(err.message);
+      setError(getAuthenticationErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialSuccess = async (socialUser) => {
+    setLoading(true);
+    setError('');
+    try {
+      await completeLogin(socialUser);
     } finally {
       setLoading(false);
     }
@@ -193,6 +207,9 @@ const LoginPage = () => {
                       onChange={handleChange}
                     />
                   </div>
+                  <div className="text-right">
+                    <Link to="/forgot-password" className="text-sm font-semibold text-[#5C2D91] hover:underline">Forgot password?</Link>
+                  </div>
                 </div>
 
                 <Button
@@ -204,6 +221,11 @@ const LoginPage = () => {
                   {loading ? 'Logging in...' : 'Log In'}
                 </Button>
               </form>
+
+              <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#766880] before:h-px before:flex-1 before:bg-[#E6DDEB] after:h-px after:flex-1 after:bg-[#E6DDEB]">
+                Or continue with
+              </div>
+              <SocialSignInButtons onSuccess={handleSocialSuccess} onError={setError} disabled={loading} />
 
               <div className="mt-6 text-center text-sm text-artisan-text-muted">
                 Don&apos;t have an account?{' '}

@@ -29,6 +29,7 @@ import CheckoutPage from '@/pages/shop/CheckoutPage';
 // Auth Pages
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 
 // Account Pages
 import BuyerDashboard from '@/pages/account/BuyerDashboard';
@@ -236,6 +237,7 @@ function AppContent() {
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route
             path="/buyer-dashboard"
             element={
