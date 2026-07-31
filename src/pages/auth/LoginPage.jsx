@@ -4,13 +4,13 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { auth, db } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import SocialSignInButtons from '@/components/auth/SocialSignInButtons';
-import { getAuthenticationErrorMessage } from '@/lib/authProviders';
+import { assertAccountCanSignIn, getAuthenticationErrorMessage } from '@/lib/authProviders';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -85,7 +85,8 @@ const LoginPage = () => {
     );
   };
 
-  const completeLogin = async (loggedInUser) => {
+  const completeLogin = async (loggedInUser, { redirectToProfile = false } = {}) => {
+    await assertAccountCanSignIn(loggedInUser);
     const guestCart = getGuestCart();
 
     if (guestCart.length > 0 && loggedInUser?.uid) {
@@ -96,7 +97,10 @@ const LoginPage = () => {
     await refreshCart(loggedInUser.uid);
 
     const isAdmin = loggedInUser.email?.toLowerCase().includes('admin');
-    navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
+    navigate(
+      redirectToProfile ? '/profile' : isAdmin ? '/admin-panel' : '/gallery',
+      { replace: true, state: redirectToProfile ? { onboarding: true } : undefined }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -113,17 +117,21 @@ const LoginPage = () => {
 
       await completeLogin(userCredential.user);
     } catch (err) {
+      if (err?.code === 'dabs/account-deactivated') await signOut(auth);
       setError(getAuthenticationErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialSuccess = async (socialUser) => {
+  const handleSocialSuccess = async ({ user: socialUser }) => {
     setLoading(true);
     setError('');
     try {
-      await completeLogin(socialUser);
+      await completeLogin(socialUser, { redirectToProfile: true });
+    } catch (err) {
+      if (err?.code === 'dabs/account-deactivated') await signOut(auth);
+      setError(getAuthenticationErrorMessage(err));
     } finally {
       setLoading(false);
     }

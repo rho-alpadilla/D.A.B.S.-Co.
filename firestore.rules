@@ -18,6 +18,14 @@ service cloud.firestore {
       return isSignedIn() && userDoc().data.role == 'sub-admin';
     }
 
+    function isActiveAccount() {
+      return isSignedIn() && (
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        !('accountStatus' in userDoc().data) ||
+        userDoc().data.accountStatus != 'deactivated'
+      );
+    }
+
     function ownsOrder() {
       return isSignedIn() &&
         resource.data.buyerEmail == request.auth.token.email;
@@ -30,14 +38,14 @@ service cloud.firestore {
     }
 
     function buyerUpdatesPaymentReference() {
-      return ownsOrder() &&
+      return isActiveAccount() && ownsOrder() &&
         resource.data.status == 'paid' &&
         request.resource.data.diff(resource.data).changedKeys()
           .hasOnly(['paymentId', 'paidAt']);
     }
 
     function buyerRequestsCancellation() {
-      return ownsOrder() &&
+      return isActiveAccount() && ownsOrder() &&
         resource.data.status in [
           'pending',
           'pending_review',
@@ -59,7 +67,9 @@ service cloud.firestore {
       // The app currently uses both customer and buyer as non-privileged roles.
       allow create: if isSignedIn() &&
         request.auth.uid == userId &&
-        request.resource.data.role in ['customer', 'buyer'];
+        request.resource.data.role in ['customer', 'buyer'] &&
+        request.resource.data.accountStatus == 'active' &&
+        request.resource.data.hasApprovedOrders == false;
 
       allow read: if isSignedIn() && (
         request.auth.uid == userId ||
@@ -76,18 +86,37 @@ service cloud.firestore {
           'promotedAt',
           'removedBy',
           'removedAt',
-          'updatedAt'
+          'updatedAt',
+          'hasApprovedOrders',
+          'approvedOrderAt',
+          'accountStatus',
+          'deactivatedAt'
         ])
+      ) || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        resource.data.hasApprovedOrders == false &&
+        request.resource.data.hasApprovedOrders == false &&
+        resource.data.accountStatus == 'active' &&
+        request.resource.data.accountStatus == 'deactivated' &&
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['accountStatus', 'deactivatedAt'])
+      ) || (
+        isSubAdmin() &&
+        request.resource.data.hasApprovedOrders == true &&
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['hasApprovedOrders', 'approvedOrderAt'])
       ) || isAdmin();
 
-      allow delete: if isAdmin();
+      allow delete: if (isSignedIn() && request.auth.uid == userId &&
+        resource.data.hasApprovedOrders == false) || isAdmin();
 
       match /cart/{itemId} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
+        allow read, write: if isActiveAccount() && request.auth.uid == userId;
       }
 
       match /notifications/{notificationId} {
-        allow read, write: if isSignedIn() && (
+        allow read, write: if isActiveAccount() && (
           request.auth.uid == userId || isAdmin()
         );
       }
@@ -107,14 +136,14 @@ service cloud.firestore {
     // remain compatible with the existing review and admin-reply behavior.
     match /reviews/{reviewId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isActiveAccount();
     }
 
     match /orders/{orderId} {
-      allow create: if createsOwnOrder();
+      allow create: if isActiveAccount() && createsOwnOrder();
 
       allow read: if isSignedIn() && (
-        resource.data.buyerEmail == request.auth.token.email ||
+        (isActiveAccount() && resource.data.buyerEmail == request.auth.token.email) ||
         isAdmin() ||
         isSubAdmin()
       );
@@ -139,11 +168,11 @@ service cloud.firestore {
 
     match /messages/{messageId} {
       allow read: if isAdmin() || isSubAdmin() || (
-        isSignedIn() && resource.data.buyerEmail == request.auth.token.email
+        isActiveAccount() && resource.data.buyerEmail == request.auth.token.email
       );
 
       allow create: if (
-        isSignedIn() &&
+          isActiveAccount() &&
         request.resource.data.buyerEmail == request.auth.token.email &&
         request.resource.data.isAdminReply == false
       ) || (
@@ -154,7 +183,7 @@ service cloud.firestore {
       allow update: if (
         isAdmin() ||
         isSubAdmin() ||
-        (isSignedIn() && resource.data.buyerEmail == request.auth.token.email)
+          (isActiveAccount() && resource.data.buyerEmail == request.auth.token.email)
       ) &&
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['status']) &&
         request.resource.data.status in ['read', 'unread'];

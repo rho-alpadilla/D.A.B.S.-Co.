@@ -67,6 +67,7 @@ import {
   isDeclinedOrder,
   isPostReviewWorkflow,
 } from './orderStatus';
+import { ACCOUNT_APPROVAL_STATUSES, lockAccountAfterApprovedPurchase } from '@/lib/accountLifecycle';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
@@ -301,6 +302,13 @@ const AdminPanel = () => {
         status: newStatus,
         updatedAt: new Date()
       });
+
+      if (
+        ACCOUNT_APPROVAL_STATUSES.has(newStatus) &&
+        !ACCOUNT_APPROVAL_STATUSES.has(currentStatus)
+      ) {
+        await lockAccountAfterApprovedPurchase(order);
+      }
 
       await notifyBuyerStatusChange(order, newStatus);
 

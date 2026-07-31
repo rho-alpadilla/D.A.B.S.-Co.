@@ -2,6 +2,7 @@ import {
   FacebookAuthProvider,
   GoogleAuthProvider,
   signInWithPopup,
+  signOut,
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -34,6 +35,8 @@ export const getAuthenticationErrorMessage = (error) => {
       return 'The email or password is incorrect.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Please wait before trying again.';
+    case 'dabs/account-deactivated':
+      return 'This account has been deactivated. Contact an administrator to request reactivation.';
     default:
       return 'We could not complete authentication. Please try again.';
   }
@@ -47,7 +50,17 @@ const ensureSocialProfile = async (user) => {
   const userRef = doc(db, 'users', user.uid);
   const existingProfile = await getDoc(userRef);
 
-  if (existingProfile.exists()) return;
+  if (existingProfile.exists()) {
+    const existingData = existingProfile.data();
+    if (existingData.accountStatus === 'deactivated') {
+      await signOut(auth);
+      const error = new Error('This account has been deactivated. Contact an administrator to request reactivation.');
+      error.code = 'dabs/account-deactivated';
+      throw error;
+    }
+
+    return { isNewProfile: false, profile: existingData };
+  }
 
   const username = user.email.split('@')[0];
   await setDoc(userRef, {
@@ -57,9 +70,14 @@ const ensureSocialProfile = async (user) => {
     displayName: user.displayName || username,
     photoURL: user.photoURL || '',
     role: 'customer',
+    accountStatus: 'active',
+    hasApprovedOrders: false,
+    profileCompleted: false,
     createdAt: serverTimestamp(),
     addresses: [],
   });
+
+  return { isNewProfile: true, profile: null };
 };
 
 export const signInWithSocialProvider = async (providerName) => {
@@ -67,6 +85,17 @@ export const signInWithSocialProvider = async (providerName) => {
   if (!provider) throw new Error('Unsupported sign-in provider.');
 
   const result = await signInWithPopup(auth, provider);
-  await ensureSocialProfile(result.user);
-  return result.user;
+  const profileResult = await ensureSocialProfile(result.user);
+  return { user: result.user, ...profileResult };
+};
+
+export const assertAccountCanSignIn = async (user) => {
+  if (!user?.uid) return;
+
+  const profileSnapshot = await getDoc(doc(db, 'users', user.uid));
+  if (profileSnapshot.exists() && profileSnapshot.data().accountStatus === 'deactivated') {
+    const error = new Error('This account has been deactivated. Contact an administrator to request reactivation.');
+    error.code = 'dabs/account-deactivated';
+    throw error;
+  }
 };

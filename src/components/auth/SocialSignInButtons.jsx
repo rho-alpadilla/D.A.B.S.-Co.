@@ -7,14 +7,15 @@ const providers = [
   { id: 'facebook', label: 'Continue with Facebook', mark: 'f', markClass: 'text-[#1877F2]' },
 ];
 
-const SocialSignInButtons = ({ onSuccess, onError, disabled = false }) => {
+const SocialSignInButtons = ({ onSuccess, onError, onStart, disabled = false }) => {
   const [activeProvider, setActiveProvider] = useState(null);
 
   const handleSignIn = async (provider) => {
+    onStart?.(provider.id);
     setActiveProvider(provider.id);
     try {
-      const user = await signInWithSocialProvider(provider.id);
-      await onSuccess(user);
+      const result = await signInWithSocialProvider(provider.id);
+      await onSuccess(result);
     } catch (error) {
       onError(error.message || getAuthenticationErrorMessage(error));
     } finally {

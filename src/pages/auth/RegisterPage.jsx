@@ -70,10 +70,17 @@ const RegisterPage = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSocialSignIn, setIsSocialSignIn] = useState(false);
 
   const handleSocialSuccess = async () => {
-    navigate('/buyer-dashboard', { replace: true });
+    navigate('/profile', { replace: true, state: { onboarding: true } });
   };
+
+  useEffect(() => {
+    if (user && !isSocialSignIn) {
+      navigate('/buyer-dashboard', { replace: true });
+    }
+  }, [isSocialSignIn, navigate, user]);
 
   const filteredPhoneCountries = countries.filter(country =>
     country.name.toLowerCase().includes(phoneCountrySearch.toLowerCase()) ||
@@ -123,6 +130,9 @@ const RegisterPage = () => {
         birthdate: formData.birthdate,
         displayName: formData.fullName.trim(),
         role: "customer",
+        accountStatus: "active",
+        hasApprovedOrders: false,
+        profileCompleted: true,
         createdAt: new Date(),
         photoURL: "",
         addresses: [
@@ -147,11 +157,6 @@ const RegisterPage = () => {
       setLoading(false);
     }
   };
-
-  if (user) {
-    navigate('/buyer-dashboard');
-    return null;
-  }
 
   return (
     <>
@@ -178,7 +183,7 @@ const RegisterPage = () => {
                 </div>
               )}
 
-              <SocialSignInButtons onSuccess={handleSocialSuccess} onError={setError} disabled={loading} />
+              <SocialSignInButtons onStart={() => setIsSocialSignIn(true)} onSuccess={handleSocialSuccess} onError={setError} disabled={loading} />
               <div className="my-8 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#766880] before:h-px before:flex-1 before:bg-[#E6DDEB] after:h-px after:flex-1 after:bg-[#E6DDEB]">
                 Or register with email
               </div>
