@@ -26,6 +26,13 @@ const CATEGORIES = [
   "Painting on Canvas"
 ];
 
+const getItemsPerPage = () => {
+  if (typeof window === 'undefined') return 4;
+  if (window.innerWidth < 768) return 2;
+  if (window.innerWidth < 1024) return 3;
+  return 4;
+};
+
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -54,7 +61,7 @@ const ProductDetailPage = () => {
 
   // Carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
-  const itemsPerPage = window.innerWidth < 768 ? 2 : window.innerWidth < 1024 ? 3 : 4;
+  const [itemsPerPage, setItemsPerPage] = useState(getItemsPerPage);
 
   // Admin reply state
   const [replyingTo, setReplyingTo] = useState(null);
@@ -149,13 +156,26 @@ const ProductDetailPage = () => {
     loadRecommendations();
   }, [product?.category, id]);
 
-  // Carousel navigation (unchanged)
+  useEffect(() => {
+    const updateItemsPerPage = () => setItemsPerPage(getItemsPerPage());
+    updateItemsPerPage();
+    window.addEventListener('resize', updateItemsPerPage);
+    return () => window.removeEventListener('resize', updateItemsPerPage);
+  }, []);
+
+  useEffect(() => {
+    const maxSlide = Math.max(0, recommended.length - itemsPerPage);
+    setCurrentSlide((slide) => Math.min(slide, maxSlide));
+  }, [recommended.length, itemsPerPage]);
+
+  const maxSlide = Math.max(0, recommended.length - itemsPerPage);
+
   const nextSlide = () => {
-    setCurrentSlide(prev => (prev + itemsPerPage) % recommended.length);
+    setCurrentSlide((slide) => (slide >= maxSlide ? 0 : Math.min(slide + itemsPerPage, maxSlide)));
   };
 
   const prevSlide = () => {
-    setCurrentSlide(prev => (prev - itemsPerPage + recommended.length) % recommended.length);
+    setCurrentSlide((slide) => (slide <= 0 ? maxSlide : Math.max(slide - itemsPerPage, 0)));
   };
 
   const handleAddImages = async (e) => {
@@ -657,28 +677,28 @@ const ProductDetailPage = () => {
 
           {/* UNIFIED "YOU MAY ALSO LIKE" CAROUSEL */}
           {recommended.length > 0 && (
-            <section className="mt-16 rounded-[2rem] border border-white/60 bg-white/95 p-7 shadow-2xl shadow-[#2D0E5A]/15 backdrop-blur-md md:p-10">
-              <h2 className="mb-12 text-center font-artisan-display text-4xl font-bold text-[#2A1739]">
+            <section className="mt-16 rounded-3xl border border-[#E7DED3] bg-[#FAF8F1]/90 px-5 py-10 shadow-[0_16px_40px_rgba(36,16,31,0.08)] md:px-8 md:py-12">
+              <h2 className="mb-10 font-artisan-display text-3xl font-bold text-[#01243A] md:text-4xl">
                 You May Also Like
               </h2>
 
               <div className="relative">
                 <div className="overflow-hidden">
-                  <div 
-                    className="flex transition-transform duration-700 ease-out gap-6"
+                  <div
+                    className="-mx-2 flex transition-transform duration-500 ease-out"
                     style={{ transform: `translateX(-${currentSlide * (100 / itemsPerPage)}%)` }}
                   >
                     {recommended.map(item => (
-                      <Link 
-                        key={item.id} 
+                      <Link
+                        key={item.id}
                         to={`/product/${item.id}`}
-                        className="flex-shrink-0 w-full sm:w-1/2 lg:w-1/3 xl:w-1/4 group"
+                        className="group flex w-full shrink-0 px-2 sm:w-1/2 lg:w-1/3 xl:w-1/4"
                       >
-                        <div className="artisan-card-hover overflow-hidden rounded-2xl border border-[#E6DDEB] bg-[#FAF6FC] shadow-lg">
-                          <div className="aspect-square relative">
-                            {item.imageUrl ? (
-                              <img 
-                                src={item.imageUrl} 
+                        <article className="grid h-full w-full grid-rows-[auto_1fr] overflow-hidden rounded-2xl border border-[#E7DED3] bg-white transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_14px_28px_rgba(36,16,31,0.14)]">
+                          <div className="relative aspect-square">
+                            {item.imageUrl || item.imageUrls?.[0] ? (
+                              <img
+                                src={item.imageUrl || item.imageUrls?.[0]}
                                 alt={item.name}
                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               />
@@ -700,18 +720,18 @@ const ProductDetailPage = () => {
                             )}
                           </div>
 
-                          <div className="p-6 text-center">
-                            <h3 className="mb-3 line-clamp-2 font-bold text-[#5C2D91] transition-colors group-hover:text-[#4A2578]">
+                          <div className="grid min-h-40 grid-rows-[minmax(3.25rem,auto)_1.5rem_auto] gap-3 p-5 text-left">
+                            <h3 className="line-clamp-2 font-artisan-display font-bold leading-snug text-[#01243A] transition-colors group-hover:text-[#47003C]">
                               {item.name}
                             </h3>
-                            <div className="flex justify-center gap-2 mb-3">
+                            <div className="flex gap-2">
                               {renderStars(Math.round(item.averageRating || 0))}
                             </div>
-                            <p className="text-2xl font-bold text-[#7B3FA0]">
+                            <p className="self-end text-2xl font-bold tabular-nums text-[#47003C]">
                               {formatPrice(item.price)}
                             </p>
                           </div>
-                        </div>
+                        </article>
                       </Link>
                     ))}
                   </div>
@@ -721,13 +741,15 @@ const ProductDetailPage = () => {
                   <>
                     <button 
                       onClick={prevSlide}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-lg p-5 rounded-full shadow-2xl hover:scale-110 transition z-10 border border-gray-200"
+                      aria-label="Show previous recommendations"
+                      className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-[#47003C] shadow-lg transition hover:scale-105"
                     >
                       <ChevronLeft size={32} className="text-[#5C2D91]" />
                     </button>
                     <button 
                       onClick={nextSlide}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white/90 backdrop-blur-lg p-5 rounded-full shadow-2xl hover:scale-110 transition z-10 border border-gray-200"
+                      aria-label="Show more recommendations"
+                      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-[#47003C] shadow-lg transition hover:scale-105"
                     >
                       <ChevronRight size={32} className="text-[#5C2D91]" />
                     </button>

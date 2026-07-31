@@ -75,9 +75,9 @@ const GalleryPage = () => {
   const getStockText = (product) => {
     const availableStock = getAvailableStock(product);
 
-    if (availableStock === 0) return <span className="text-red-500 font-semibold">{getStockLabel(product)}</span>;
-    if (availableStock <= 5) return <span className="text-orange-500 font-semibold">{getStockLabel(product)}</span>;
-    return <span className="text-emerald-600 font-semibold">{getStockLabel(product)}</span>;
+    if (availableStock === 0) return <span className="font-semibold text-[#9F1239]">{getStockLabel(product)}</span>;
+    if (availableStock <= 5) return <span className="font-semibold text-[#88538C]">{getStockLabel(product)}</span>;
+    return <span className="font-semibold text-[#1D5C54]">{getStockLabel(product)}</span>;
   };
 
   const renderStars = (rating) => (
@@ -185,12 +185,12 @@ const GalleryPage = () => {
                         return (
                           <motion.div key={item.id} initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.35, delay: index*0.04 }}
                             onClick={() => navigate(`/product/${item.id}`, { state: { ids: getNavIdsForTab(cat.id), fromTab: cat.id } })}
-                            className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-white/30 bg-white/90 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-artisan-primary/25">
+                            className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-[#E7DED3] bg-[#FAF8F1]/95 shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:border-[#88538C]/50 hover:shadow-[0_14px_28px_rgba(36,16,31,0.12)]">
                             <div className="relative">
                               {showBadge && (
                                 <div className="absolute top-4 left-4 z-20 rounded-full bg-red-500 text-white text-[11px] font-bold px-3 py-1.5 shadow-md">BEST SELLER</div>
                               )}
-                              <div className="relative h-56 sm:h-52 md:h-56 lg:h-60 overflow-hidden bg-artisan-primary-wash/20">
+                              <div className="relative h-56 overflow-hidden bg-[#E7DED3]/45 sm:h-52 md:h-56 lg:h-60">
                                 {currentImage ? (
                                   <img src={currentImage} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 ) : (
@@ -214,8 +214,8 @@ const GalleryPage = () => {
 
                             <div className="flex flex-1 flex-col p-5">
                               <div className="flex items-start justify-between gap-3 mb-2">
-                                <h3 className="min-h-[3.5rem] text-lg font-semibold leading-snug text-artisan-text line-clamp-2 md:text-xl">{item.name}</h3>
-                                <span className="shrink-0 text-lg md:text-xl font-bold text-artisan-primary">{formatPrice(item.price)}</span>
+                                <h3 className="min-h-[3.5rem] font-artisan-display text-lg font-semibold leading-snug text-[#01243A] line-clamp-2 md:text-xl">{item.name}</h3>
+                                <span className="shrink-0 text-lg font-bold tabular-nums text-[#47003C] md:text-xl">{formatPrice(item.price)}</span>
                               </div>
                               <p className="mb-3 min-h-5 text-sm text-artisan-text-muted line-clamp-1">{item.category || 'Handmade Product'}</p>
                               <div className="mb-3 flex min-h-10 items-center justify-between gap-3">
@@ -227,7 +227,7 @@ const GalleryPage = () => {
                                 <div className="text-xs md:text-sm text-right">{getStockText(item)}</div>
                               </div>
                               <p className="mb-4 min-h-12 text-sm leading-relaxed text-artisan-text-muted line-clamp-2">{item.description || 'Beautifully made handcrafted item.'}</p>
-                              <Button className="mt-auto h-12 w-full rounded-2xl font-semibold">View Product</Button>
+                              <Button className="mt-auto h-12 w-full rounded-xl bg-[#47003C] font-semibold text-white hover:bg-[#5A124E]">View Product</Button>
                             </div>
                           </motion.div>
                         );
