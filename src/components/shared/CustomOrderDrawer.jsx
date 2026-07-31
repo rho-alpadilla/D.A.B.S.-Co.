@@ -14,9 +14,13 @@ const CustomOrderDrawer = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
+  const [requestedQuantity, setRequestedQuantity] = useState(1);
   const [isSending, setIsSending] = useState(false);
 
-  useEffect(() => setMessage(''), [customOrderRequest?.productId, customOrderRequest?.requestedQuantity]);
+  useEffect(() => {
+    setMessage('');
+    setRequestedQuantity(Math.max(1, Number(customOrderRequest?.requestedQuantity) || 1));
+  }, [customOrderRequest?.productId, customOrderRequest?.requestedQuantity]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -38,7 +42,7 @@ const CustomOrderDrawer = () => {
         source: 'stock-limit-drawer',
         productId: customOrderRequest.productId,
         productName: customOrderRequest.productName,
-        requestedQuantity: customOrderRequest.requestedQuantity,
+        requestedQuantity,
       });
       toast({ title: 'Request sent', description: 'Our team can review your request in support chat.' });
       closeCustomOrderRequest();
@@ -72,7 +76,18 @@ const CustomOrderDrawer = () => {
                 <div className="min-w-0">
                   <p className="font-artisan-display text-2xl font-bold leading-tight text-[#01243A]">{customOrderRequest?.productName}</p>
                   <p className="mt-2 text-sm text-[#495968]">Available now: <span className="font-semibold text-[#01243A]">{customOrderRequest?.availableStock}</span></p>
-                  <p className="mt-1 text-sm text-[#495968]">Requested quantity: <span className="font-semibold text-[#01243A]">{customOrderRequest?.requestedQuantity}</span></p>
+                  <label className="mt-3 block text-sm text-[#495968]" htmlFor="custom-order-quantity">
+                    Requested quantity
+                    <input
+                      id="custom-order-quantity"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={requestedQuantity}
+                      onChange={(event) => setRequestedQuantity(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
+                      className="mt-1 block w-24 rounded-lg border border-[#D9C9E3] bg-white px-3 py-1.5 font-semibold tabular-nums text-[#01243A] outline-none transition focus:border-[#88538C] focus:ring-4 focus:ring-[#88538C]/15"
+                    />
+                  </label>
                 </div>
               </div>
             </section>
