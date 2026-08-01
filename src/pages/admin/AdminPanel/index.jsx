@@ -26,6 +26,7 @@ import {
   PointElement,
   LineElement,
   BarElement,
+  Filler,
   Title,
   Tooltip,
   Legend
@@ -68,8 +69,16 @@ import {
   isPostReviewWorkflow,
 } from './orderStatus';
 import { ACCOUNT_APPROVAL_STATUSES, lockAccountAfterApprovedPurchase } from '@/lib/accountLifecycle';
+import {
+  buildDiagnosticAnalytics,
+  buildDescriptiveAnalytics,
+  buildPrescriptiveRecommendations,
+  buildTrendForecast,
+  createProductRevenueChartData,
+  createRevenueOverTimeChartData,
+} from '@/lib/analytics/descriptiveAnalytics';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -94,7 +103,6 @@ const AdminPanel = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [tab, setTab] = useState("dashboard");
-  const [productStats, setProductStats] = useState([]);
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -412,131 +420,61 @@ const AdminPanel = () => {
   };
 
   const completedOrders = useMemo(
-    () => orders.filter(o => o.status === "completed"),
+    () => orders.filter((order) => order.status === 'completed'),
     [orders]
   );
 
-  const filteredCompletedOrders = useMemo(() => {
-    if (!customStartDate && !customEndDate) return completedOrders;
+  const descriptiveAnalytics = useMemo(
+    () => buildDescriptiveAnalytics({
+      orders,
+      products,
+      startDate: customStartDate,
+      endDate: customEndDate,
+    }),
+    [customEndDate, customStartDate, orders, products]
+  );
 
-    const start = customStartDate ? new Date(`${customStartDate}T00:00:00`) : null;
-    const end = customEndDate ? new Date(`${customEndDate}T23:59:59.999`) : null;
+  const diagnosticAnalytics = useMemo(
+    () => buildDiagnosticAnalytics({
+      orders,
+      products,
+      startDate: customStartDate,
+      endDate: customEndDate,
+    }),
+    [customEndDate, customStartDate, orders, products]
+  );
 
-    return completedOrders.filter((order) => {
-      const orderDate = order.createdAt?.toDate?.() || new Date(order.createdAt || 0);
-      if (!Number.isFinite(orderDate.getTime())) return false;
-      if (start && orderDate < start) return false;
-      if (end && orderDate > end) return false;
-      return true;
-    });
-  }, [completedOrders, customEndDate, customStartDate]);
+  const {
+    averageOrderValue: avgOrderValue,
+    completedOrderCount: totalOrdersCompleted,
+    completedOrders: filteredCompletedOrders,
+    productStats,
+    totalRevenue: totalIncome,
+  } = descriptiveAnalytics;
 
-  const totalIncome = useMemo(() => {
-    return filteredCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  }, [filteredCompletedOrders]);
+  const revenueChartData = useMemo(
+    () => createProductRevenueChartData(descriptiveAnalytics.topProducts),
+    [descriptiveAnalytics.topProducts]
+  );
 
-  const totalOrdersCompleted = useMemo(() => filteredCompletedOrders.length, [filteredCompletedOrders]);
-  const avgOrderValue = totalOrdersCompleted > 0 ? totalIncome / totalOrdersCompleted : 0;
+  const revenueOverTimeData = useMemo(
+    () => createRevenueOverTimeChartData(descriptiveAnalytics.dailyRevenue),
+    [descriptiveAnalytics.dailyRevenue]
+  );
 
-  useEffect(() => {
-    if (products.length === 0) {
-      setProductStats([]);
-      return;
-    }
+  const forecast = useMemo(
+    () => buildTrendForecast({ dailyRevenue: descriptiveAnalytics.dailyRevenue }),
+    [descriptiveAnalytics.dailyRevenue]
+  );
 
-    const statsMap = {};
-    products.forEach(p => {
-      statsMap[p.id] = {
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        totalSold: 0,
-        revenue: 0,
-        imageUrl: p.imageUrl,
-        stockQuantity: p.stockQuantity
-      };
-    });
-
-    filteredCompletedOrders.forEach(order => {
-      order.items?.forEach(item => {
-        if (statsMap[item.id]) {
-          statsMap[item.id].totalSold += item.quantity;
-          statsMap[item.id].revenue += item.price * item.quantity;
-        }
-      });
-    });
-
-    const statsArray = Object.values(statsMap).sort((a, b) => b.totalSold - a.totalSold);
-    setProductStats(statsArray);
-  }, [filteredCompletedOrders, products]);
-
-  const revenueChartData = useMemo(() => {
-    const top = productStats.slice(0, 10);
-    return {
-      labels: top.map(p => p.name.length > 15 ? p.name.substring(0, 15) + "..." : p.name),
-      datasets: [{
-        label: 'Revenue',
-        data: top.map(p => p.revenue),
-        backgroundColor: 'rgba(92, 45, 145, 0.78)',
-        borderColor: '#5C2D91',
-        borderWidth: 2
-      }]
-    };
-  }, [productStats]);
-
-  const revenueOverTimeData = useMemo(() => {
-    const map = new Map();
-
-    filteredCompletedOrders.forEach(o => {
-      const d = o.createdAt?.toDate?.();
-      if (!d) return;
-      const key = d.toISOString().slice(0, 10);
-      map.set(key, (map.get(key) || 0) + (o.total || 0));
-    });
-
-    const labels = Array.from(map.keys()).sort();
-    const values = labels.map(k => map.get(k));
-
-    return {
-      labels,
-      datasets: [{
-        label: "Daily Revenue",
-        data: values,
-        borderColor: "#5C2D91",
-        backgroundColor: "rgba(92, 45, 145, 0.15)",
-        tension: 0.3,
-        fill: true
-      }]
-    };
-  }, [filteredCompletedOrders]);
-
-  const forecast = useMemo(() => {
-    if (!customStartDate || !customEndDate) {
-      return {
-        avgDaily: 0,
-        nextMonth: 0,
-        growthPct: 0,
-        baseDays: 0
-      };
-    }
-
-    const start = new Date(`${customStartDate}T00:00:00`);
-    const end = new Date(`${customEndDate}T23:59:59`);
-    const diffDays = Math.max(
-      1,
-      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    );
-
-    const baseRevenue = filteredCompletedOrders.reduce((s, o) => s + (o.total || 0), 0);
-    const avgDaily = diffDays > 0 ? baseRevenue / diffDays : 0;
-
-    return {
-      avgDaily,
-      nextMonth: avgDaily * 30,
-      growthPct: 0,
-      baseDays: diffDays
-    };
-  }, [filteredCompletedOrders, customStartDate, customEndDate]);
+  const prescriptiveRecommendations = useMemo(
+    () => buildPrescriptiveRecommendations({
+      descriptiveAnalytics,
+      diagnosticAnalytics,
+      forecast,
+    }),
+    [descriptiveAnalytics, diagnosticAnalytics, forecast]
+  );
 
   const makeSubAdmin = async (userId) => {
     if (!isAdmin) {
@@ -749,6 +687,8 @@ const AdminPanel = () => {
     customStartDate,
     dashboardMetricsError: null,
     dashboardMetricsLoading: false,
+    descriptiveAnalytics,
+    diagnosticAnalytics,
     declinedCount,
     filteredCompletedOrders,
     filteredOrders,
@@ -780,6 +720,7 @@ const AdminPanel = () => {
     paymentConfirmedCount,
     processingCount,
     productStats,
+    prescriptiveRecommendations,
     products,
     rangeDays,
     recentOrders,
@@ -793,7 +734,6 @@ const AdminPanel = () => {
     setOrderSearch,
     setOrderStatusFilter,
     setOrders,
-    setProductStats,
     setProducts,
     setRangeDays,
     setRole,
