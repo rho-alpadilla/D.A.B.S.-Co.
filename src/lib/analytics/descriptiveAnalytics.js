@@ -1,3 +1,5 @@
+import { buildAnalyticsDataQualityReport } from './orderDataQuality.js';
+
 const COMPLETED_STATUS = 'completed';
 
 const toNumber = (value) => {
@@ -87,7 +89,6 @@ export const buildDescriptiveAnalytics = ({
   const endDate = parseDateBoundary(endDateValue, true);
   const scopedOrders = orders.filter((order) => isWithinRange(order, startDate, endDate));
   const completedOrders = scopedOrders.filter((order) => order.status === COMPLETED_STATUS);
-  const completedOrdersMissingDate = completedOrders.filter((order) => !toAnalyticsDate(order.createdAt)).length;
   const totalRevenue = completedOrders.reduce((total, order) => total + toNumber(order.total), 0);
   const completedOrderCount = completedOrders.length;
   const averageOrderValue = completedOrderCount ? totalRevenue / completedOrderCount : 0;
@@ -103,8 +104,6 @@ export const buildDescriptiveAnalytics = ({
   }]));
 
   const dailyRevenueMap = new Map();
-  let ordersMissingItems = 0;
-
   completedOrders.forEach((order) => {
     const orderDate = toAnalyticsDate(order.createdAt);
     if (orderDate) {
@@ -116,7 +115,6 @@ export const buildDescriptiveAnalytics = ({
     }
 
     if (!Array.isArray(order.items) || order.items.length === 0) {
-      ordersMissingItems += 1;
       return;
     }
 
@@ -159,6 +157,7 @@ export const buildDescriptiveAnalytics = ({
     .sort((first, second) => second.count - first.count || first.label.localeCompare(second.label));
 
   const dailyRevenue = buildDateSeries(dailyRevenueMap, startDate, endDate);
+  const dataQualityReport = buildAnalyticsDataQualityReport(completedOrders);
 
   return {
     completedOrders,
@@ -173,8 +172,11 @@ export const buildDescriptiveAnalytics = ({
     statusBreakdown,
     dailyRevenue,
     dataQuality: {
-      completedOrdersMissingDate,
-      ordersMissingItems,
+      completedOrdersMissingDate: dataQualityReport.missingDateCount,
+      ordersMissingItems: dataQualityReport.missingItemsCount,
+      ordersMissingTotal: dataQualityReport.missingTotalCount,
+      affectedOrderCount: dataQualityReport.affectedOrderCount,
+      records: dataQualityReport.records,
     },
     dateRange: {
       start: startDateValue,

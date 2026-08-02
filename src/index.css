@@ -384,3 +384,62 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Chat widget: map legacy chat colors to the active D.A.B.S. violet palette. */
+.chat-widget-root [class~="bg-[#118C8C]"] {
+  background-color: #5c2d91 !important;
+}
+
+.chat-widget-root [class*="bg-[#118C8C]/"] {
+  background-color: #ede0f9 !important;
+}
+
+.chat-widget-root [class*="border-[#118C8C]"] {
+  border-color: rgb(92 45 145 / 0.2) !important;
+}
+
+.chat-widget-root [class~="text-[#118C8C]"] {
+  color: #5c2d91 !important;
+}
+
+.chat-widget-root [class*="focus:ring-[#118C8C]"]:focus {
+  --tw-ring-color: rgb(92 45 145 / 0.25) !important;
+}
+
+.chat-widget-root [class~="hover:bg-[#0d7070]"]:hover {
+  background-color: #7b3fa0 !important;
+}
+
+.chat-widget-root [class~="from-gray-50"][class~="to-white"] {
+  background-color: #faf8f1 !important;
+  background-image: none !important;
+}
+
+.chat-widget-root [class~="bg-gray-50"] {
+  background-color: #f4eeff !important;
+}
+
+.chat-widget-root [class~="border-gray-200"] {
+  border-color: rgb(92 45 145 / 0.16) !important;
+}
+
+.chat-widget-root [class~="text-gray-900"],
+.chat-widget-root [class~="text-gray-800"],
+.chat-widget-root [class~="text-gray-700"] {
+  color: #2d0e5a !important;
+}
+
+.chat-widget-root [class~="text-gray-600"],
+.chat-widget-root [class~="text-gray-500"] {
+  color: #6b4a80 !important;
+}
+
+.chat-widget-launcher {
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chat-widget-launcher:hover {
+    transform: translateY(-2px);
+  }
+}

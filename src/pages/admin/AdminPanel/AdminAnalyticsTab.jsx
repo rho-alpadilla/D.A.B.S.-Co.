@@ -10,6 +10,7 @@ import {
   DollarSign,
   Package,
   ShoppingCart,
+  Trash2,
   TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,8 +57,10 @@ const ProductList = ({ products, formatPrice, type }) => {
 
 const AdminAnalyticsTab = ({
     customEndDate,
-    customStartDate,
-    descriptiveAnalytics,
+  customStartDate,
+  handleDeleteDataQualityOrder,
+  handleReviewDataQualityOrder,
+  descriptiveAnalytics,
   diagnosticAnalytics,
   formatPrice,
   forecast,
@@ -67,6 +70,7 @@ const AdminAnalyticsTab = ({
   revenueOverTimeData,
   setCustomEndDate,
   setCustomStartDate,
+  user,
 }) => {
   if (isSubAdmin) {
     return (
@@ -92,7 +96,7 @@ const AdminAnalyticsTab = ({
   } = descriptiveAnalytics;
   const hasRevenueOverTimeData = dailyRevenue.some((entry) => entry.revenue > 0);
   const hasProductRevenueData = topProducts.some((product) => product.revenue > 0);
-  const qualityIssueCount = dataQuality.completedOrdersMissingDate + dataQuality.ordersMissingItems;
+  const qualityIssueCount = dataQuality.affectedOrderCount || 0;
   const scopeLabel = dateRange.hasCustomRange
     ? `${customStartDate || 'the first available date'} to ${customEndDate || 'today'}`
     : 'all recorded completed orders';
@@ -125,11 +129,61 @@ const AdminAnalyticsTab = ({
         <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
           <AlertCircle className="mt-0.5 shrink-0" size={18} />
           <p>
-            {dataQuality.completedOrdersMissingDate > 0 && `${dataQuality.completedOrdersMissingDate} completed order${dataQuality.completedOrdersMissingDate === 1 ? '' : 's'} missing a valid date. `}
-            {dataQuality.ordersMissingItems > 0 && `${dataQuality.ordersMissingItems} completed order${dataQuality.ordersMissingItems === 1 ? '' : 's'} missing item details. `}
+            {dataQuality.affectedOrderCount} completed order{dataQuality.affectedOrderCount === 1 ? '' : 's'} need analytics data review.
+            {dataQuality.completedOrdersMissingDate > 0 && `${dataQuality.completedOrdersMissingDate} missing a valid date. `}
+            {dataQuality.ordersMissingTotal > 0 && `${dataQuality.ordersMissingTotal} missing a valid total. `}
+            {dataQuality.ordersMissingItems > 0 && `${dataQuality.ordersMissingItems} missing usable item details. `}
             Affected records are excluded only where that information is required.
           </p>
         </div>
+      )}
+
+      {qualityIssueCount > 0 && (
+        <section className="rounded-[1.5rem] border border-amber-200 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 className="font-artisan-display text-2xl font-bold text-artisan-text">Data quality queue</h3>
+              <p className="mt-1 text-sm text-artisan-text-muted">Review an affected historical order before relying on its detailed analytics. After review, the main admin can permanently delete that incomplete record if it cannot be corrected.</p>
+            </div>
+            <span className="shrink-0 text-sm font-semibold text-amber-800">Showing up to 10 affected orders</span>
+          </div>
+          <div className="mt-4 max-h-72 divide-y divide-artisan-primary/10 overflow-y-auto rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/20">
+            {dataQuality.records.slice(0, 10).map((record) => (
+              <div key={record.orderId} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-semibold text-artisan-text">#{record.orderId.slice(0, 8)}</p>
+                  <p className="truncate text-sm text-artisan-text-muted">{record.buyerEmail}</p>
+                  {record.reviewedBy === user?.uid && (
+                    <p className="mt-1 text-xs font-semibold text-emerald-700">Reviewed by you — deletion unlocked</p>
+                  )}
+                  {record.reviewedBy && record.reviewedBy !== user?.uid && (
+                    <p className="mt-1 text-xs font-semibold text-artisan-text-muted">Reviewed by another main admin</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  {record.issues.map((issue) => (
+                    <span key={issue.code} className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">{issue.label}</span>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => handleReviewDataQualityOrder(record.orderId)}>
+                    Review order
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteDataQualityOrder(record.orderId)}
+                    disabled={record.reviewedBy !== user?.uid}
+                    className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    title={record.reviewedBy === user?.uid ? 'Permanently delete this reviewed incomplete order' : 'Review this order first to unlock deletion'}
+                  >
+                    <Trash2 size={15} className="mr-1.5" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

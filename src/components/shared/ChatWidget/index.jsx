@@ -16,7 +16,7 @@ import {
   Download,
   Expand,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   collection,
@@ -76,8 +76,12 @@ const ChatWidget = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [shouldAnimatePanel, setShouldAnimatePanel] = useState(true);
+  const chatPanelRef = useRef(null);
+  const chatLauncherRef = useRef(null);
   const [activeTab, setActiveTab] = useState('ask');
   const [role, setRole] = useState(null);
 
@@ -144,6 +148,23 @@ const ChatWidget = () => {
 
     return () => unsub();
   }, [user?.uid]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const closeWhenClickingOutside = (event) => {
+      const clickedPanel = chatPanelRef.current?.contains(event.target);
+      const clickedLauncher = chatLauncherRef.current?.contains(event.target);
+
+      if (clickedPanel || clickedLauncher) return;
+
+      setShouldAnimatePanel(!shouldReduceMotion);
+      setIsOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeWhenClickingOutside);
+    return () => document.removeEventListener('pointerdown', closeWhenClickingOutside);
+  }, [isOpen, shouldReduceMotion]);
 
   useEffect(() => {
     setFaqMessages([FAQ_WELCOME_MESSAGE]);
@@ -1097,10 +1118,10 @@ const ChatWidget = () => {
     isUploading = false,
   }) => {
     const base =
-      'max-w-[86%] rounded-2xl px-4 py-3 shadow-sm border text-sm leading-relaxed';
+      'max-w-[86%] rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-[0_5px_14px_rgba(36,16,31,0.08)]';
     const mineStyle =
-      'bg-[#118C8C] text-white border-[#118C8C]/20 rounded-br-md ml-auto';
-    const otherStyle = 'bg-white text-gray-800 border-gray-200 rounded-bl-md';
+      'ml-auto rounded-br-md border-[#5C2D91]/20 bg-[#5C2D91] text-[#FAF8F1]';
+    const otherStyle = 'rounded-bl-md border-[#5C2D91]/10 bg-white text-[#2D0E5A]';
     const isImage = attachmentType?.startsWith('image/');
 
     return (
@@ -1348,17 +1369,35 @@ const ChatWidget = () => {
     user,
   };
 
+  const panelMotion = shouldReduceMotion || !shouldAnimatePanel
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.14 },
+      }
+    : {
+        initial: { opacity: 0, transform: 'translateY(12px) scale(0.98)' },
+        animate: { opacity: 1, transform: 'translateY(0) scale(1)' },
+        exit: { opacity: 0, transform: 'translateY(8px) scale(0.985)' },
+        transition: { duration: 0.22, ease: [0.23, 1, 0.32, 1] },
+      };
+
+  const setChatOpenFromInteraction = (event, open) => {
+    setShouldAnimatePanel(!shouldReduceMotion && event?.detail !== 0);
+    setIsOpen(open);
+  };
+
   return (
-    <div className="fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[390px]">
+    <div className="chat-widget-root fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[390px]">
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 14 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 14 }}
-            className="flex h-[min(580px,calc(100dvh-7rem))] w-full max-w-[390px] min-h-0 flex-col overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-2xl"
+            {...panelMotion}
+            ref={chatPanelRef}
+            className="flex h-[min(600px,calc(100dvh-7rem))] w-full max-w-[390px] min-h-0 flex-col overflow-hidden rounded-[24px] border border-[#5C2D91]/20 bg-[#FAF8F1] shadow-[0_24px_70px_rgba(45,14,90,0.24)]"
           >
-            <div className="bg-[#118C8C] px-4 py-3.5 flex items-center justify-between text-white shrink-0">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/15 bg-[#5C2D91] px-4 py-3.5 text-[#FAF8F1] shadow-[inset_0_-1px_0_rgba(255,255,255,0.08)]">
               <div className="flex items-center gap-3 min-w-0">
                 {activeTab === 'support' && selectedConvo && (
                   <button
@@ -1367,18 +1406,18 @@ const ChatWidget = () => {
                       setSupportMessages([]);
                       setReplyInput('');
                     }}
-                    className="text-white/95 hover:text-white transition shrink-0"
+                    className="shrink-0 text-white/85 transition-colors duration-150 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F2BB16] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5C2D91]"
                   >
                     <ArrowLeft size={18} />
                   </button>
                 )}
 
-                <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#F2BB16]/45 bg-[#F2BB16]/15 text-[#FCE8A0]">
                   <MessageCircle size={20} />
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="font-bold text-base truncate">
+                  <h3 className="truncate font-artisan-display text-base font-bold tracking-tight">
                     D.A.B.S. Chat {isAdminLike ? '(Admin)' : ''}
                   </h3>
                   <p className="text-[11px] text-white/85 truncate">
@@ -1398,15 +1437,16 @@ const ChatWidget = () => {
               </div>
 
               <button
-                onClick={() => setIsOpen(false)}
-                className="hover:opacity-90 transition shrink-0"
+                onClick={(event) => setChatOpenFromInteraction(event, false)}
+                aria-label="Close chat"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white/85 transition-[background-color,color,transform] duration-150 hover:bg-white/10 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F2BB16] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5C2D91]"
               >
                 <X size={20} />
               </button>
             </div>
 
             <div
-              className={`grid ${isAdminLike ? 'grid-cols-2' : 'grid-cols-2'} gap-1 bg-gray-50 p-1.5 border-b shrink-0`}
+              className="grid grid-cols-2 gap-1 border-b border-[#5C2D91]/10 bg-[#EDE0F9] p-1.5 shrink-0"
             >
               {!isAdminLike && (
                 <button
@@ -1414,10 +1454,11 @@ const ChatWidget = () => {
                     setActiveTab('ask');
                     setAskMode('faq');
                   }}
-                  className={`rounded-2xl px-3 py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 ${
+                  aria-pressed={activeTab === 'ask'}
+                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C2D91]/35 ${
                     activeTab === 'ask'
-                      ? 'bg-white text-[#118C8C] shadow-sm'
-                      : 'text-gray-600 hover:bg-white/80'
+                      ? 'bg-white text-[#5C2D91] shadow-[0_2px_8px_rgba(92,45,145,0.16)]'
+                      : 'text-[#4A2560]/70 hover:bg-white/60 hover:text-[#2D0E5A]'
                   }`}
                 >
                   Ask Questions
@@ -1426,10 +1467,11 @@ const ChatWidget = () => {
 
               <button
                 onClick={() => setActiveTab('support')}
-                className={`rounded-2xl px-3 py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 ${
+                aria-pressed={activeTab === 'support'}
+                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C2D91]/35 ${
                   activeTab === 'support'
-                    ? 'bg-white text-[#118C8C] shadow-sm'
-                    : 'text-gray-600 hover:bg-white/80'
+                    ? 'bg-white text-[#5C2D91] shadow-[0_2px_8px_rgba(92,45,145,0.16)]'
+                    : 'text-[#4A2560]/70 hover:bg-white/60 hover:text-[#2D0E5A]'
                 }`}
               >
                 <Headphones size={16} />
@@ -1439,10 +1481,11 @@ const ChatWidget = () => {
               {isAdminLike && (
                 <button
                   onClick={() => setActiveTab('admin-ai')}
-                  className={`rounded-2xl px-3 py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 ${
+                  aria-pressed={activeTab === 'admin-ai'}
+                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C2D91]/35 ${
                     activeTab === 'admin-ai'
-                      ? 'bg-white text-[#118C8C] shadow-sm'
-                      : 'text-gray-600 hover:bg-white/80'
+                      ? 'bg-white text-[#5C2D91] shadow-[0_2px_8px_rgba(92,45,145,0.16)]'
+                      : 'text-[#4A2560]/70 hover:bg-white/60 hover:text-[#2D0E5A]'
                   }`}
                 >
                   <ShieldCheck size={16} />
@@ -1459,11 +1502,12 @@ const ChatWidget = () => {
       </AnimatePresence>
 
       <motion.button
-        whileHover={{ scale: 1.06 }}
-        whileTap={{ scale: 0.94 }}
-        onClick={() => setIsOpen(!isOpen)}
+        ref={chatLauncherRef}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+        onClick={(event) => setChatOpenFromInteraction(event, !isOpen)}
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
-        className="ml-auto flex min-h-12 min-w-12 items-center justify-center rounded-full bg-[#F2BB16] p-4 text-gray-900 shadow-2xl hover:shadow-xl sm:min-h-14 sm:min-w-14 sm:p-5"
+        aria-expanded={isOpen}
+        className="chat-widget-launcher ml-auto flex min-h-12 min-w-12 items-center justify-center rounded-full border border-[#FCE8A0]/90 bg-[#F2BB16] p-4 text-[#2D0E5A] shadow-[0_12px_28px_rgba(45,14,90,0.28)] transition-[background-color,box-shadow,transform] duration-150 hover:bg-[#FFD55A] hover:shadow-[0_16px_34px_rgba(45,14,90,0.34)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5C2D91] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAF8F1] sm:min-h-14 sm:min-w-14 sm:p-5"
       >
         {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
       </motion.button>

@@ -37,6 +37,27 @@ service cloud.firestore {
         request.resource.data.status in ['pending', 'paid'];
     }
 
+    function hasAnalyticsOrderFields(data) {
+      return data.createdAt is timestamp &&
+        data.total is number &&
+        data.total >= 0 &&
+        data.items is list &&
+        data.items.size() > 0;
+    }
+
+    function completedTransitionHasAnalyticsFields() {
+      return !(resource.data.status != 'completed' &&
+        request.resource.data.status == 'completed') ||
+        hasAnalyticsOrderFields(request.resource.data);
+    }
+
+    function hasCurrentAdminDataQualityReview() {
+      return isAdmin() &&
+        ('dataQualityReview' in resource.data) &&
+        resource.data.dataQualityReview.reviewedBy == request.auth.uid &&
+        resource.data.dataQualityReview.reviewedAt != null;
+    }
+
     function buyerUpdatesPaymentReference() {
       return isActiveAccount() && ownsOrder() &&
         resource.data.status == 'paid' &&
@@ -140,7 +161,8 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      allow create: if isActiveAccount() && createsOwnOrder();
+      allow create: if isActiveAccount() && createsOwnOrder() &&
+        hasAnalyticsOrderFields(request.resource.data);
 
       allow read: if isSignedIn() && (
         (isActiveAccount() && resource.data.buyerEmail == request.auth.token.email) ||
@@ -148,7 +170,7 @@ service cloud.firestore {
         isSubAdmin()
       );
 
-      allow update: if isAdmin() ||
+      allow update: if (isAdmin() && completedTransitionHasAnalyticsFields()) ||
         buyerUpdatesPaymentReference() ||
         buyerRequestsCancellation() ||
         (
@@ -163,7 +185,12 @@ service cloud.firestore {
           ]
         );
 
-      allow delete: if isAdmin();
+      // Data-quality deletions require a recorded main-admin review. Ordinary
+      // admin deletions retain the existing access behavior.
+      allow delete: if isAdmin() && (
+        hasAnalyticsOrderFields(resource.data) ||
+        hasCurrentAdminDataQualityReview()
+      );
     }
 
     match /messages/{messageId} {

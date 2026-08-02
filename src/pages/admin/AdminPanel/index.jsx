@@ -13,6 +13,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  deleteDoc,
   getDoc,
   increment,
   serverTimestamp
@@ -77,6 +78,7 @@ import {
   createProductRevenueChartData,
   createRevenueOverTimeChartData,
 } from '@/lib/analytics/descriptiveAnalytics';
+import { validateOrderForAnalytics } from '@/lib/analytics/orderDataQuality';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
@@ -267,6 +269,79 @@ const AdminPanel = () => {
     }
   };
 
+  const handleReviewDataQualityOrder = async (orderId) => {
+    if (!isAdmin) {
+      alert("Permission blocked. Only the main admin can review data-quality records.");
+      return;
+    }
+
+    const order = orders.find((existingOrder) => existingOrder.id === orderId);
+    if (!order) {
+      alert("This order is no longer available. Refresh the analytics page and try again.");
+      return;
+    }
+
+    const validation = validateOrderForAnalytics(order);
+    if (validation.isValid) {
+      alert("This order no longer has a data-quality issue.");
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "orders", order.id), {
+        "dataQualityReview.reviewedBy": user.uid,
+        "dataQualityReview.reviewedAt": serverTimestamp(),
+        updatedAt: new Date(),
+      });
+
+      setSelectedOrder(order);
+      alert("Data-quality review recorded. Check the order details, then return to the analytics queue if deletion is still required.");
+    } catch (error) {
+      console.error("Failed to record data-quality review:", error);
+      alert("Unable to record the review. Please try again.");
+    }
+  };
+
+  const handleDeleteDataQualityOrder = async (orderId) => {
+    if (!isAdmin) {
+      alert("Permission blocked. Only the main admin can delete data-quality records.");
+      return;
+    }
+
+    const order = orders.find((existingOrder) => existingOrder.id === orderId);
+    if (!order) {
+      alert("This order is no longer available. Refresh the analytics page and try again.");
+      return;
+    }
+
+    const validation = validateOrderForAnalytics(order);
+    if (validation.isValid) {
+      alert("This order no longer belongs in the data-quality queue and cannot be deleted from this screen.");
+      return;
+    }
+
+    if (order.dataQualityReview?.reviewedBy !== user.uid) {
+      alert("Review this order first. Only the main admin who recorded the latest data-quality review can delete it.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Permanently delete order #${order.id.slice(0, 8)}? This cannot be undone. Because this historical order has incomplete data, inventory is not adjusted automatically; verify any stock correction separately before continuing.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, "orders", order.id));
+      if (selectedOrder?.id === order.id) {
+        setSelectedOrder(null);
+      }
+      alert("The incomplete order was permanently deleted.");
+    } catch (error) {
+      console.error("Failed to delete data-quality order:", error);
+      alert("Unable to delete this order. Confirm that you reviewed it first and try again.");
+    }
+  };
+
   const updateOrderStatus = async (orderOrId, newStatus) => {
     const order = typeof orderOrId === 'string'
       ? orders.find((existingOrder) => existingOrder.id === orderOrId)
@@ -282,6 +357,12 @@ const AdminPanel = () => {
 
     try {
       if (newStatus === "completed" && currentStatus !== "completed") {
+        const analyticsValidation = validateOrderForAnalytics(order);
+        if (!analyticsValidation.isValid) {
+          alert(`Cannot mark this order as completed until its analytics data is complete: ${analyticsValidation.issues.map((issue) => issue.label).join(', ')}.`);
+          return;
+        }
+
         const promises = (order.items || []).map(async (item) => {
           const productRef = doc(db, "pricelists", item.id);
           const productSnap = await getDoc(productRef);
@@ -657,6 +738,9 @@ const AdminPanel = () => {
 
   const selectedOrderLive =
     selectedOrder ? orders.find((order) => order.id === selectedOrder.id) || selectedOrder : null;
+  const selectedOrderDataQualityIssues = selectedOrderLive
+    ? validateOrderForAnalytics(selectedOrderLive).issues
+    : [];
 
   if (!user || (role !== "admin" && role !== "sub-admin")) {
     return (
@@ -704,6 +788,8 @@ const AdminPanel = () => {
     getStatusBadge,
     handleCancellation,
     handleDeclineOrder,
+    handleDeleteDataQualityOrder,
+    handleReviewDataQualityOrder,
     handleReviewOrder,
     isAdmin,
     isSubAdmin,
@@ -831,7 +917,7 @@ const AdminPanel = () => {
         {selectedOrderLive && (
           <>
             <motion.div
-              className="fixed inset-0 bg-black/40 z-40"
+              className="fixed inset-0 z-[55] bg-black/40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -839,7 +925,7 @@ const AdminPanel = () => {
             />
 
             <motion.div
-              className="fixed right-0 top-0 z-50 flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl"
+              className="fixed right-0 top-0 z-[60] flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -870,6 +956,22 @@ const AdminPanel = () => {
               </div>
 
               <div className="flex-1 space-y-6 overflow-y-auto bg-artisan-primary-wash/35 p-4 sm:p-6">
+                {selectedOrderDataQualityIssues.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="mt-0.5 shrink-0 text-amber-700" size={20} />
+                      <div>
+                        <p className="font-semibold">Data-quality review</p>
+                        <p className="mt-1 text-sm leading-6">
+                          This order has incomplete analytics data: {selectedOrderDataQualityIssues.map((issue) => issue.label).join(', ')}.
+                        </p>
+                        {selectedOrderLive.dataQualityReview?.reviewedBy === user.uid && (
+                          <p className="mt-2 text-sm font-semibold text-emerald-800">Your review is recorded. Return to the analytics queue to delete this record if correction is not possible.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-artisan-primary/10 bg-white p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Status</p>
