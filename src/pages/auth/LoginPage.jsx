@@ -2,10 +2,9 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
-import { auth, db } from '@/lib/firebase';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
@@ -14,92 +13,34 @@ import { assertAccountCanSignIn, getAuthenticationErrorMessage } from '@/lib/aut
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { refreshCart } = useCart();
+  const location = useLocation();
+  const { mergeGuestCartIntoUserCart } = useCart();
 
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const LOCAL_CART_KEY = 'dabs_guest_cart';
+  const checkoutIntent = location.state?.checkoutIntent;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const getGuestCart = () => {
-    try {
-      return JSON.parse(localStorage.getItem(LOCAL_CART_KEY) || '[]');
-    } catch (error) {
-      console.error('Failed to read guest cart:', error);
-      return [];
-    }
-  };
-
-  const getFirestoreCart = async (uid) => {
-    const cartRef = collection(db, 'users', uid, 'cart');
-    const snap = await getDocs(cartRef);
-
-    return snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }));
-  };
-
-  const clearFirestoreCart = async (uid) => {
-    const cartRef = collection(db, 'users', uid, 'cart');
-    const snap = await getDocs(cartRef);
-    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
-  };
-
-  const mergeAndSaveCart = async (uid, guestItems) => {
-    const existingItems = await getFirestoreCart(uid);
-    const mergedMap = new Map();
-
-    existingItems.forEach((item) => {
-      mergedMap.set(item.id, { ...item });
-    });
-
-    guestItems.forEach((item) => {
-      if (mergedMap.has(item.id)) {
-        const existing = mergedMap.get(item.id);
-        mergedMap.set(item.id, {
-          ...existing,
-          quantity: (existing.quantity || 0) + (item.quantity || 0),
-        });
-      } else {
-        mergedMap.set(item.id, { ...item });
-      }
-    });
-
-    const mergedItems = Array.from(mergedMap.values());
-
-    await clearFirestoreCart(uid);
-
-    if (mergedItems.length === 0) return;
-
-    await Promise.all(
-      mergedItems.map((item) =>
-        setDoc(doc(db, 'users', uid, 'cart', item.id), item)
-      )
-    );
-  };
-
   const completeLogin = async (loggedInUser, { redirectToProfile = false } = {}) => {
     await assertAccountCanSignIn(loggedInUser);
-    const guestCart = getGuestCart();
-
-    if (guestCart.length > 0 && loggedInUser?.uid) {
-      await mergeAndSaveCart(loggedInUser.uid, guestCart);
-      localStorage.removeItem(LOCAL_CART_KEY);
-    }
-
-    await refreshCart(loggedInUser.uid);
+    await mergeGuestCartIntoUserCart(loggedInUser.uid);
 
     const isAdmin = loggedInUser.email?.toLowerCase().includes('admin');
+    const shouldContinueCheckout = !redirectToProfile && !isAdmin && checkoutIntent?.destination === '/checkout';
     navigate(
-      redirectToProfile ? '/profile' : isAdmin ? '/admin-panel' : '/gallery',
-      { replace: true, state: redirectToProfile ? { onboarding: true } : undefined }
+      shouldContinueCheckout ? '/checkout' : redirectToProfile ? '/profile' : isAdmin ? '/admin-panel' : '/gallery',
+      {
+        replace: true,
+        state: shouldContinueCheckout
+          ? { selectedItemIds: checkoutIntent.selectedItemIds }
+          : redirectToProfile ? { onboarding: true } : undefined,
+      }
     );
   };
 
@@ -237,7 +178,7 @@ const LoginPage = () => {
 
               <div className="mt-6 text-center text-sm text-artisan-text-muted">
                 Don&apos;t have an account?{' '}
-                <Link to="/register" className="text-artisan-primary font-semibold hover:underline">
+                <Link to="/register" state={location.state} className="text-artisan-primary font-semibold hover:underline">
                   Register
                 </Link>
               </div>

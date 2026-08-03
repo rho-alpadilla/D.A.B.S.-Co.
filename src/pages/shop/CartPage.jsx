@@ -2,19 +2,28 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Trash2, ArrowRight, ShoppingBag, Square, CheckSquare } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useToast } from '@/components/ui/use-toast';
 import PurchasePageHero from '@/components/shop/PurchasePageHero';
 import { getAvailableStock } from '@/lib/stock';
+import { useAuth } from '@/lib/firebase';
+import { getProductImageUrl } from '@/lib/catalog/productImages';
 
 const CartPage = () => {
-  const { cartItems, removeFromCart, updateQuantity } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, clearCart } = useCart();
   const { formatPrice } = useCurrency();
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
 
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(() => (
+    Array.isArray(location.state?.selectedItemIds) ? location.state.selectedItemIds : []
+  ));
+  const [isClearingCart, setIsClearingCart] = useState(false);
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -51,8 +60,42 @@ const CartPage = () => {
   const handleProceedToCheckout = () => {
     if (selectedIds.length === 0) return;
 
-    const selectedItems = cartItems.filter((item) => selectedIds.includes(item.id));
-    navigate('/checkout', { state: { selectedItems } });
+    if (!user) {
+      navigate('/login', {
+        state: {
+          checkoutIntent: {
+            destination: '/checkout',
+            selectedItemIds: selectedIds,
+          },
+        },
+      });
+      return;
+    }
+
+    navigate('/checkout', { state: { selectedItemIds: selectedIds } });
+  };
+
+  const handleClearCart = async () => {
+    if (!window.confirm(`Remove all ${cartItems.length} item${cartItems.length === 1 ? '' : 's'} from your cart?`)) {
+      return;
+    }
+
+    setIsClearingCart(true);
+    try {
+      const wasCleared = await clearCart();
+      if (!wasCleared) {
+        toast({
+          title: 'Cart could not be cleared',
+          description: 'Please refresh the page and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setSelectedIds([]);
+      toast({ title: 'Cart cleared' });
+    } finally {
+      setIsClearingCart(false);
+    }
   };
 
   return (
@@ -104,9 +147,13 @@ const CartPage = () => {
           ) : (
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.55fr)]">
               <div className="space-y-4">
-                <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/45 bg-white/95 px-4 py-3 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md">
+                <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/45 bg-white/95 px-4 py-3 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
-                    <button onClick={toggleSelectAll}>
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      aria-label={allSelected ? 'Deselect all cart items' : 'Select all cart items'}
+                    >
                       {allSelected ? (
                         <CheckSquare size={20} className="text-[#5C2D91]" />
                       ) : (
@@ -118,9 +165,22 @@ const CartPage = () => {
                     </span>
                   </div>
 
-                  <span className="text-sm text-gray-500">
-                    {selectedIds.length} of {cartItems.length} selected
-                  </span>
+                  <div className="flex items-center justify-between gap-3 sm:justify-end">
+                    <span className="text-sm text-gray-500">
+                      {selectedIds.length} of {cartItems.length} selected
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearCart}
+                      disabled={isClearingCart}
+                      className="h-9 shrink-0 px-2 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    >
+                      <Trash2 size={15} className="mr-1.5" />
+                      {isClearingCart ? 'Removing…' : 'Clear cart'}
+                    </Button>
+                  </div>
                 </div>
 
                 {cartItems.map((item) => {
@@ -148,9 +208,9 @@ const CartPage = () => {
                       </button>
 
                       <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-[#F5EFF8]">
-                        {item.imageUrl ? (
+                        {getProductImageUrl(item) ? (
                           <img
-                            src={item.imageUrl}
+                            src={getProductImageUrl(item)}
                             alt={item.name}
                             className="w-full h-full object-cover"
                           />
@@ -215,7 +275,7 @@ const CartPage = () => {
                 })}
               </div>
 
-              <aside className="h-fit rounded-[2rem] border border-white/25 bg-[#2D0E5A]/95 p-6 text-white shadow-2xl shadow-[#2D0E5A]/35 backdrop-blur-md lg:sticky lg:top-24">
+              <aside className="relative z-[51] h-fit rounded-[2rem] border border-white/25 bg-[#2D0E5A]/95 p-6 text-white shadow-2xl shadow-[#2D0E5A]/35 backdrop-blur-md lg:sticky lg:top-24">
                 <h2 className="mb-4 font-nunito text-3xl font-bold text-white">Selected Summary</h2>
 
                 <div className="mb-6 space-y-3 border-b border-white/20 pb-6">
@@ -237,7 +297,7 @@ const CartPage = () => {
                 <Button
                   onClick={handleProceedToCheckout}
                   className="h-14 w-full rounded-2xl bg-[#F0E6F7] px-5 py-0 font-bold text-[#4A2578] hover:bg-white"
-                  disabled={selectedIds.length === 0}
+                  disabled={selectedIds.length === 0 || authLoading}
                 >
                   Proceed to Checkout
                   <ArrowRight size={18} className="ml-2" />

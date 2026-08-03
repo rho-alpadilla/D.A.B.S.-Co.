@@ -1,7 +1,7 @@
 // src/pages/CheckoutPage.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   CheckCircle,
@@ -34,6 +34,7 @@ import { useAuth } from '@/lib/firebase';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
 import { getAvailableStock } from '@/lib/stock';
+import { getProductImageUrl } from '@/lib/catalog/productImages';
 // ALL COUNTRIES (copied from ProfilePage)
 const ALL_COUNTRIES = [
   { name: 'Philippines', code: 'PH', flag: 'https://flagcdn.com/ph.svg', callingCode: '+63' },
@@ -60,6 +61,7 @@ const CHECKOUT_INPUT_CLASS =
 const CheckoutPage = () => {
   const {
     cartItems,
+    cartLoading,
     updateQuantity,
     removeFromCart,
     clearCart,
@@ -69,11 +71,18 @@ const CheckoutPage = () => {
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
   const pageEntryInitial = shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(12px)' };
   const pageEntryAnimate = shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: 'translateY(0)' };
 
-  const [checkedIds, setCheckedIds] = useState(() => cartItems.map((item) => item.id));
+  const selectedItemIds = Array.isArray(location.state?.selectedItemIds)
+    ? location.state.selectedItemIds
+    : null;
+  const useCheckoutSelectionRef = useRef(Boolean(selectedItemIds?.length));
+  const [checkedIds, setCheckedIds] = useState(() => (
+    selectedItemIds?.filter((id) => cartItems.some((item) => item.id === id)) || cartItems.map((item) => item.id)
+  ));
   const [deliveryMethod, setDeliveryMethod] = useState('courier');
   const [paymentMethod, setPaymentMethod] = useState('bank');
 
@@ -103,6 +112,25 @@ const CheckoutPage = () => {
   const [orderId, setOrderId] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showPayPal, setShowPayPal] = useState(false);
+
+  useEffect(() => {
+    setCheckedIds((previousIds) => {
+      const validPreviousIds = previousIds.filter((id) => cartItems.some((item) => item.id === id));
+
+      if (useCheckoutSelectionRef.current) {
+        const selectedIdsPresentInCart = selectedItemIds.filter((id) => cartItems.some((item) => item.id === id));
+        if (selectedIdsPresentInCart.length > 0 || (cartItems.length > 0 && !cartLoading)) {
+          useCheckoutSelectionRef.current = false;
+          return selectedIdsPresentInCart;
+        }
+        return validPreviousIds;
+      }
+
+      return validPreviousIds.length > 0
+        ? validPreviousIds
+        : cartItems.map((item) => item.id);
+    });
+  }, [cartItems, cartLoading, selectedItemIds]);
 
   const bankDetails = {
     bankName: 'BDO Unibank',
@@ -673,8 +701,8 @@ const CheckoutPage = () => {
                       return (
                       <div key={item.id} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-4 border-b border-artisan-primary/10 pb-5 last:border-0 sm:flex">
                         <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-[#E7DED3]/45">
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                          {getProductImageUrl(item) ? (
+                            <img src={getProductImageUrl(item)} alt={item.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <ShoppingBag size={24} className="text-gray-400" />
