@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import {
   AlertCircle,
@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { downloadAnalyticsWordReport } from '@/lib/exports/adminExports';
 
 const EmptyChartState = ({ icon: Icon, title, detail }) => (
   <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-artisan-primary/20 bg-artisan-primary-wash/25 px-6 text-center">
@@ -64,6 +65,7 @@ const AdminAnalyticsTab = ({
   diagnosticAnalytics,
   formatPrice,
   forecast,
+  isAdmin,
   isSubAdmin,
   prescriptiveRecommendations,
   revenueChartData,
@@ -72,11 +74,39 @@ const AdminAnalyticsTab = ({
   setCustomStartDate,
   user,
 }) => {
-  if (isSubAdmin) {
+  const [exportMessage, setExportMessage] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleAnalyticsExport = async () => {
+    if (!isAdmin) {
+      setExportMessage('Only the main admin can export analytics.');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      await downloadAnalyticsWordReport({
+        customEndDate,
+        customStartDate,
+        descriptiveAnalytics,
+        diagnosticAnalytics,
+        forecast,
+        prescriptiveRecommendations,
+      });
+      setExportMessage('Downloaded a local Word analytics report. Shipping addresses and customer contact details are excluded.');
+    } catch (error) {
+      console.error('Unable to export analytics', error);
+      setExportMessage('The report could not be created. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  if (isSubAdmin || !isAdmin) {
     return (
       <div className="rounded-[2rem] border border-red-100 bg-white/95 p-10 text-center shadow-xl shadow-[#2D0E5A]/10">
         <AlertCircle size={56} className="mx-auto mb-4 text-red-500" />
-        <h2 className="text-2xl font-bold text-red-600">Permission Blocked</h2>
+        <h2 className="font-nunito text-2xl font-bold text-red-600">Permission Blocked</h2>
         <p className="mt-3 text-base text-artisan-text-muted">Contact the main admin for analytics.</p>
       </div>
     );
@@ -106,11 +136,11 @@ const AdminAnalyticsTab = ({
       <section className="flex flex-col gap-4 rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Descriptive analytics</p>
-          <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">What happened</h2>
+          <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">What happened</h2>
           <p className="mt-1 text-sm text-artisan-text-muted">Showing {scopeLabel}.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-end">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end">
           <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">
             From
             <input type="date" value={customStartDate} onChange={(event) => setCustomStartDate(event.target.value)} max={customEndDate || undefined} className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm normal-case tracking-normal text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15" />
@@ -122,7 +152,11 @@ const AdminAnalyticsTab = ({
           <Button type="button" variant="outline" onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }} className="h-11 w-full sm:w-auto" disabled={!customStartDate && !customEndDate}>
             Clear
           </Button>
+          <Button type="button" onClick={handleAnalyticsExport} className="h-11 w-full sm:w-auto" disabled={isExporting}>
+            {isExporting ? 'Preparing report…' : 'Download Word'}
+          </Button>
         </div>
+        <p className="text-sm text-artisan-text-muted" role="status" aria-live="polite">{exportMessage}</p>
       </section>
 
       {qualityIssueCount > 0 && (
@@ -142,8 +176,8 @@ const AdminAnalyticsTab = ({
         <section className="rounded-[1.5rem] border border-amber-200 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h3 className="font-artisan-display text-2xl font-bold text-artisan-text">Data quality queue</h3>
-              <p className="mt-1 text-sm text-artisan-text-muted">Review an affected historical order before relying on its detailed analytics. After review, the main admin can permanently delete that incomplete record if it cannot be corrected.</p>
+              <h3 className="font-nunito text-2xl font-bold text-artisan-text">Data quality queue</h3>
+              <p className="mt-1 text-sm text-artisan-text-muted">Review an affected historical order before relying on its detailed analytics. Permanent deletion is only for reviewed incomplete records and requires a reason plus typed confirmation.</p>
             </div>
             <span className="shrink-0 text-sm font-semibold text-amber-800">Showing up to 10 affected orders</span>
           </div>
@@ -154,7 +188,7 @@ const AdminAnalyticsTab = ({
                   <p className="font-semibold text-artisan-text">#{record.orderId.slice(0, 8)}</p>
                   <p className="truncate text-sm text-artisan-text-muted">{record.buyerEmail}</p>
                   {record.reviewedBy === user?.uid && (
-                    <p className="mt-1 text-xs font-semibold text-emerald-700">Reviewed by you — deletion unlocked</p>
+                    <p className="mt-1 text-xs font-semibold text-emerald-700">Reviewed by you — deletion confirmation available</p>
                   )}
                   {record.reviewedBy && record.reviewedBy !== user?.uid && (
                     <p className="mt-1 text-xs font-semibold text-artisan-text-muted">Reviewed by another main admin</p>
@@ -177,7 +211,7 @@ const AdminAnalyticsTab = ({
                     title={record.reviewedBy === user?.uid ? 'Permanently delete this reviewed incomplete order' : 'Review this order first to unlock deletion'}
                   >
                     <Trash2 size={15} className="mr-1.5" />
-                    Delete
+                    Delete record
                   </Button>
                 </div>
               </div>
@@ -197,7 +231,7 @@ const AdminAnalyticsTab = ({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Diagnostic analytics</p>
-            <h3 className="mt-1 flex items-center gap-2 font-artisan-display text-2xl font-bold text-artisan-text"><BarChart3 className="text-artisan-primary" size={24} /> Why might it have changed?</h3>
+            <h3 className="mt-1 flex items-center gap-2 font-nunito text-2xl font-bold text-artisan-text"><BarChart3 className="text-artisan-primary" size={24} /> Why might it have changed?</h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-artisan-text-muted">This compares equal-length periods using recorded orders. It identifies possible contributors, not proof of cause.</p>
           </div>
           {diagnosticAnalytics.isAvailable && (
@@ -222,7 +256,7 @@ const AdminAnalyticsTab = ({
             </div>
 
             <div className="mt-5 rounded-2xl border border-artisan-primary/10 bg-artisan-primary-wash/25 p-4">
-              <h4 className="font-semibold text-artisan-text">Possible contributors</h4>
+              <h4 className="font-nunito font-semibold text-artisan-text">Possible contributors</h4>
               <p className="mt-1 text-sm text-artisan-text-muted">Evidence from the compared periods only. Review product availability, campaigns, and customer feedback separately before making a decision.</p>
               {diagnosticAnalytics.contributors.length ? (
                 <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -245,7 +279,7 @@ const AdminAnalyticsTab = ({
       <section className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h3 className="font-artisan-display text-2xl font-bold text-artisan-text">Revenue over time</h3>
+            <h3 className="font-nunito text-2xl font-bold text-artisan-text">Revenue over time</h3>
             <p className="mt-1 text-sm text-artisan-text-muted">Completed-order revenue per calendar day.</p>
           </div>
         </div>
@@ -260,7 +294,7 @@ const AdminAnalyticsTab = ({
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
-          <h3 className="flex items-center gap-2 font-artisan-display text-2xl font-bold text-artisan-text"><BarChart3 className="text-artisan-primary" size={24} /> Order status mix</h3>
+          <h3 className="flex items-center gap-2 font-nunito text-2xl font-bold text-artisan-text"><BarChart3 className="text-artisan-primary" size={24} /> Order status mix</h3>
           <p className="mt-1 text-sm text-artisan-text-muted">All order statuses in the selected date scope.</p>
           <div className="mt-5 max-h-[18.75rem] space-y-3 overflow-y-auto pr-1">
             {statusBreakdown.length ? statusBreakdown.map((status) => (
@@ -273,7 +307,7 @@ const AdminAnalyticsTab = ({
         </div>
 
         <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
-          <h3 className="flex items-center gap-2 font-artisan-display text-2xl font-bold text-artisan-text"><Package className="text-artisan-primary" size={24} /> Report scope</h3>
+          <h3 className="flex items-center gap-2 font-nunito text-2xl font-bold text-artisan-text"><Package className="text-artisan-primary" size={24} /> Report scope</h3>
           <dl className="mt-5 space-y-4 text-sm">
             <ScopeRow label="Completed orders" value={completedOrderCount} />
             <ScopeRow label="Products represented" value={descriptiveAnalytics.productStats.length} />
@@ -285,17 +319,17 @@ const AdminAnalyticsTab = ({
 
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
-          <h3 className="mb-4 flex items-center gap-2 font-artisan-display text-2xl font-bold text-artisan-text"><Award className="text-amber-500" size={24} /> Top sellers</h3>
+          <h3 className="mb-4 flex items-center gap-2 font-nunito text-2xl font-bold text-artisan-text"><Award className="text-amber-500" size={24} /> Top sellers</h3>
           <ProductList products={topProducts} formatPrice={formatPrice} type="top" />
         </div>
         <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
-          <h3 className="mb-4 font-artisan-display text-2xl font-bold text-artisan-text">Least sold products</h3>
+          <h3 className="mb-4 font-nunito text-2xl font-bold text-artisan-text">Least sold products</h3>
           <ProductList products={leastSoldProducts} formatPrice={formatPrice} type="least" />
         </div>
       </section>
 
       <section className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
-        <h3 className="mb-4 font-artisan-display text-2xl font-bold text-artisan-text">Revenue by product</h3>
+        <h3 className="mb-4 font-nunito text-2xl font-bold text-artisan-text">Revenue by product</h3>
         <div className="h-56 sm:h-64">
           {hasProductRevenueData ? (
             <Bar data={revenueChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }} />
@@ -309,7 +343,7 @@ const AdminAnalyticsTab = ({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Predictive and prescriptive analytics</p>
-            <h3 className="mt-1 flex items-center gap-2 font-artisan-display text-2xl font-bold"><TrendingUp className="text-artisan-primary" size={24} /> What might happen next?</h3>
+            <h3 className="mt-1 flex items-center gap-2 font-nunito text-2xl font-bold"><TrendingUp className="text-artisan-primary" size={24} /> What might happen next?</h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-artisan-text-muted">A no-cost, on-device projection based on completed-order revenue only. It is a planning estimate, not a guarantee or an automated decision.</p>
           </div>
           {forecast.isAvailable && (
@@ -347,7 +381,7 @@ const AdminAnalyticsTab = ({
         )}
 
         <div className="mt-5 border-t border-artisan-primary/15 pt-5">
-          <h4 className="font-artisan-display text-xl font-bold">What should we do next?</h4>
+          <h4 className="font-nunito text-xl font-bold">What should we do next?</h4>
           <p className="mt-1 text-sm text-artisan-text-muted">Suggested actions require admin judgement; nothing is automatically changed by this panel.</p>
           <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
             {prescriptiveRecommendations.map((recommendation) => (

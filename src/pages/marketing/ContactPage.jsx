@@ -91,7 +91,7 @@ const ContactPage = () => {
       });
 
       setIsSuccess(true);
-      toast({ title: 'Message Sent!', description: 'Your message was sent to support successfully.' });
+      toast({ title: 'Message sent', description: 'Your message is now in the support inbox.' });
     } catch (err) {
       console.error('Contact page send error:', err);
       toast({ title: 'Failed to Send', description: 'Please try again.', variant: 'destructive' });
@@ -118,43 +118,32 @@ const ContactPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-            className="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 shadow-2xl shadow-[#2D0E5A]/30 backdrop-blur-md"
+            className="mx-auto max-w-5xl"
           >
             {/* ── Form header ── */}
             <div
-              className="relative grid gap-8 overflow-hidden p-7 text-white sm:p-10 md:grid-cols-[1.1fr_0.9fr] md:items-end"
-              style={{ background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)' }}
+              className="grid gap-8 border-l-4 border-[#B78B4A] bg-artisan-primary p-7 text-white sm:p-10 md:grid-cols-[1.1fr_0.9fr] md:items-end"
             >
-              {/* Decorative blobs */}
-              <div className="absolute inset-0 opacity-15 pointer-events-none">
-                <div className="absolute -top-10 right-0 w-40 h-40 bg-white rounded-full blur-3xl" />
-                <div className="absolute -bottom-10 left-0 w-40 h-40 bg-artisan-primary-pale rounded-full blur-3xl" />
-              </div>
-
-              <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-xs font-semibold uppercase tracking-wider mb-4">
-                  Contact D.A.B.S. Co.
-                </div>
+              <div>
                 <h1
                   className="font-artisan-display text-4xl font-bold leading-[0.95] sm:text-5xl"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
                 >
-                  Let&apos;s start a conversation.
+                  Contact us
                 </h1>
               </div>
-              <p className="relative z-10 border-white/30 text-base leading-7 text-white/90 md:border-l md:pl-8">
-                Have a question or want to discuss a custom commission? Send the details and our support team can review your request.
+              <p className="border-white/30 text-base leading-7 text-white/90 md:border-l md:pl-8">
+                Share your question or custom-order details and our support team will review it.
                 </p>
             </div>
 
             {/* ── Form body ── */}
-            <div className="p-6 sm:p-10">
+            <div className="border-x border-b border-[#E7DED3] bg-[#FAF8F1]/95 p-6 sm:p-10">
               {isSuccess ? (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-green-100 text-green-600">
                     <CheckCircle size={32} />
                   </div>
-                  <h2 className="text-2xl font-bold text-artisan-text mb-2">Message received</h2>
+                  <h2 className="font-nunito text-2xl font-bold text-artisan-text mb-2">Message received</h2>
                   <p className="text-artisan-text-muted mb-6">
                     Thank you for reaching out. Your message is now in the admin support inbox.
                   </p>
@@ -170,7 +159,7 @@ const ContactPage = () => {
                       });
                     }}
                     variant="outline"
-                    className="rounded-2xl"
+                    className="rounded-lg"
                   >
                     Send Another Message
                   </Button>
@@ -178,7 +167,7 @@ const ContactPage = () => {
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {customOrderProduct && (
-                    <section className="rounded-2xl border border-[#D9C9E3] bg-[#F7F0FA] px-5 py-4" aria-label="Custom order product">
+                    <section className="border-l-2 border-[#88538C] bg-[#F7F0FA] px-5 py-4" aria-label="Custom order product">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7B3FA0]">Custom order for</p>
                       <p className="mt-1 font-artisan-display text-2xl font-bold text-[#342342]">{customOrderProduct.productName}</p>
                       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#51445D]">
@@ -234,8 +223,7 @@ const ContactPage = () => {
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full rounded-xl py-6 text-base font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)', boxShadow: '0 8px 24px rgba(92,45,145,0.28)' }}
+                    className="w-full bg-artisan-primary py-6 text-base font-bold text-white shadow-[0_8px_24px_rgba(92,45,145,0.2)] hover:bg-[#4A247B]"
                   >
                     {isSubmitting
                       ? 'Sending...'

@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Star, Palette, Heart } from 'lucide-react';
+import { ArrowRight, Star, Palette } from 'lucide-react';
 
 const HighlightsPage = () => {
   const { user } = useAuth();
@@ -48,16 +48,13 @@ const HighlightsPage = () => {
     );
   };
 
-  const EmptyStateCard = ({ title, text }) => (
-    <div className="col-span-full">
-      <div className="rounded-3xl border border-artisan-primary/15 bg-white/90 p-8 text-center shadow-xl shadow-[#2D0E5A]/10 backdrop-blur-md md:p-10">
-        <h3 className="font-artisan-display text-2xl font-bold text-artisan-primary md:text-3xl">{title}</h3>
-        <p className="mx-auto mt-3 max-w-2xl text-artisan-text-mid">{text}</p>
-      </div>
-    </div>
+  const EmptyState = ({ text }) => (
+    <p className="col-span-full border-y border-artisan-primary/15 py-10 text-center text-artisan-text-mid md:py-12">
+      {text}
+    </p>
   );
 
-  const ProductCard = ({ item, badge }) => {
+  const ProductCard = ({ item }) => {
     const primaryImageUrl = item.imageUrls?.find(
       (imageUrl) => typeof imageUrl === 'string' && imageUrl.trim()
     ) || item.imageUrl;
@@ -80,15 +77,10 @@ const HighlightsPage = () => {
               className="relative h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
             />
           )}
-          {badge && (
-            <div className="absolute top-3 right-3 px-3 py-1.5 bg-gradient-to-r from-artisan-primary to-artisan-primary-mid text-white rounded-xl font-bold text-xs uppercase shadow-xl border-2 border-white">
-              {badge}
-            </div>
-          )}
         </div>
 
         <div className="flex flex-1 flex-col p-5">
-          <h3 className="mb-3 min-h-[3.5rem] text-xl font-bold text-artisan-text line-clamp-2 transition-colors group-hover:text-artisan-primary" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h3 className="mb-3 min-h-[3.5rem] font-artisan-display text-xl font-bold text-artisan-text line-clamp-2 transition-colors group-hover:text-artisan-primary">
             {item.name}
           </h3>
 
@@ -110,11 +102,9 @@ const HighlightsPage = () => {
     );
   };
 
-  const SectionHeading = ({ id, title, subtitle, align = 'center' }) => (
-    <div id={id} className={`mb-10 scroll-mt-28 md:mb-12 ${align === 'left' ? 'text-left' : 'text-center'}`}>
-      <p className="font-artisan-script text-xl text-artisan-primary">D.A.B.S. selections</p>
-      <h2 className="mt-2 font-artisan-display text-4xl font-bold text-artisan-primary md:text-5xl">{title}</h2>
-      <p className="mt-3 italic text-artisan-text-mid">{subtitle}</p>
+  const SectionHeading = ({ id, title }) => (
+    <div id={id} className="mb-8 scroll-mt-28 border-t border-artisan-primary/20 pt-6 md:mb-10 md:pt-8">
+      <h2 className="font-artisan-display text-4xl font-bold tracking-[-0.035em] text-artisan-primary md:text-5xl">{title}</h2>
     </div>
   );
 
@@ -126,75 +116,72 @@ const HighlightsPage = () => {
 
         <div className="relative z-10">
           {/* Hero section */}
-          <section className="py-16 md:py-20">
-            <div className="container mx-auto max-w-6xl px-4 text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/75 border border-artisan-primary/20 backdrop-blur-sm text-artisan-primary text-xs font-bold uppercase tracking-widest mb-6">
-                DABS Highlights
-              </div>
-              <h1 className="font-artisan-display text-5xl font-bold leading-[0.95] text-artisan-primary md:text-6xl">
-                Explore Our Featured Sections
+          <section className="pb-10 pt-16 md:pb-14 md:pt-20">
+            <header className="container mx-auto max-w-7xl px-4">
+              <h1 className="max-w-3xl font-artisan-display text-5xl font-bold leading-[0.95] tracking-[-0.045em] text-artisan-primary md:text-7xl">
+                Highlights
               </h1>
-              <p className="mt-4 text-artisan-text-mid max-w-2xl mx-auto">
-                Browse our spotlight pieces, customer favorites, latest works, and custom commission services in one place.
+              <p className="mt-4 max-w-xl text-artisan-text-mid md:text-lg">
+                Selected work, collector favorites, and new arrivals.
               </p>
-            </div>
+            </header>
           </section>
 
           {/* Artist's Spotlight */}
-          <section className="py-14 md:py-20">
+          <section className="py-12 md:py-16">
             <div className="container mx-auto max-w-7xl px-4">
-              <SectionHeading id="spotlight" title="Artist's Spotlight" subtitle="Featured artworks currently highlighted by DABS Co." />
+              <SectionHeading id="spotlight" title="Artist's Spotlight" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {featuredProducts.length > 0 ? featuredProducts.slice(0,4).map((item) => <ProductCard key={item.id} item={item} badge="Featured" />) : <EmptyStateCard title="Artist's Spotlight" text="No featured works yet. Add artwork to your pricelists collection and this section will automatically populate." />}
+                {featuredProducts.length > 0 ? featuredProducts.slice(0,4).map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState text="No featured work yet." />}
               </div>
             </div>
           </section>
 
           {/* Collector's Favorites */}
-          <section className="py-14 md:py-20">
+          <section className="py-12 md:py-16">
             <div className="container mx-auto max-w-7xl px-4">
-              <SectionHeading id="favorites" title="Collector's Favorites" subtitle="Most loved by customers and art enthusiasts." />
+              <SectionHeading id="favorites" title="Collector's Favorites" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {topSellers.length > 0 ? topSellers.slice(0,4).map((item,idx) => <ProductCard key={item.id} item={item} badge={`#${idx+1}`} />) : <EmptyStateCard title="Collector's Favorites" text="No best-selling pieces yet. Once orders start coming in, your top favorites will appear here." />}
+                {topSellers.length > 0 ? topSellers.slice(0,4).map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState text="No collector favorites yet." />}
               </div>
             </div>
           </section>
 
           {/* Recent Works */}
-          <section className="py-14 md:py-20">
+          <section className="py-12 md:py-16">
             <div className="container mx-auto max-w-7xl px-4">
-              <SectionHeading id="recent" title="Recent Works" subtitle="Latest creations and newly added pieces." />
+              <SectionHeading id="recent" title="Recent Works" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {newArrivals.length > 0 ? newArrivals.slice(0,4).map((item) => <ProductCard key={item.id} item={item} badge="Fresh" />) : <EmptyStateCard title="Recent Works" text="No recent works yet. As soon as new products are added, this section will show them here." />}
+                {newArrivals.length > 0 ? newArrivals.slice(0,4).map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState text="No recent work yet." />}
               </div>
             </div>
           </section>
 
           {/* Commission CTA (buyers only) */}
           {!isAdmin && (
-            <section id="commission" className="py-12 md:py-20 scroll-mt-28">
-              <div className="container mx-auto max-w-5xl px-4 text-center">
-                <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-artisan-text-mid mb-3">
-                  <Heart size={14} className="text-artisan-primary" />
-                  Custom Commissions
-                </div>
-                <h2 className="text-3xl md:text-5xl font-bold text-artisan-primary" style={{ fontFamily: "'Playfair Display', serif" }}>
-                  Let&apos;s Create Your Masterpiece
-                </h2>
-                <p className="text-artisan-text-mid text-base md:text-lg mt-4 max-w-2xl mx-auto">
-                  Work directly with our artists for portraits, stitch-ready designs, and handmade custom pieces.
-                </p>
-                <div className="mx-auto mt-8 grid w-full max-w-[520px] grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Link to="/pricelists" className="w-full">
-                    <Button size="lg" className="h-14 w-full rounded-2xl bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]">
-                      Start Commission
-                    </Button>
-                  </Link>
-                  <Link to="/gallery" className="w-full">
-                    <Button size="lg" variant="outline" className="h-14 w-full rounded-2xl border-2 border-artisan-primary/40 bg-white/70 px-6 py-0 font-semibold text-artisan-primary hover:bg-white">
-                      View Gallery
-                    </Button>
-                  </Link>
+            <section id="commission" className="scroll-mt-28 py-12 md:py-16">
+              <div className="container mx-auto max-w-7xl border-t border-artisan-primary/20 px-4 pt-8 md:pt-10">
+                <div className="grid items-end gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:gap-12">
+                  <div>
+                    <h2 className="font-artisan-display text-4xl font-bold tracking-[-0.035em] text-artisan-primary md:text-5xl">
+                      Commission a canvas
+                    </h2>
+                    <p className="mt-3 max-w-xl text-artisan-text-mid md:text-lg">
+                      Share your design and we&apos;ll prepare a quote.
+                    </p>
+                  </div>
+                  <div className="grid w-full gap-3 sm:grid-cols-2 md:w-[31rem]">
+                    <Link to="/pricelists" className="w-full">
+                      <Button size="lg" className="h-14 w-full bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]">
+                        Start Commission
+                      </Button>
+                    </Link>
+                    <Link to="/gallery" className="w-full">
+                      <Button size="lg" variant="outline" className="h-14 w-full border-2 border-artisan-primary/40 bg-white/70 px-6 py-0 font-semibold text-artisan-primary hover:bg-white">
+                        View Gallery
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </div>
             </section>

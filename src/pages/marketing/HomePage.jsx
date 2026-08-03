@@ -7,13 +7,13 @@
 //   • "Who We Are" two-column section with info cards
 //   • All navigation links (Gallery, Pricing, About)
 // ── WHAT CHANGED (visual only) ──────────────────────────────────────────
-//   • Hero: supplied botanical artwork, Archivo Black wordmark, and Lora tagline
+//   • Hero: supplied botanical artwork with the approved Playfair/Nunito hierarchy
 //   • Hero buttons: teal/outline → violet and ivory action pair
 //   • "Who We Are" card: teal borders → artisan purple borders
 //   • Info sub-cards: teal/amber → purple/mauve/lavender
 //   • Step circles: teal → artisan primary purple
 //   • Section backgrounds: teal wash → artisan lavender wash
-//   • Hero eyebrow label: artsy cross-stitch dot + Dancing Script style
+//   • Hero eyebrow label: artsy cross-stitch dot + Playfair Display style
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
@@ -28,7 +28,6 @@ import PageContainer from '@/components/layout/PageContainer';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import homeHeroBackground from '@/assets/home/home-hero-background.png';
-import homeHeroForeground from '@/assets/home/home-hero-foreground.png';
 
 const getProductImage = (product) => product.imageUrls?.[0] || product.imageUrl || null;
 const serviceMarqueeText = 'Needlepoint Canvas  •  Crochet  •  Portraiture  •  Canvas Paintings';
@@ -48,7 +47,7 @@ const HomePage = () => {
       if (isMounted) setIsWordmarkReady(true);
     };
 
-    // Keep the wordmark hidden until Archivo Black is available. Rendering the
+    // Keep the wordmark hidden until Playfair Display is available. Rendering the
     // fallback first changes its width when the web font arrives, which causes
     // the visible "shrink" during a refresh.
     if (!document.fonts?.load) {
@@ -56,7 +55,7 @@ const HomePage = () => {
       return undefined;
     }
 
-    document.fonts.load('1em "Archivo Black"').then(revealWordmark, revealWordmark);
+    document.fonts.load('1em "Playfair Display"').then(revealWordmark, revealWordmark);
 
     return () => {
       isMounted = false;
@@ -167,11 +166,6 @@ const HomePage = () => {
               hoverTrailAmount={2}
             />
           </div>
-          <img
-            src={homeHeroForeground}
-            alt=""
-            className="pointer-events-none absolute inset-0 z-20 h-full w-full object-cover object-center"
-          />
         </div>
 
         {/* ── HERO ──────────────────────────────────────────────────── */}
@@ -184,7 +178,7 @@ const HomePage = () => {
               className="flex w-full max-w-6xl flex-col items-center"
             >
               <h1
-                className="home-wordmark-glow whitespace-nowrap font-home-brand text-[clamp(3.25rem,10.6vw,9.5rem)] leading-[0.86] tracking-[-0.065em] text-artisan-primary"
+                className="home-wordmark-glow whitespace-nowrap font-artisan-display text-[clamp(3.25rem,10.6vw,9.5rem)] font-bold leading-[0.86] tracking-[-0.065em] text-artisan-primary"
                 style={{ opacity: isWordmarkReady ? 1 : 0 }}
               >
                 <ShinyText
@@ -199,7 +193,7 @@ const HomePage = () => {
                 />
               </h1>
 
-              <p className="mt-5 max-w-none font-home-editorial text-[clamp(0.8rem,1.45vw,1.4rem)] italic leading-snug text-[#5C2D91] sm:mt-7 sm:whitespace-nowrap">
+          <p className="mt-5 max-w-none font-nunito text-[clamp(0.8rem,1.45vw,1.4rem)] italic leading-snug text-[#5C2D91] sm:mt-7 sm:whitespace-nowrap">
                 &ldquo;Transforming Your Needlepoint Designs into Stitch Ready Canvases&rdquo;
               </p>
 
@@ -232,7 +226,7 @@ const HomePage = () => {
         </section>
 
         <section
-          className="home-service-marquee relative z-10 overflow-hidden bg-artisan-primary py-3 text-[#FAF8F1] sm:py-4"
+          className="home-service-marquee relative z-10 overflow-hidden bg-artisan-primary py-2 text-[#FAF8F1] sm:py-2.5"
           aria-label="Services: Needlepoint Canvas, Crochet, Portraiture, and Canvas Paintings"
         >
           <div className="home-service-marquee__track" aria-hidden="true">
@@ -240,7 +234,7 @@ const HomePage = () => {
               <div className="home-service-marquee__group" key={groupIndex}>
                 {[0, 1, 2].map((itemIndex) => (
                   <p
-                    className="home-service-marquee__item font-home-brand text-[clamp(1.15rem,2.25vw,2.25rem)] leading-none tracking-[-0.025em]"
+                className="home-service-marquee__item font-artisan-display text-[clamp(1.15rem,2.25vw,2.25rem)] font-normal leading-none tracking-[-0.025em]"
                     key={itemIndex}
                   >
                     {serviceMarqueeText}
@@ -254,8 +248,21 @@ const HomePage = () => {
         {/* Firebase-backed recent works. The gallery is deliberately full-bleed
             so the curved row remains the focus, while each work stays clickable. */}
         <section className="relative z-10 overflow-hidden bg-[#FAF8F1] py-12 sm:py-16 lg:py-20">
-          <PageContainer size="wide" className="flex flex-col items-center">
-            <h2 className="mb-8 font-home-brand text-3xl tracking-[-0.04em] text-artisan-primary sm:mb-10 sm:text-4xl">
+          <div className="absolute inset-0 z-0" aria-hidden="true">
+            <ShapeGrid
+              speed={0.35}
+              squareSize={54}
+              direction="up"
+              borderColor="rgba(92, 45, 145, 0.12)"
+              hoverFillColor="rgba(92, 45, 145, 0.12)"
+              backgroundColor="#FAF8F1"
+              shape="square"
+              hoverTrailAmount={2}
+            />
+          </div>
+
+          <PageContainer size="wide" className="relative z-10 flex flex-col items-center">
+            <h2 className="mb-8 font-artisan-display text-3xl font-bold tracking-[-0.04em] text-artisan-primary sm:mb-10 sm:text-4xl">
               Our Recent Works
             </h2>
           </PageContainer>
@@ -263,22 +270,32 @@ const HomePage = () => {
           {recentWorksLoading ? (
             <div
               aria-label="Loading recent works"
-              className="mx-auto h-[300px] w-full max-w-6xl animate-pulse rounded-2xl bg-artisan-primary/10 sm:h-[390px] lg:h-[480px]"
-            />
+              className="home-recent-works-gallery relative z-10 flex h-[300px] items-center gap-4 overflow-hidden px-5 sm:h-[390px] sm:gap-7 sm:px-10 lg:h-[480px]"
+            >
+              {[0, 1, 2, 3].map((skeletonIndex) => (
+                <div
+                  key={skeletonIndex}
+                  className="h-[72%] w-[min(52vw,18rem)] shrink-0 animate-pulse rounded-[1.1rem] bg-artisan-primary/10 sm:w-[min(30vw,23rem)] sm:rounded-[1.5rem]"
+                  style={{
+                    transform: `rotate(${(skeletonIndex - 1.5) * 2.5}deg)`,
+                  }}
+                />
+              ))}
+            </div>
           ) : recentWorksError || recentWorkItems.length === 0 ? (
-            <div className="mx-auto flex h-[300px] w-[min(100%-2rem,72rem)] items-center justify-center rounded-2xl border border-artisan-primary/15 bg-white/65 p-8 text-center text-artisan-text-muted shadow-artisan-card sm:h-[390px] lg:h-[480px]">
+            <div className="relative z-10 mx-auto flex h-[300px] w-[min(100%-2rem,72rem)] items-center justify-center rounded-2xl border border-artisan-primary/15 bg-white/65 p-8 text-center text-artisan-text-muted shadow-artisan-card sm:h-[390px] lg:h-[480px]">
               Recent works are currently unavailable.
             </div>
           ) : (
-            <div className="home-recent-works-gallery h-[300px] w-full sm:h-[390px] lg:h-[480px]">
+            <div className="home-recent-works-gallery relative z-10 h-[300px] w-full sm:h-[390px] lg:h-[480px]">
               <CircularGallery
                 items={recentWorkItems}
                 bend={1}
                 textColor="#01243A"
                 borderRadius={0.07}
                 showTitles={false}
-                itemScale={1.45}
-                itemGap={1.1}
+                itemScale={1.1}
+                itemGap={0.8}
                 scrollEase={0.05}
                 scrollSpeed={3.5}
                 onItemSelect={handleRecentWorkSelect}
@@ -286,7 +303,7 @@ const HomePage = () => {
             </div>
           )}
 
-          <p className="mt-4 px-6 text-center font-home-editorial text-sm italic text-[#5C2D91] sm:mt-6 sm:text-base">
+          <p className="relative z-10 mt-4 px-6 text-center font-artisan-display text-sm italic text-[#5C2D91] sm:mt-6 sm:text-base">
             &ldquo;Transforming Your Needlepoint Designs into Stitch Ready Canvases&rdquo;
           </p>
         </section>
@@ -310,23 +327,20 @@ const HomePage = () => {
             <div className="relative z-10 grid items-center gap-12 md:grid-cols-[0.9fr_1.1fr] lg:gap-20">
               {/* Left — text */}
               <div className="text-center md:text-left">
-                <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur-sm">
-                  <Flower2 size={15} className="text-artisan-primary-pale" aria-hidden="true" />
-                  <span
-                    className="font-artisan-script text-lg text-artisan-primary-pale"
-                    style={{ fontFamily: "'Dancing Script', cursive", fontSize: '0.9rem', letterSpacing: '0.12em' }}
-                  >
-                    Our Story
+                <div className="mb-5 inline-flex items-center gap-2 text-white/75">
+                  <Flower2 size={15} aria-hidden="true" />
+                  <span className="font-nunito text-xs font-semibold uppercase tracking-[0.18em]">
+                    Our story
                   </span>
                 </div>
 
                 <h2
-                  className="mb-5 font-artisan-display text-5xl font-bold leading-[0.95] text-white md:text-6xl lg:text-7xl"
+                  className="mb-5 text-balance font-artisan-display text-5xl font-bold leading-[0.95] tracking-[-0.04em] text-[#FAF8F1] md:text-6xl lg:text-7xl"
                 >
                   Who We Are
                 </h2>
 
-                <p className="max-w-xl text-base leading-relaxed text-white/80 md:text-xl">
+                <p className="max-w-xl font-nunito text-base leading-relaxed text-white/80 md:text-xl">
                   We support needlepoint designers in expanding their businesses through our
                   outsourced canvas painting services. Whether you're a startup or an established
                   brand, we are here to collaborate with you as your dedicated partner in growth.
@@ -336,11 +350,7 @@ const HomePage = () => {
                   <Link to="/about">
                     <Button
                       size="lg"
-                      className="rounded-full px-8 py-6 font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:brightness-110"
-                      style={{
-                        background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)',
-                        boxShadow: '0 10px 28px rgba(92,45,145,0.25)',
-                      }}
+                      className="rounded-lg !bg-[#FAF8F1] px-8 py-6 font-nunito font-semibold !text-artisan-primary shadow-[0_12px_28px_rgba(17,5,37,0.2)] transition-transform duration-300 hover:-translate-y-1 hover:!bg-white focus-visible:ring-2 focus-visible:ring-[#FAF8F1] focus-visible:ring-offset-2 focus-visible:ring-offset-[#2D0E5A]"
                     >
                       Learn More About Us
                       <ArrowRight className="ml-2" size={18} />
@@ -350,39 +360,37 @@ const HomePage = () => {
               </div>
 
               {/* Right — info cards */}
-              <div className="relative grid gap-4">
+              <div className="grid gap-3 sm:gap-4">
                 <div
-                  className="relative p-0"
+                  className="contents"
                 >
-                  <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-artisan-primary/20 to-transparent" />
-
                   <div className="grid gap-4">
                     {/* Card 1 — purple */}
-                    <div className="rounded-2xl border border-artisan-primary/12 bg-white/85 p-6 shadow-[0_12px_28px_rgba(92,45,145,0.08)] transition-all duration-300 hover:-translate-y-2 hover:border-artisan-primary/35 hover:shadow-[0_18px_34px_rgba(92,45,145,0.16)]">
-                      <p className="mb-1 text-base font-semibold text-artisan-primary">
+                    <div className="border-l-2 border-[#B78B4A] bg-white/[0.1] px-6 py-5 backdrop-blur-[2px] transition-transform duration-300 hover:-translate-x-1 hover:bg-white/[0.14] sm:px-7">
+                      <p className="font-nunito text-base font-bold text-[#FAF8F1]">
                         Dedicated Partnership
                       </p>
-                      <p className="text-sm leading-relaxed text-artisan-text-mid">
+                      <p className="mt-1.5 font-nunito text-sm leading-relaxed text-white/75">
                         We work with designers as a reliable extension of their creative business.
                       </p>
                     </div>
 
                     {/* Card 2 — mauve */}
-                    <div className="rounded-2xl border border-artisan-primary/12 bg-[#EFE5F7] p-6 shadow-[0_12px_28px_rgba(92,45,145,0.08)] transition-all duration-300 hover:-translate-y-2 hover:border-artisan-primary/35 hover:shadow-[0_18px_34px_rgba(92,45,145,0.16)]">
-                      <p className="mb-1 text-base font-semibold text-artisan-primary">
+                    <div className="border-l-2 border-[#B78B4A] bg-white/[0.1] px-6 py-5 backdrop-blur-[2px] transition-transform duration-300 hover:-translate-x-1 hover:bg-white/[0.14] sm:px-7">
+                      <p className="font-nunito text-base font-bold text-[#FAF8F1]">
                         Scalable Support
                       </p>
-                      <p className="text-sm leading-relaxed text-artisan-text-mid">
+                      <p className="mt-1.5 font-nunito text-sm leading-relaxed text-white/75">
                         From growing startups to established brands, we help support production needs.
                       </p>
                     </div>
 
                     {/* Card 3 — white */}
-                    <div className="rounded-2xl border border-artisan-primary/12 bg-[#E3D1F0] p-6 shadow-[0_12px_28px_rgba(92,45,145,0.08)] transition-all duration-300 hover:-translate-y-2 hover:border-artisan-primary/35 hover:shadow-[0_18px_34px_rgba(92,45,145,0.16)]">
-                      <p className="mb-1 text-base font-semibold text-artisan-primary">
+                    <div className="border-l-2 border-[#B78B4A] bg-white/[0.1] px-6 py-5 backdrop-blur-[2px] transition-transform duration-300 hover:-translate-x-1 hover:bg-white/[0.14] sm:px-7">
+                      <p className="font-nunito text-base font-bold text-[#FAF8F1]">
                         Craft + Collaboration
                       </p>
-                      <p className="text-sm leading-relaxed text-artisan-text-mid">
+                      <p className="mt-1.5 font-nunito text-sm leading-relaxed text-white/75">
                         Our goal is to turn great designs into beautifully prepared stitch-ready canvases.
                       </p>
                     </div>
@@ -446,7 +454,7 @@ const HomePage = () => {
                         <span className="font-artisan-display text-xl font-bold text-artisan-primary">{step.number}</span>
                   </div>
 
-                  <h3 className="relative mt-7 text-xl font-bold text-artisan-text transition-colors group-hover:text-artisan-primary">{step.title}</h3>
+                  <h3 className="relative mt-7 font-artisan-display text-xl font-bold text-artisan-text transition-colors group-hover:text-artisan-primary">{step.title}</h3>
 
                   <p className="relative mt-3 text-sm leading-relaxed text-artisan-text-mid">
                     {step.description}

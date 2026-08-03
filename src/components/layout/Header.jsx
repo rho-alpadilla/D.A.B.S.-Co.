@@ -772,7 +772,7 @@ const Header = () => {
 
         /* Nav link — Inter font, purple palette */
         .hdr-link {
-          font-family: 'Inter', 'Poppins', sans-serif;
+          font-family: var(--font-ui);
           font-weight: 400;
           font-size: 0.9375rem;
           letter-spacing: 0.02em;
@@ -808,7 +808,7 @@ const Header = () => {
 
         /* Currency pill */
         .hdr-curr {
-          font-family: 'Inter', 'Poppins', sans-serif;
+          font-family: var(--font-ui);
           font-size: 0.84rem;
           font-weight: 700;
           display: flex;
@@ -847,7 +847,7 @@ const Header = () => {
         /* Login / Join buttons */
         .hdr-login,
         .hdr-join {
-          font-family: 'Inter', 'Poppins', sans-serif;
+          font-family: var(--font-ui);
           font-size: 0.875rem;
           font-weight: 700;
           min-height: 2.75rem;

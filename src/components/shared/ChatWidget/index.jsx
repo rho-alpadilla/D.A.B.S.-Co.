@@ -1389,7 +1389,7 @@ const ChatWidget = () => {
   };
 
   return (
-    <div className="chat-widget-root fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[390px]">
+    <div className="chat-widget-root fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:bottom-6 sm:right-3 sm:w-[390px]">
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -1417,7 +1417,7 @@ const ChatWidget = () => {
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="truncate font-artisan-display text-base font-bold tracking-tight">
+                  <h3 className="truncate font-nunito text-base font-bold tracking-tight">
                     D.A.B.S. Chat {isAdminLike ? '(Admin)' : ''}
                   </h3>
                   <p className="text-[11px] text-white/85 truncate">

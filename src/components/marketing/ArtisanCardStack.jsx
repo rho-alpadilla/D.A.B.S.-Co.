@@ -47,7 +47,7 @@ const ArtisanCardStack = ({ recentWorks, isLoading, error, formatPrice }) => {
             <div className="absolute inset-0 bg-gradient-to-t from-[#2D0E5A]/75 via-[#2D0E5A]/10 to-transparent" />
             <div className="absolute right-5 top-5 h-11 w-11 rounded-md opacity-45 [background-image:repeating-linear-gradient(45deg,#FFFFFF_0,#FFFFFF_1px,transparent_1px,transparent_50%),repeating-linear-gradient(-45deg,#FFFFFF_0,#FFFFFF_1px,transparent_1px,transparent_50%)] [background-size:8px_8px]" />
             <div className="absolute inset-x-5 bottom-5 pr-9 text-white">
-              <p className="line-clamp-1 font-artisan-script text-base text-white/85">{work.category || 'Recent work'}</p>
+              <p className="line-clamp-1 font-artisan-display text-base text-white/85">{work.category || 'Recent work'}</p>
               <p className="mt-1 line-clamp-2 font-artisan-display text-xl font-bold leading-tight">{work.name}</p>
               <p className="mt-1 text-sm font-semibold text-white/90">{formatPrice(work.price)}</p>
             </div>

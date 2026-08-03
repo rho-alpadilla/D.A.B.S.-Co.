@@ -109,7 +109,7 @@ const BuyerDashboard = () => {
           </section>
 
           <section className="mt-10 border-t border-[#5C2D91]/20 pt-8">
-            <h2 className="font-artisan-display text-3xl font-semibold tracking-tight text-artisan-text">Account</h2>
+            <h2 className="font-nunito text-3xl font-semibold tracking-tight text-artisan-text">Account</h2>
 
             <div className="mt-6 grid overflow-hidden rounded-3xl border border-[#5C2D91]/20 bg-[#FAF8F1] sm:grid-cols-2 lg:grid-cols-3">
               <DashboardAction title="My orders" icon={Package} to="/pending-orders" />
@@ -146,7 +146,7 @@ const DashboardHeader = ({ username, cartCount }) => (
   <header className="border-b border-[#5C2D91]/25 pb-8 sm:flex sm:items-end sm:justify-between">
     <div className="max-w-3xl">
       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-artisan-primary">Account</p>
-      <h1 className="mt-3 font-artisan-display text-4xl font-semibold tracking-[-0.04em] text-artisan-text sm:text-5xl">
+      <h1 className="mt-3 font-nunito text-4xl font-semibold tracking-[-0.04em] text-artisan-text sm:text-5xl">
         Welcome back, {username}.
       </h1>
     </div>
@@ -165,7 +165,7 @@ const OrderOverview = ({ summary }) => (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-artisan-primary">Orders</p>
-        <h2 id="order-overview-heading" className="mt-2 font-artisan-display text-3xl font-semibold tracking-tight text-artisan-text">Order activity</h2>
+        <h2 id="order-overview-heading" className="mt-2 font-nunito text-3xl font-semibold tracking-tight text-artisan-text">Order activity</h2>
       </div>
       <Button asChild variant="outline" className="w-full border-[#5C2D91]/25 bg-transparent text-artisan-primary hover:bg-artisan-primary-wash sm:w-auto">
         <Link to="/pending-orders">View all <ArrowRight className="ml-2" size={16} /></Link>
@@ -194,7 +194,7 @@ const CartOverview = ({ cartItems, cartCount, cartSubtotal, formatPrice }) => (
     <div className="flex items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A0DC]">Cart</p>
-        <h2 id="cart-overview-heading" className="mt-2 font-artisan-display text-3xl font-semibold tracking-tight">Your cart</h2>
+        <h2 id="cart-overview-heading" className="mt-2 font-nunito text-3xl font-semibold tracking-tight">Your cart</h2>
       </div>
       <span className="flex h-10 min-w-10 items-center justify-center rounded-full bg-[#FAF8F1]/12 px-3 text-sm font-semibold">{cartCount}</span>
     </div>
@@ -239,7 +239,7 @@ const DashboardAction = ({ title, icon: Icon, to }) => (
     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-artisan-primary-wash text-artisan-primary transition-transform duration-200 ease-out group-hover:scale-105">
       <Icon size={19} aria-hidden="true" />
     </span>
-    <h3 className="text-lg font-semibold text-artisan-text">{title}</h3>
+    <h3 className="font-nunito text-lg font-semibold text-artisan-text">{title}</h3>
     <ArrowRight size={17} className="ml-auto shrink-0 text-artisan-primary transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden="true" />
   </Link>
 );

@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   doc, onSnapshot, updateDoc, collection, query, where, 
-  orderBy, getDocs, limit 
+  average, count, getAggregateFromServer, getDocs, limit, orderBy, startAfter,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
@@ -25,6 +25,7 @@ const CATEGORIES = [
   "Sample portraitures",
   "Painting on Canvas"
 ];
+const REVIEWS_PER_PAGE = 5;
 
 const getItemsPerPage = () => {
   if (typeof window === 'undefined') return 4;
@@ -44,7 +45,9 @@ const ProductDetailPage = () => {
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
-  const [visibleReviewCount, setVisibleReviewCount] = useState(5);
+  const [hasMoreReviews, setHasMoreReviews] = useState(false);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState('');
   const [averageRating, setAverageRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
   const [recommended, setRecommended] = useState([]);
@@ -54,6 +57,7 @@ const ProductDetailPage = () => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
   const purchaseActionsRef = useRef(null);
+  const reviewCursorRef = useRef(null);
   const [showStickyPurchase, setShowStickyPurchase] = useState(false);
 
   // Multi-image state
@@ -69,7 +73,11 @@ const ProductDetailPage = () => {
 
   useEffect(() => {
     if (!id) return;
-    setVisibleReviewCount(5);
+    let isCancelled = false;
+    reviewCursorRef.current = null;
+    setReviews([]);
+    setHasMoreReviews(false);
+    setReviewsError('');
 
     const unsubProduct = onSnapshot(doc(db, "pricelists", id), (snap) => {
       if (snap.exists()) {
@@ -89,26 +97,93 @@ const ProductDetailPage = () => {
     });
 
     const loadReviews = async () => {
-      const q = query(
+      const reviewsCollectionQuery = query(
         collection(db, "reviews"),
         where("productId", "==", id),
-        orderBy("createdAt", "desc")
       );
-      const snap = await getDocs(q);
-      const reviewsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setReviews(reviewsData);
+      const pageQuery = query(reviewsCollectionQuery, orderBy('createdAt', 'desc'), limit(REVIEWS_PER_PAGE + 1));
 
-      if (reviewsData.length > 0) {
-        const avg = reviewsData.reduce((sum, r) => sum + r.rating, 0) / reviewsData.length;
-        setAverageRating(avg.toFixed(1));
-        setTotalReviews(reviewsData.length);
+      try {
+        const pageSnapshot = await getDocs(pageQuery);
+        if (isCancelled) return;
+
+        const pageDocuments = pageSnapshot.docs.slice(0, REVIEWS_PER_PAGE);
+
+        reviewCursorRef.current = pageDocuments.at(-1) || null;
+        setReviews(pageDocuments.map((reviewDocument) => ({ id: reviewDocument.id, ...reviewDocument.data() })));
+        setHasMoreReviews(pageSnapshot.docs.length > REVIEWS_PER_PAGE);
+
+        try {
+          const summarySnapshot = await getAggregateFromServer(reviewsCollectionQuery, {
+            averageRating: average('rating'),
+            reviewCount: count(),
+          });
+          if (isCancelled) return;
+
+          const summary = summarySnapshot.data();
+          const reviewCount = summary.reviewCount || 0;
+          setTotalReviews(reviewCount);
+          setAverageRating(reviewCount > 0 ? Number(summary.averageRating || 0).toFixed(1) : 0);
+        } catch (summaryError) {
+          // Review cards remain available even if a legacy data value prevents
+          // Firestore from calculating a full aggregate summary.
+          console.warn('Unable to load the full product review summary', summaryError);
+          const pageReviews = pageDocuments.map((reviewDocument) => reviewDocument.data());
+          const ratedReviews = pageReviews.filter((review) => Number.isFinite(review.rating));
+          const pageAverage = ratedReviews.length
+            ? ratedReviews.reduce((sum, review) => sum + Number(review.rating), 0) / ratedReviews.length
+            : 0;
+
+          setTotalReviews(pageDocuments.length);
+          setAverageRating(ratedReviews.length ? pageAverage.toFixed(1) : 0);
+        }
+      } catch (error) {
+        if (isCancelled) return;
+        console.error('Unable to load product reviews', error);
+        setReviews([]);
+        setHasMoreReviews(false);
+        setTotalReviews(0);
+        setAverageRating(0);
+        setReviewsError('Reviews are unavailable right now. Please refresh the page to try again.');
       }
     };
 
     loadReviews();
 
-    return () => unsubProduct();
+    return () => {
+      isCancelled = true;
+      unsubProduct();
+    };
   }, [id]);
+
+  const loadMoreReviews = async () => {
+    if (!id || !hasMoreReviews || reviewsLoading || !reviewCursorRef.current) return;
+
+    setReviewsLoading(true);
+    try {
+      const pageQuery = query(
+        collection(db, 'reviews'),
+        where('productId', '==', id),
+        orderBy('createdAt', 'desc'),
+        startAfter(reviewCursorRef.current),
+        limit(REVIEWS_PER_PAGE + 1),
+      );
+      const pageSnapshot = await getDocs(pageQuery);
+      const pageDocuments = pageSnapshot.docs.slice(0, REVIEWS_PER_PAGE);
+
+      reviewCursorRef.current = pageDocuments.at(-1) || reviewCursorRef.current;
+      setReviews((currentReviews) => [
+        ...currentReviews,
+        ...pageDocuments.map((reviewDocument) => ({ id: reviewDocument.id, ...reviewDocument.data() })),
+      ]);
+      setHasMoreReviews(pageSnapshot.docs.length > REVIEWS_PER_PAGE);
+    } catch (error) {
+      console.error('Unable to load more product reviews', error);
+      setReviewsError('More reviews could not be loaded. Please try again.');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   // Load recommendations (unchanged)
   useEffect(() => {
@@ -325,7 +400,7 @@ const ProductDetailPage = () => {
     return (
       <div className="artisan-grid-page min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-red-600 mb-4">Product Not Found</h1>
+          <h1 className="font-nunito text-4xl font-bold text-red-600 mb-4">Product Not Found</h1>
           <Link to="/gallery">
             <Button className="bg-[#5C2D91] hover:bg-[#4A2578]">Back to Gallery</Button>
           </Link>
@@ -531,7 +606,7 @@ const ProductDetailPage = () => {
               )}
 
               <div className="border-y border-[#E7DED3] py-5">
-                <span className="text-4xl font-bold tabular-nums text-[#47003C] sm:text-5xl">
+                <span className="text-4xl font-bold tabular-nums text-artisan-primary sm:text-5xl">
                   {formatPrice(product.price)}
                 </span>
               </div>
@@ -539,7 +614,7 @@ const ProductDetailPage = () => {
               {!isAdmin && !editing && (
                 <div ref={purchaseActionsRef} className="flex flex-col gap-3 sm:flex-row">
                   {isPurchasable(product) && (
-                    <Button size="lg" onClick={() => addToCart(product)} className="flex-1 rounded-xl bg-[#47003C] font-semibold text-white hover:bg-[#5A124E]">
+                    <Button size="lg" onClick={() => addToCart(product)} className="flex-1 rounded-xl bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]">
                       Add to Cart
                     </Button>
                   )}
@@ -547,7 +622,7 @@ const ProductDetailPage = () => {
                     size="lg"
                     variant="outline"
                     onClick={handleCustomOrder}
-                    className="flex-1 rounded-xl border-[#88538C] text-[#47003C] hover:bg-[#F7F0FA]"
+                    className="flex-1 rounded-xl border-[#88538C] text-artisan-primary hover:bg-[#F7F0FA]"
                   >
                     Contact for Custom Order
                   </Button>
@@ -582,11 +657,12 @@ const ProductDetailPage = () => {
           )}
 
           {/* REVIEWS SECTION */}
-          {totalReviews > 0 && (
+          {(reviews.length > 0 || totalReviews > 0 || reviewsError) && (
             <section className="mb-12 mt-12 rounded-[2rem] border border-white/60 bg-white/95 p-7 shadow-xl shadow-[#2D0E5A]/10 backdrop-blur-md md:p-10">
               <h2 className="mb-8 font-artisan-display text-4xl font-bold text-[#2A1739]">Customer Reviews</h2>
               <div className="space-y-8">
-                {reviews.slice(0, visibleReviewCount).map(review => (
+                {reviewsError && <p role="alert" className="rounded-lg border border-artisan-primary/20 bg-[#FAF8F1] px-4 py-3 text-sm text-artisan-text-mid">{reviewsError}</p>}
+                {reviews.map(review => (
                   <div key={review.id} className="border-b pb-8 last:border-0">
                     <div className="flex items-start gap-4">
                       {review.buyerPhoto ? (
@@ -660,14 +736,15 @@ const ProductDetailPage = () => {
                     )}
                   </div>
                 ))}
-                {reviews.length > visibleReviewCount && (
+                {hasMoreReviews && (
                   <div className="flex justify-center pt-2">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setVisibleReviewCount((count) => count + 5)}
+                      onClick={loadMoreReviews}
+                      disabled={reviewsLoading}
                     >
-                      Load 5 more reviews
+                      {reviewsLoading ? 'Loading reviews...' : 'Load 5 more reviews'}
                     </Button>
                   </div>
                 )}
@@ -721,13 +798,13 @@ const ProductDetailPage = () => {
                           </div>
 
                           <div className="grid min-h-40 grid-rows-[minmax(3.25rem,auto)_1.5rem_auto] gap-3 p-5 text-left">
-                            <h3 className="line-clamp-2 font-artisan-display font-bold leading-snug text-[#01243A] transition-colors group-hover:text-[#47003C]">
+                            <h3 className="line-clamp-2 font-artisan-display font-bold leading-snug text-[#01243A] transition-colors group-hover:text-artisan-primary">
                               {item.name}
                             </h3>
                             <div className="flex gap-2">
                               {renderStars(Math.round(item.averageRating || 0))}
                             </div>
-                            <p className="self-end text-2xl font-bold tabular-nums text-[#47003C]">
+                            <p className="self-end text-2xl font-bold tabular-nums text-artisan-primary">
                               {formatPrice(item.price)}
                             </p>
                           </div>
@@ -742,14 +819,14 @@ const ProductDetailPage = () => {
                     <button 
                       onClick={prevSlide}
                       aria-label="Show previous recommendations"
-                      className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-[#47003C] shadow-lg transition hover:scale-105"
+                      className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-artisan-primary shadow-lg transition hover:scale-105"
                     >
                       <ChevronLeft size={32} className="text-[#5C2D91]" />
                     </button>
                     <button 
                       onClick={nextSlide}
                       aria-label="Show more recommendations"
-                      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-[#47003C] shadow-lg transition hover:scale-105"
+                      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-artisan-primary shadow-lg transition hover:scale-105"
                     >
                       <ChevronRight size={32} className="text-[#5C2D91]" />
                     </button>

@@ -163,7 +163,7 @@ const LoginPage = () => {
                   Welcome Back
                 </div>
 
-                <h1 className="font-artisan-display text-4xl font-bold text-white md:text-5xl">Log In</h1>
+                <h1 className="font-nunito text-4xl font-bold text-white md:text-5xl">Log In</h1>
                 <p className="mt-3 leading-7 text-white/85">Sign in to continue your D.A.B.S. experience.</p>
               </div>
             </div>

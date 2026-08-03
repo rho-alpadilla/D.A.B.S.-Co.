@@ -191,7 +191,7 @@ const PendingOrdersPage = () => {
           <header className="flex flex-col gap-5 border-b border-[#5C2D91]/25 pb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-artisan-primary">Orders</p>
-              <h1 className="mt-3 font-artisan-display text-4xl font-semibold tracking-[-0.04em] text-artisan-text sm:text-5xl">My orders</h1>
+              <h1 className="mt-3 font-nunito text-4xl font-semibold tracking-[-0.04em] text-artisan-text sm:text-5xl">My orders</h1>
             </div>
             <nav aria-label="Order page actions" className="flex items-center gap-4 text-sm font-semibold">
               <Link to="/buyer-dashboard" className="text-artisan-text-muted transition-colors hover:text-artisan-primary">Dashboard</Link>
@@ -211,13 +211,13 @@ const PendingOrdersPage = () => {
           {orderCounts.all === 0 ? (
             <section className="py-20 text-center" aria-labelledby="no-orders-heading">
               <Package size={28} className="mx-auto text-artisan-primary" aria-hidden="true" />
-              <h2 id="no-orders-heading" className="mt-5 font-artisan-display text-3xl font-semibold text-artisan-text">No orders yet</h2>
+              <h2 id="no-orders-heading" className="mt-5 font-nunito text-3xl font-semibold text-artisan-text">No orders yet</h2>
               <Button asChild className="mt-6"><Link to="/gallery">Browse gallery <ArrowRight className="ml-2" size={16} /></Link></Button>
             </section>
           ) : (
             <section className="mt-8 overflow-hidden rounded-3xl border border-[#5C2D91]/20 bg-[#FAF8F1]" aria-label="Order list">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid h-auto w-full grid-cols-2 gap-0 rounded-none border-b border-[#5C2D91]/15 bg-transparent p-0 sm:grid-cols-4">
+                <TabsList variant="underline" className="grid h-auto w-full grid-cols-2 gap-0 sm:grid-cols-4">
                   <OrdersTab value="all" label="All" count={orderCounts.all} />
                   <OrdersTab value="active" label="Active" count={orderCounts.active} />
                   <OrdersTab value="completed" label="Completed" count={orderCounts.completed} />
@@ -270,7 +270,7 @@ const OrdersLoadingState = () => (
 );
 
 const OrdersTab = ({ value, label, count }) => (
-  <TabsTrigger value={value} className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-artisan-text-muted data-[state=active]:border-artisan-primary data-[state=active]:bg-transparent data-[state=active]:text-artisan-primary">
+  <TabsTrigger variant="underline" value={value} className="px-4 py-4 text-sm font-semibold">
     {label} <span className="ml-1 font-normal">{count}</span>
   </TabsTrigger>
 );
@@ -288,8 +288,8 @@ const OrderList = ({ orders, hasMore, canLoadLess, error, formatPrice, onCancel,
   return (
     <div>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[720px] text-left">
-          <thead className="border-b border-[#5C2D91]/15 text-artisan-text-muted">
+        <table className="artisan-data-table w-full min-w-[720px] text-left">
+          <thead>
             <tr className="text-xs uppercase tracking-[0.14em]">
               <th className="px-6 py-4 font-semibold">Order</th>
               <th className="px-6 py-4 font-semibold">Date</th>
@@ -376,7 +376,7 @@ const CancelOrderDialog = ({ order, selectedReason, otherReason, onClose, onReas
     <section role="dialog" aria-modal="true" aria-labelledby="cancel-order-heading" className="relative w-full max-w-md rounded-3xl bg-[#FAF8F1] p-6 text-artisan-text shadow-[0_24px_64px_rgba(45,14,90,0.3)] sm:p-8">
       <button onClick={onClose} type="button" aria-label="Close cancellation dialog" className="absolute right-4 top-4 rounded-full p-2 text-artisan-text-muted transition-colors hover:bg-artisan-primary-wash hover:text-artisan-primary"><X size={22} /></button>
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700">Cancel order</p>
-      <h2 id="cancel-order-heading" className="mt-3 font-artisan-display text-3xl font-semibold">#{order.id.slice(0, 8)}</h2>
+      <h2 id="cancel-order-heading" className="mt-3 font-nunito text-3xl font-semibold">#{order.id.slice(0, 8)}</h2>
       <fieldset className="mt-7">
         <legend className="text-sm font-semibold">Reason</legend>
         <div className="mt-3 space-y-1">

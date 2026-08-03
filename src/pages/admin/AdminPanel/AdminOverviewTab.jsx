@@ -179,7 +179,7 @@ const AdminOverviewTab = (props) => {
                             <ShoppingCart size={14} />
                             Live Order Feed
                           </div>
-                          <h2 className="font-artisan-display text-3xl font-bold text-artisan-text">Recent Orders</h2>
+                          <h2 className="font-nunito text-3xl font-bold text-artisan-text">Recent Orders</h2>
                           <p className="mt-1 text-sm text-artisan-text-muted">
                             Latest customer activity with quick review and admin actions.
                           </p>
@@ -417,7 +417,7 @@ const AdminOverviewTab = (props) => {
 
                   <div className="space-y-6">
                     <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-6 shadow-lg shadow-[#2D0E5A]/10">
-                      <h3 className="mb-4 font-artisan-display text-2xl font-bold text-artisan-text">Needs Attention</h3>
+                      <h3 className="mb-4 font-nunito text-2xl font-bold text-artisan-text">Needs Attention</h3>
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between rounded-xl bg-amber-50 p-3 text-artisan-text">
@@ -478,7 +478,7 @@ const AdminOverviewTab = (props) => {
                     </div>
 
                     <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-6 shadow-lg shadow-[#2D0E5A]/10">
-                      <h3 className="mb-4 font-artisan-display text-2xl font-bold text-artisan-text">Quick Actions</h3>
+                      <h3 className="mb-4 font-nunito text-2xl font-bold text-artisan-text">Quick Actions</h3>
                       <div className="grid grid-cols-1 gap-2">
                         <Button onClick={() => setTab("orders")}>
                           Manage Orders
@@ -502,7 +502,7 @@ const AdminOverviewTab = (props) => {
                     </div>
 
                     <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-6 shadow-lg shadow-[#2D0E5A]/10">
-                      <h3 className="mb-4 font-artisan-display text-2xl font-bold text-artisan-text">Order Status Breakdown</h3>
+                      <h3 className="mb-4 font-nunito text-2xl font-bold text-artisan-text">Order Status Breakdown</h3>
 
                       <div className="space-y-3 text-sm">
                         {[

@@ -38,7 +38,10 @@ service cloud.firestore {
     }
 
     function hasAnalyticsOrderFields(data) {
-      return data.createdAt is timestamp &&
+      return ('createdAt' in data) &&
+        ('total' in data) &&
+        ('items' in data) &&
+        data.createdAt is timestamp &&
         data.total is number &&
         data.total >= 0 &&
         data.items is list &&
@@ -56,6 +59,232 @@ service cloud.firestore {
         ('dataQualityReview' in resource.data) &&
         resource.data.dataQualityReview.reviewedBy == request.auth.uid &&
         resource.data.dataQualityReview.reviewedAt != null;
+    }
+
+    // Main admins may continue the existing status workflows, but cannot
+    // directly edit financial, buyer, inventory, or future archive fields.
+    function updatesAdminOrderWorkflow() {
+      return isAdmin() &&
+        completedTransitionHasAnalyticsFields() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'updatedAt',
+          'reviewedAt',
+          'declinedAt',
+          'cancelledAt',
+          'cancelledBy',
+          'refundedAt'
+        ]);
+    }
+
+    // A data-quality review is recorded once, by the main admin who performed
+    // it. Archive/restore fields remain denied until their audited batch flow
+    // is added in the next Phase 5 step.
+    function recordsDataQualityReview() {
+      return isAdmin() &&
+        !hasAnalyticsOrderFields(resource.data) &&
+        !('dataQualityReview' in resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['dataQualityReview', 'updatedAt']) &&
+        request.resource.data.dataQualityReview.keys()
+          .hasOnly(['reviewedBy', 'reviewedAt']) &&
+        request.resource.data.dataQualityReview.reviewedBy == request.auth.uid &&
+        request.resource.data.dataQualityReview.reviewedAt == request.time;
+    }
+
+    function hasArchivableStatus() {
+      return resource.data.status in ['completed', 'declined', 'cancelled', 'Refunded'];
+    }
+
+    function isAuditReason(value) {
+      return value is string && value.size() >= 10 && value.size() <= 500;
+    }
+
+    function isArchiveMap(value) {
+      return value.keys().hasOnly([
+        'isArchived',
+        'archivedAt',
+        'archivedBy',
+        'reason',
+        'restoredAt',
+        'restoredBy',
+        'restoreReason',
+        'lastLifecycleAuditId'
+      ]);
+    }
+
+    function hasMatchingLifecycleAudit(orderId, action, reason) {
+      let auditId = request.resource.data.archive.lastLifecycleAuditId;
+      let audit = getAfter(/databases/$(database)/documents/orderLifecycleAudits/$(auditId)).data;
+      return auditId is string &&
+        audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason'
+        ]) &&
+        audit.orderId == orderId &&
+        audit.action == action &&
+        audit.previousStatus == resource.data.status &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        audit.reason == reason;
+    }
+
+    function archivesOrder(orderId) {
+      let archive = request.resource.data.archive;
+      return isAdmin() &&
+        hasArchivableStatus() &&
+        (!('archive' in resource.data) || resource.data.archive.isArchived != true) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archive', 'updatedAt']) &&
+        isArchiveMap(archive) &&
+        archive.isArchived == true &&
+        archive.archivedBy == request.auth.uid &&
+        archive.archivedAt == request.time &&
+        isAuditReason(archive.reason) &&
+        archive.restoredAt == null &&
+        archive.restoredBy == null &&
+        archive.restoreReason == '' &&
+        hasMatchingLifecycleAudit(orderId, 'archived', archive.reason);
+    }
+
+    function restoresOrder(orderId) {
+      let archive = request.resource.data.archive;
+      return isAdmin() &&
+        ('archive' in resource.data) &&
+        resource.data.archive.isArchived == true &&
+        hasArchivableStatus() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archive', 'updatedAt']) &&
+        isArchiveMap(archive) &&
+        archive.isArchived == false &&
+        archive.archivedAt == resource.data.archive.archivedAt &&
+        archive.archivedBy == resource.data.archive.archivedBy &&
+        archive.reason == resource.data.archive.reason &&
+        archive.restoredBy == request.auth.uid &&
+        archive.restoredAt == request.time &&
+        isAuditReason(archive.restoreReason) &&
+        hasMatchingLifecycleAudit(orderId, 'restored', archive.restoreReason);
+    }
+
+    function createsLifecycleAudit(auditId) {
+      let audit = request.resource.data;
+      let orderAfter = getAfter(/databases/$(database)/documents/orders/$(audit.orderId)).data;
+      return isAdmin() &&
+        audit.orderId is string &&
+        audit.action in ['archived', 'restored'] &&
+        audit.previousStatus is string &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        isAuditReason(audit.reason) &&
+        audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason'
+        ]) &&
+        orderAfter.archive.lastLifecycleAuditId == auditId &&
+        orderAfter.status == audit.previousStatus &&
+        (
+          (audit.action == 'archived' &&
+            orderAfter.archive.isArchived == true &&
+            orderAfter.archive.archivedBy == request.auth.uid &&
+            orderAfter.archive.archivedAt == request.time &&
+            orderAfter.archive.reason == audit.reason) ||
+          (audit.action == 'restored' &&
+            orderAfter.archive.isArchived == false &&
+            orderAfter.archive.restoredBy == request.auth.uid &&
+            orderAfter.archive.restoredAt == request.time &&
+            orderAfter.archive.restoreReason == audit.reason)
+        );
+    }
+
+    function hasReviewedInvalidDataQualityRecord() {
+      return !hasAnalyticsOrderFields(resource.data) &&
+        !(resource.data.status in [
+          'paid',
+          'payment_confirmed',
+          'processing',
+          'shipping',
+          'completed',
+          'Refunded'
+        ]) &&
+        !('paidAt' in resource.data) &&
+        !('paymentId' in resource.data) &&
+        ('dataQualityReview' in resource.data) &&
+        resource.data.dataQualityReview.keys().hasOnly(['reviewedBy', 'reviewedAt']) &&
+        resource.data.dataQualityReview.reviewedBy == request.auth.uid &&
+        resource.data.dataQualityReview.reviewedAt is timestamp;
+    }
+
+    function hasMatchingDeletionAudit(orderId) {
+      let audit = getAfter(/databases/$(database)/documents/orderDeletionAudits/$(orderId)).data;
+      return audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason',
+          'reviewedBy',
+          'reviewedAt'
+        ]) &&
+        audit.orderId == orderId &&
+        audit.action == 'permanently_deleted' &&
+        audit.previousStatus == resource.data.status &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        isAuditReason(audit.reason) &&
+        audit.reviewedBy == resource.data.dataQualityReview.reviewedBy &&
+        audit.reviewedAt == resource.data.dataQualityReview.reviewedAt;
+    }
+
+    function deletesReviewedInvalidOrder(orderId) {
+      return isAdmin() &&
+        hasReviewedInvalidDataQualityRecord() &&
+        hasMatchingDeletionAudit(orderId);
+    }
+
+    function createsDeletionAudit(auditId) {
+      let audit = request.resource.data;
+      let orderBefore = get(/databases/$(database)/documents/orders/$(audit.orderId)).data;
+      return isAdmin() &&
+        auditId == audit.orderId &&
+        audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason',
+          'reviewedBy',
+          'reviewedAt'
+        ]) &&
+        audit.action == 'permanently_deleted' &&
+        audit.previousStatus == orderBefore.status &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        isAuditReason(audit.reason) &&
+        !hasAnalyticsOrderFields(orderBefore) &&
+        !(orderBefore.status in [
+          'paid',
+          'payment_confirmed',
+          'processing',
+          'shipping',
+          'completed',
+          'Refunded'
+        ]) &&
+        !('paidAt' in orderBefore) &&
+        !('paymentId' in orderBefore) &&
+        ('dataQualityReview' in orderBefore) &&
+        orderBefore.dataQualityReview.keys().hasOnly(['reviewedBy', 'reviewedAt']) &&
+        orderBefore.dataQualityReview.reviewedBy == request.auth.uid &&
+        audit.reviewedBy == orderBefore.dataQualityReview.reviewedBy &&
+        audit.reviewedAt == orderBefore.dataQualityReview.reviewedAt &&
+        !existsAfter(/databases/$(database)/documents/orders/$(audit.orderId));
     }
 
     function buyerUpdatesPaymentReference() {
@@ -170,7 +399,10 @@ service cloud.firestore {
         isSubAdmin()
       );
 
-      allow update: if (isAdmin() && completedTransitionHasAnalyticsFields()) ||
+      allow update: if updatesAdminOrderWorkflow() ||
+        recordsDataQualityReview() ||
+        archivesOrder(orderId) ||
+        restoresOrder(orderId) ||
         buyerUpdatesPaymentReference() ||
         buyerRequestsCancellation() ||
         (
@@ -185,12 +417,19 @@ service cloud.firestore {
           ]
         );
 
-      // Data-quality deletions require a recorded main-admin review. Ordinary
-      // admin deletions retain the existing access behavior.
-      allow delete: if isAdmin() && (
-        hasAnalyticsOrderFields(resource.data) ||
-        hasCurrentAdminDataQualityReview()
-      );
+      allow delete: if deletesReviewedInvalidOrder(orderId);
+    }
+
+    match /orderLifecycleAudits/{auditId} {
+      allow read: if isAdmin();
+      allow create: if createsLifecycleAudit(auditId);
+      allow update, delete: if false;
+    }
+
+    match /orderDeletionAudits/{orderId} {
+      allow read: if isAdmin();
+      allow create: if createsDeletionAudit(orderId);
+      allow update, delete: if false;
     }
 
     match /messages/{messageId} {

@@ -36,9 +36,9 @@ const ForgotPasswordPage = () => {
       <Helmet><title>Reset Password - D.A.B.S. Co.</title></Helmet>
       <div className="artisan-grid-page flex min-h-screen items-center px-5 py-12 sm:px-6">
         <main className="mx-auto w-full max-w-md rounded-3xl border border-[#E7DED3] bg-[#FAF8F1]/95 p-6 shadow-[0_18px_42px_rgba(36,16,31,0.14)] sm:p-8">
-          <Link to="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-[#47003C] hover:underline"><ArrowLeft size={16} /> Back to login</Link>
+          <Link to="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-artisan-primary hover:underline"><ArrowLeft size={16} /> Back to login</Link>
           <p className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-[#88538C]">Account recovery</p>
-          <h1 className="mt-2 font-artisan-display text-4xl font-bold text-[#01243A]">Reset your password</h1>
+          <h1 className="mt-2 font-nunito text-4xl font-bold text-[#01243A]">Reset your password</h1>
           <p className="mt-3 leading-7 text-[#495968]">Enter your account email and we will send a reset link.</p>
 
           {status.message && <p className={`mt-6 rounded-xl border px-4 py-3 text-sm leading-6 ${status.type === 'success' ? 'border-[#1D5C54]/25 bg-[#EDF7F3] text-[#1D5C54]' : 'border-[#9F1239]/25 bg-[#FFF1F2] text-[#9F1239]'}`}>{status.message}</p>}
@@ -49,7 +49,7 @@ const ForgotPasswordPage = () => {
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#88538C]" size={18} />
               <input id="reset-email" type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-[#D9C9E3] bg-white py-3 pl-11 pr-4 text-[#01243A] outline-none transition focus:border-[#88538C] focus:ring-4 focus:ring-[#88538C]/15" placeholder="you@example.com" />
             </div>
-            <Button type="submit" disabled={isSending} className="h-12 w-full rounded-xl bg-[#47003C] text-white hover:bg-[#5A124E]">{isSending ? 'Sending…' : 'Send reset link'}</Button>
+            <Button type="submit" disabled={isSending} className="h-12 w-full rounded-xl bg-artisan-primary text-white hover:bg-[#4A247B]">{isSending ? 'Sending…' : 'Send reset link'}</Button>
           </form>
         </main>
       </div>

@@ -513,7 +513,7 @@ await addDoc(collection(db, 'messages'), {
     return (
       <div className="flex min-h-screen items-center justify-center px-4" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="w-full max-w-md rounded-[2rem] border border-white/60 bg-white/95 p-10 text-center text-artisan-text shadow-xl shadow-[#2D0E5A]/15">
-          <h1 className="text-3xl font-bold text-red-600">Login Required</h1>
+          <h1 className="font-nunito text-3xl font-bold text-red-600">Login Required</h1>
           <p className="mt-3 text-artisan-text-muted">
             Please log in first to view the message center.
           </p>
@@ -552,7 +552,7 @@ await addDoc(collection(db, 'messages'), {
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-artisan-primary-pale">
                     {isAdminLike ? 'Admin Support' : 'Your Support'}
                   </p>
-                  <h1 className="truncate font-artisan-display text-2xl font-bold sm:text-3xl">
+                  <h1 className="truncate font-nunito text-2xl font-bold sm:text-3xl">
                     {isAdminLike ? 'Customer Message Center' : 'Message Center'}
                   </h1>
                 </div>
@@ -695,7 +695,7 @@ await addDoc(collection(db, 'messages'), {
                       <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.5rem] bg-artisan-primary text-white shadow-artisan-md">
                         <MessageCircle size={34} />
                       </div>
-                      <h2 className="font-artisan-display text-3xl font-bold text-artisan-text">
+                      <h2 className="font-nunito text-3xl font-bold text-artisan-text">
                         Select a conversation
                       </h2>
                       <p className="mt-2 text-artisan-text-muted">

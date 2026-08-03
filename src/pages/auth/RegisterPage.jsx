@@ -172,7 +172,7 @@ const RegisterPage = () => {
             className="mx-auto w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 shadow-2xl shadow-[#2D0E5A]/30 backdrop-blur-md"
           >
             <div className="relative p-7 text-center text-white sm:p-10 md:p-12 md:text-left" style={{ background: 'linear-gradient(135deg, #2D0E5A, #5C2D91)' }}>
-              <h1 className="mb-4 font-artisan-display text-4xl font-bold text-white sm:text-5xl md:text-6xl">Join D.A.B.S. Co.</h1>
+              <h1 className="mb-4 font-nunito text-4xl font-bold text-white sm:text-5xl md:text-6xl">Join D.A.B.S. Co.</h1>
               <p className="max-w-2xl text-lg leading-8 text-white/85 sm:text-xl">Create your account and start shopping.</p>
             </div>
 
@@ -300,7 +300,7 @@ const RegisterPage = () => {
 
                 {/* Shipping Address */}
                 <div className="space-y-6 border-t-2 border-[#E6DDEB] pt-8">
-                  <h3 className="flex items-center gap-3 font-artisan-display text-3xl font-bold text-[#5C2D91]">
+                  <h3 className="flex items-center gap-3 font-nunito text-3xl font-bold text-[#5C2D91]">
                     <Home size={28} /> Shipping Address
                   </h3>
 

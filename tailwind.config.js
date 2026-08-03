@@ -4,8 +4,7 @@
  * Design A — Artisan Canvas: purple token extensions added.
  * All original tokens (border, ring, muted, primary, etc.) preserved
  * — Radix UI and shadcn components depend on them.
- * All original fonts (Poppins, Playball, Permanent Marker, Agbalumo)
- * preserved — existing components still reference them.
+ * Typography utilities use the approved Playfair Display/Nunito system.
  */
 module.exports = {
   darkMode: ['class'],
@@ -89,7 +88,9 @@ module.exports = {
           text:          '#2D0E5A', // primary body text
           'text-mid':    '#4A2560', // medium emphasis
           'text-muted':  '#6B4A80', // secondary / muted
-          'text-faint':  '#9B7AB0', // placeholder, disabled
+          'text-faint':  '#755381', // legacy alias; readable low-priority text
+          'text-subtle': '#755381', // accessible low-priority text
+          'footer-muted':'#B6ABC5', // readable text on artisan-deep surfaces
 
           // Surfaces
           surface:       'rgba(255,255,255,0.85)',
@@ -116,27 +117,12 @@ module.exports = {
       },
 
       // ─────────────────────────────────────────────────────────
-      // FONTS — original fonts kept, Design A fonts added
+      // APPROVED TYPOGRAPHY
       // ─────────────────────────────────────────────────────────
       fontFamily: {
-        // ── Original (kept — existing components use these) ──
-        sans:               ['Poppins', 'Inter', 'sans-serif'],
-        serif:              ['Playball', 'cursive'],
-        'permanent-marker': ['"Permanent Marker"', 'cursive'],
-        chewy:              ['Chewy', 'cursive'],
-        agbalumo:           ['Agbalumo', 'cursive'],
-
-        // ── Design A — Artisan Canvas fonts ──
-        // font-display   → Playfair Display (hero headings, card names)
-        // font-script    → Dancing Script (artsy labels, sub-headings)
-        // font-serif-display → Cormorant Garamond (large italic display text)
-        // font-ui        → Inter (body copy, UI text, buttons)
-        display:         ['"Playfair Display"', 'Georgia', 'serif'],
-        script:          ['"Dancing Script"', 'cursive'],
-        'serif-display': ['"Cormorant Garamond"', 'Georgia', 'serif'],
-        ui:              ['Inter', 'Poppins', 'sans-serif'],
-        'home-brand':    ['"Archivo Black"', 'Arial Black', 'sans-serif'],
-        'home-editorial':['Lora', 'Georgia', 'serif'],
+        sans:              ['Nunito', 'Segoe UI', 'sans-serif'],
+        nunito:            ['Nunito', 'Segoe UI', 'sans-serif'],
+        'artisan-display': ['"Playfair Display"', 'Georgia', 'serif'],
       },
 
       // ─────────────────────────────────────────────────────────

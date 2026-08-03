@@ -54,7 +54,7 @@ const AccountDangerZone = ({
         </div>
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">Account controls</p>
-          <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Deactivate or delete</h2>
+          <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Deactivate or delete</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-artisan-text-muted">
             Accounts with an approved purchase stay available so order records can be fulfilled and supported.
           </p>
@@ -79,7 +79,7 @@ const AccountDangerZone = ({
         </div>
       ) : (
         <div className="mt-5 rounded-2xl border border-red-200 bg-white p-5">
-          <h3 className="font-bold text-artisan-text">
+          <h3 className="font-nunito font-bold text-artisan-text">
             {mode === 'deactivate' ? 'Deactivate this account?' : 'Permanently delete this account?'}
           </h3>
           <p className="mt-2 text-sm leading-6 text-artisan-text-muted">

@@ -1,76 +1,169 @@
 // src/pages/marketing/GalleryPage.jsx
 // Design A — Artisan Canvas reskin. All Firebase + filter/sort/pagination logic preserved.
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useAuth } from '@/lib/firebase';
 import { getAvailableStock, getStockLabel } from '@/lib/stock';
+import {
+  CATALOG_PAGE_SIZE,
+  fetchCatalogPage,
+  fetchSearchCatalog,
+  filterCatalogProducts,
+  getCatalogPageCount,
+  getReviewSummaries,
+  sortCatalogProducts,
+} from '@/lib/catalog/productCatalog';
 
 const GalleryPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
   const [imageIndices, setImageIndices] = useState({});
+  const catalogCacheRef = useRef({ key: '', cursors: new Map(), pages: new Map() });
+  const searchCatalogRef = useRef(null);
+  const searchResultsRef = useRef([]);
+  const requestVersionRef = useRef(0);
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.email?.includes('admin');
+  const hasSearchQuery = Boolean(searchQuery.trim());
+  const usesClientCatalog = hasSearchQuery || sortOrder === 'topSellers';
 
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'pricelists'), async (snapshot) => {
-      const productsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data(), inStock: doc.data().inStock !== false, stockQuantity: doc.data().stockQuantity || 0, totalSold: doc.data().totalSold || 0 }));
-      const enriched = await Promise.all(productsData.map(async (product) => {
-        const q = query(collection(db, 'reviews'), where('productId', '==', product.id));
-        const snap = await getDocs(q);
-        const reviews = snap.docs.map((d) => d.data());
-        const avg = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
-        return { ...product, averageRating: Number(avg.toFixed(1)), reviewCount: reviews.length };
-      }));
-      setProducts(enriched);
-      setFilteredProducts(enriched);
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
+  const sourceKey = `${activeTab}:${sortOrder}`;
 
-  useEffect(() => {
-    let filtered = products;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((p) => p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q));
+  const getServerPage = async (page, key = sourceKey) => {
+    const cache = catalogCacheRef.current;
+    if (cache.key !== key) return null;
+    if (cache.pages.has(page)) return cache.pages.get(page);
+
+    let cursor = cache.cursors.get(page);
+    if (page > 1 && cursor === undefined) {
+      const previousPage = await getServerPage(page - 1, key);
+      if (!previousPage || cache.key !== key) return null;
+      cursor = cache.cursors.get(page);
     }
-    const toMillis = (value) => {
-      if (typeof value?.toMillis === 'function') return value.toMillis();
-      if (typeof value?.toDate === 'function') return value.toDate().getTime();
-      const parsed = new Date(value || 0).getTime();
-      return Number.isFinite(parsed) ? parsed : 0;
+
+    const result = await fetchCatalogPage({ category: activeTab, sortOrder, cursor });
+    const enrichedProducts = await getReviewSummaries(result.products);
+    const pageData = { ...result, products: enrichedProducts };
+
+    if (cache.key === key) {
+      cache.pages.set(page, pageData);
+      if (result.hasNextPage) cache.cursors.set(page + 1, result.nextCursor);
+    }
+
+    return pageData;
+  };
+
+  const getSearchPage = async (page, productsForSearch) => {
+    const start = (page - 1) * CATALOG_PAGE_SIZE;
+    return getReviewSummaries(productsForSearch.slice(start, start + CATALOG_PAGE_SIZE));
+  };
+
+  useEffect(() => {
+    const requestVersion = requestVersionRef.current + 1;
+    requestVersionRef.current = requestVersion;
+    const normalizedSearch = searchQuery.trim();
+
+    setCurrentPage(1);
+    setLoading(true);
+    setLoadError('');
+
+    const loadCatalog = async () => {
+      try {
+        if (normalizedSearch || sortOrder === 'topSellers') {
+          const catalog = searchCatalogRef.current || await fetchSearchCatalog();
+          searchCatalogRef.current = catalog;
+          const matchingProducts = sortCatalogProducts(
+            filterCatalogProducts(catalog, { category: activeTab, searchQuery: normalizedSearch }),
+            sortOrder,
+          );
+          searchResultsRef.current = matchingProducts;
+          const totalPages = Math.max(1, Math.ceil(matchingProducts.length / CATALOG_PAGE_SIZE));
+          const currentProducts = await getSearchPage(1, matchingProducts);
+
+          if (requestVersionRef.current !== requestVersion) return;
+          setProducts(currentProducts);
+          setPageCount(totalPages);
+          return;
+        }
+
+        searchResultsRef.current = [];
+        catalogCacheRef.current = {
+          key: sourceKey,
+          cursors: new Map([[1, null]]),
+          pages: new Map(),
+        };
+
+        const [totalPages, firstPage] = await Promise.all([
+          getCatalogPageCount({ category: activeTab, sortOrder }),
+          getServerPage(1, sourceKey),
+        ]);
+
+        if (requestVersionRef.current !== requestVersion || !firstPage) return;
+        setProducts(firstPage.products);
+        setPageCount(totalPages);
+      } catch (error) {
+        if (requestVersionRef.current !== requestVersion) return;
+        console.error('Unable to load gallery products', error);
+        setProducts([]);
+        setPageCount(1);
+        setLoadError('We could not load the gallery. Please try again.');
+      } finally {
+        if (requestVersionRef.current === requestVersion) setLoading(false);
+      }
     };
 
-    if (sortOrder === 'newest') filtered = [...filtered].sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
-    else if (sortOrder === 'oldest') filtered = [...filtered].sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
-    else if (sortOrder === 'lowToHigh') filtered = [...filtered].sort((a, b) => a.price - b.price);
-    else if (sortOrder === 'highToLow') filtered = [...filtered].sort((a, b) => b.price - a.price);
-    else if (sortOrder === 'topSellers') filtered = [...filtered].sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0));
-    setFilteredProducts(filtered);
-  }, [products, searchQuery, sortOrder]);
+    loadCatalog();
+  }, [activeTab, reloadKey, searchQuery, sortOrder]);
 
-  useEffect(() => {
-    setVisibleCount(5);
-  }, [activeTab, searchQuery, sortOrder]);
+  const changePage = async (nextPage) => {
+    const boundedPage = Math.min(Math.max(nextPage, 1), pageCount);
+    if (boundedPage === currentPage || pageLoading) return;
 
-  const getCategoryItems = (category) => category === 'all' ? filteredProducts : filteredProducts.filter((p) => p.category === category);
-  const getNavIdsForTab = (tabId) => getCategoryItems(tabId).map((p) => p.id);
+    setPageLoading(true);
+    try {
+      const nextProducts = usesClientCatalog
+        ? await getSearchPage(boundedPage, searchResultsRef.current)
+        : (await getServerPage(boundedPage))?.products;
+
+      if (!nextProducts) return;
+      setProducts(nextProducts);
+      setCurrentPage(boundedPage);
+    } catch (error) {
+      console.error('Unable to load gallery page', error);
+      setLoadError('We could not load that page. Please try again.');
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
+  const getPaginationItems = (pageCount) => {
+    if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
+
+    const items = [1];
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(pageCount - 1, currentPage + 1);
+    if (start > 2) items.push('start-ellipsis');
+    for (let page = start; page <= end; page += 1) items.push(page);
+    if (end < pageCount - 1) items.push('end-ellipsis');
+    items.push(pageCount);
+    return items;
+  };
 
   const getStockText = (product) => {
     const availableStock = getAvailableStock(product);
@@ -102,27 +195,24 @@ const GalleryPage = () => {
 
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-12 sm:px-6 md:py-16 lg:px-8">
           <div className="py-4 md:py-8">
-            <motion.div initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.45 }} className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-white/75 px-4 py-2 text-xs font-bold uppercase tracking-widest text-artisan-primary backdrop-blur-sm">
-                Discover Handmade Creations
-              </div>
-              <h1 className="mb-4 text-4xl font-bold tracking-tight text-artisan-primary md:text-5xl" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Discover our crafted gallery
+            <motion.header initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.45 }} className="mb-10 max-w-3xl md:mb-12">
+              <h1 className="font-artisan-display text-5xl font-bold leading-[0.95] tracking-[-0.045em] text-artisan-primary md:text-6xl">
+                Gallery
               </h1>
-              <p className="text-base leading-relaxed text-artisan-text-mid md:text-lg">
+              <p className="mt-4 max-w-xl text-base leading-relaxed text-artisan-text-mid md:text-lg">
                 Browse handmade pieces designed with care — from needlepoint and crochet to portraits and canvas paintings.
               </p>
-            </motion.div>
+            </motion.header>
 
             {/* Search + Sort bar */}
-            <div className="mb-8 rounded-[2rem] border border-white/70 bg-white/80 px-4 py-4 shadow-[0_14px_36px_rgba(92,45,145,0.10)] backdrop-blur-md md:px-6 md:py-5">
+            <div className="mb-8 border-y border-artisan-primary/15 py-4 md:py-5">
               <div className="flex flex-col xl:flex-row gap-4 xl:gap-5 xl:items-center xl:justify-between">
                 <div className="relative w-full xl:max-w-md">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-artisan-text-muted" size={18} />
-                  <input type="text" placeholder="Search products, categories, or descriptions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-12 rounded-2xl border border-artisan-primary-wash bg-white pl-11 pr-4 text-sm md:text-base outline-none transition focus:border-artisan-primary-light focus:ring-4 focus:ring-artisan-primary/10" />
+                  <input type="text" placeholder="Search products, categories, or descriptions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-12 w-full rounded-lg border border-artisan-primary-wash bg-white pl-11 pr-4 text-sm outline-none transition focus:border-artisan-primary-light focus:ring-4 focus:ring-artisan-primary/10 md:text-base" />
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto xl:justify-end">
-                  <div className="flex h-12 w-full items-center gap-2 rounded-2xl border border-artisan-primary-wash bg-white px-3 sm:w-auto">
+                  <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-artisan-primary-wash bg-white px-3 sm:w-auto">
                     <ArrowUpDown size={17} className="text-artisan-text-muted shrink-0" />
                     <label htmlFor="gallery-sort" className="shrink-0 text-xs font-bold uppercase tracking-wide text-artisan-text-muted">
                       Sort
@@ -141,7 +231,7 @@ const GalleryPage = () => {
                     </select>
                   </div>
                   {isAdmin && (
-                    <Button onClick={() => navigate('/add-product')} className="h-12 rounded-full px-5 font-semibold shadow-sm">
+                    <Button onClick={() => navigate('/add-product')} className="h-12 px-5 font-semibold shadow-sm">
                       <Plus size={17} className="mr-2" />
                       Add Product
                     </Button>
@@ -152,28 +242,34 @@ const GalleryPage = () => {
 
             {/* Category Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="flex justify-center mb-8 md:mb-10">
-                <TabsList className="flex h-auto flex-wrap justify-center gap-2 bg-transparent p-0 shadow-none">
+              <div className="mb-8 border-b border-artisan-primary/15 md:mb-10">
+                <TabsList variant="underline" className="flex h-auto w-full justify-start gap-5 overflow-x-auto bg-transparent p-0 shadow-none md:justify-center">
                   {categories.map((cat) => (
-                    <TabsTrigger key={cat.id} value={cat.id}
-                      className="border border-artisan-primary/12 bg-white/85 px-5 py-2.5 text-sm font-medium text-artisan-text-mid shadow-sm hover:border-artisan-primary md:text-[15px]">
+                    <TabsTrigger variant="underline" key={cat.id} value={cat.id}
+                      className="shrink-0 px-0 py-3 text-sm font-semibold md:text-[15px]">
                       {cat.label}
                     </TabsTrigger>
                   ))}
                 </TabsList>
               </div>
 
-              {categories.map((cat) => (
-                <TabsContent key={cat.id} value={cat.id} className="mt-0">
+              <TabsContent value={activeTab} className="mt-0">
                   {loading ? (
                     <div className="text-center py-24">
                       <div className="w-14 h-14 border-4 border-artisan-primary/20 border-t-artisan-primary rounded-full animate-spin mx-auto" />
                        <p className="mt-4 text-artisan-text-mid">Loading gallery...</p>
                     </div>
-                  ) : getCategoryItems(cat.id).length > 0 ? (
+                  ) : loadError ? (
+                    <div className="py-24 text-center">
+                      <p className="text-lg text-artisan-text-mid">{loadError}</p>
+                      <Button type="button" variant="outline" className="mt-5" onClick={() => setReloadKey((value) => value + 1)}>
+                        Retry gallery
+                      </Button>
+                    </div>
+                  ) : products.length > 0 ? (
                     <div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5 md:gap-6">
-                      {getCategoryItems(cat.id).slice(0, visibleCount).map((item, index) => {
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 md:grid-cols-3 md:gap-6 xl:grid-cols-5">
+                      {products.map((item, index) => {
                         const isTopSeller = item.totalSold > 0 && sortOrder === 'topSellers';
                         const showBadge = isTopSeller || item.totalSold >= 5;
                         const allImages = item.imageUrls?.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
@@ -183,12 +279,12 @@ const GalleryPage = () => {
                         const prevImage = (e) => { e.stopPropagation(); setImageIndices((prev) => ({ ...prev, [item.id]: (currentIndex - 1 + allImages.length) % allImages.length })); };
 
                         return (
-                          <motion.div key={item.id} initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.35, delay: index*0.04 }}
-                            onClick={() => navigate(`/product/${item.id}`, { state: { ids: getNavIdsForTab(cat.id), fromTab: cat.id } })}
-                            className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-[#E7DED3] bg-[#FAF8F1]/95 shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:border-[#88538C]/50 hover:shadow-[0_14px_28px_rgba(36,16,31,0.12)]">
+                          <motion.article key={item.id} initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.35, delay: index*0.04 }}
+                            onClick={() => navigate(`/product/${item.id}`, { state: { ids: products.map((product) => product.id), fromTab: activeTab } })}
+                            className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-lg border border-[#E7DED3] bg-[#FAF8F1]/95 shadow-[0_8px_24px_rgba(36,16,31,0.06)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:border-[#88538C]/60 hover:shadow-[0_14px_28px_rgba(36,16,31,0.12)]">
                             <div className="relative">
                               {showBadge && (
-                                <div className="absolute top-4 left-4 z-20 rounded-full bg-red-500 text-white text-[11px] font-bold px-3 py-1.5 shadow-md">BEST SELLER</div>
+                                <span className="absolute left-0 top-4 z-20 bg-artisan-primary px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-md">Best seller</span>
                               )}
                               <div className="relative h-56 overflow-hidden bg-[#E7DED3]/45 sm:h-52 md:h-56 lg:h-60">
                                 {currentImage ? (
@@ -198,14 +294,14 @@ const GalleryPage = () => {
                                 )}
                                 {allImages.length > 1 && (
                                   <>
-                                    <button onClick={prevImage} className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white text-gray-700 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition duration-300 z-10"><ChevronLeft size={18} /></button>
-                                    <button onClick={nextImage} className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white text-gray-700 p-2 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition duration-300 z-10"><ChevronRight size={18} /></button>
+                                    <button type="button" onClick={prevImage} aria-label={`Show previous image of ${item.name}`} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 text-artisan-primary shadow-md opacity-0 transition duration-300 group-hover:opacity-100 hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"><ChevronLeft size={18} /></button>
+                                    <button type="button" onClick={nextImage} aria-label={`Show next image of ${item.name}`} className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 text-artisan-primary shadow-md opacity-0 transition duration-300 group-hover:opacity-100 hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"><ChevronRight size={18} /></button>
                                   </>
                                 )}
                                 {allImages.length > 1 && (
                                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                                     {allImages.map((_, idx) => (
-                                      <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/70'}`} />
+                                      <span key={idx} aria-hidden="true" className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/70'}`} />
                                     ))}
                                   </div>
                                 )}
@@ -215,7 +311,7 @@ const GalleryPage = () => {
                             <div className="flex flex-1 flex-col p-5">
                               <div className="flex items-start justify-between gap-3 mb-2">
                                 <h3 className="min-h-[3.5rem] font-artisan-display text-lg font-semibold leading-snug text-[#01243A] line-clamp-2 md:text-xl">{item.name}</h3>
-                                <span className="shrink-0 text-lg font-bold tabular-nums text-[#47003C] md:text-xl">{formatPrice(item.price)}</span>
+                                <span className="shrink-0 text-lg font-bold tabular-nums text-artisan-primary md:text-xl">{formatPrice(item.price)}</span>
                               </div>
                               <p className="mb-3 min-h-5 text-sm text-artisan-text-muted line-clamp-1">{item.category || 'Handmade Product'}</p>
                               <div className="mb-3 flex min-h-10 items-center justify-between gap-3">
@@ -226,34 +322,63 @@ const GalleryPage = () => {
                                 )}
                                 <div className="text-xs md:text-sm text-right">{getStockText(item)}</div>
                               </div>
-                              <p className="mb-4 min-h-12 text-sm leading-relaxed text-artisan-text-muted line-clamp-2">{item.description || 'Beautifully made handcrafted item.'}</p>
-                              <Button className="mt-auto h-12 w-full rounded-xl bg-[#47003C] font-semibold text-white hover:bg-[#5A124E]">View Product</Button>
+                              <p className="mb-4 min-h-12 text-sm leading-relaxed text-artisan-text-muted line-clamp-2">{item.description || 'No description provided.'}</p>
+                              <Button className="mt-auto h-12 w-full rounded-xl bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]">View Product</Button>
                             </div>
-                          </motion.div>
+                          </motion.article>
                         );
                       })}
                     </div>
-                    {getCategoryItems(cat.id).length > visibleCount && (
-                      <div className="mt-8 flex justify-center">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setVisibleCount((count) => count + 5)}
-                          className="border-white/55 bg-white/90 text-artisan-primary hover:bg-white"
-                        >
-                          Load 5 more products
-                        </Button>
-                      </div>
-                    )}
+                    {pageCount > 1 && (() => {
+                      const page = Math.min(currentPage, pageCount);
+                      return (
+                        <nav className="mt-10 flex items-center justify-center gap-1.5" aria-label="Gallery pages">
+                          <span className="mr-2 text-sm font-semibold tabular-nums text-artisan-text-muted" aria-live="polite">
+                            Page {page} of {pageCount}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => changePage(page - 1)}
+                            disabled={page === 1 || pageLoading}
+                            className="grid h-10 w-10 place-items-center rounded-lg text-artisan-primary transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
+                            aria-label="Previous page"
+                          >
+                            <ChevronLeft size={18} />
+                          </button>
+                          {getPaginationItems(pageCount).map((pageItem) => typeof pageItem === 'number' ? (
+                            <button
+                              type="button"
+                              key={pageItem}
+                              onClick={() => changePage(pageItem)}
+                              disabled={pageLoading}
+                            className={`grid h-10 min-w-10 place-items-center rounded-lg px-2 text-sm font-bold tabular-nums transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary disabled:cursor-wait disabled:opacity-60 ${pageItem === page ? 'bg-artisan-primary text-white shadow-[0_6px_16px_rgba(92,45,145,0.18)]' : 'text-artisan-primary hover:bg-white'}`}
+                              aria-current={pageItem === page ? 'page' : undefined}
+                            >
+                              {pageItem}
+                            </button>
+                          ) : (
+                            <span key={pageItem} className="grid h-10 w-7 place-items-center text-artisan-text-muted" aria-hidden="true">…</span>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => changePage(page + 1)}
+                            disabled={page === pageCount || pageLoading}
+                            className="grid h-10 w-10 place-items-center rounded-lg text-artisan-primary transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
+                            aria-label="Next page"
+                          >
+                            <ChevronRight size={18} />
+                          </button>
+                        </nav>
+                      );
+                    })()}
                     </div>
                   ) : (
                     <div className="text-center py-24">
-                      <div className="w-20 h-20 rounded-full bg-white/80 flex items-center justify-center mx-auto mb-5 backdrop-blur-sm"><ShoppingBag size={38} className="text-artisan-primary" /></div>
+                      <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-lg border border-artisan-primary/15 bg-white/85"><ShoppingBag size={30} className="text-artisan-primary" /></div>
                        <p className="text-lg text-artisan-text-mid">{searchQuery ? 'No products found matching your search.' : 'No items in this category yet.'}</p>
                     </div>
                   )}
-                </TabsContent>
-              ))}
+              </TabsContent>
             </Tabs>
           </div>
         </div>

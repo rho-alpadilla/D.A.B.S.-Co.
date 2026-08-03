@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { downloadOrdersExcel, filterOrdersForExport } from '@/lib/exports/adminExports';
+import { ARCHIVABLE_ORDER_STATUSES } from '@/lib/orders/orderLifecycle';
 import {
   isAwaitingReview,
   isPostReviewWorkflow,
@@ -38,6 +40,7 @@ import {
 const AdminOrdersTab = (props) => {
   const {
     avgOrderValue,
+    archivedOrderCount,
     awaitingReviewCount,
     cancellationRequestedCount,
     cancelledCount,
@@ -70,10 +73,12 @@ const AdminOrdersTab = (props) => {
     makeSubAdmin,
     navigate,
     notifyBuyerStatusChange,
+    openOrderLifecycleDialog,
     onReviewCount,
     orderSearch,
     orderStatusFilter,
     orderStatusOptions,
+    orderView,
     orders,
     outOfStockCount,
     paymentConfirmedCount,
@@ -92,6 +97,7 @@ const AdminOrdersTab = (props) => {
     setLoadingUsers,
     setOrderSearch,
     setOrderStatusFilter,
+    setOrderView,
     setOrders,
     setProductStats,
     setProducts,
@@ -114,6 +120,10 @@ const AdminOrdersTab = (props) => {
   } = props;
 
   const [visibleCount, setVisibleCount] = useState(5);
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
+  const [exportProductId, setExportProductId] = useState('');
+  const [exportMessage, setExportMessage] = useState('');
 
   useEffect(() => {
     setVisibleCount(5);
@@ -125,10 +135,55 @@ const AdminOrdersTab = (props) => {
 
   const hasMore = filteredOrders.length > visibleCount;
   const hasActiveFilters = Boolean(orderSearch.trim()) || orderStatusFilter !== 'all';
+  const exportProducts = useMemo(() => (
+    products
+      .filter((product) => product?.id && product?.name)
+      .slice()
+      .sort((first, second) => String(first.name).localeCompare(String(second.name)))
+  ), [products]);
+  const exportOrderCount = useMemo(() => (
+    filterOrdersForExport({
+      orders,
+      startDate: exportStartDate,
+      endDate: exportEndDate,
+      productId: exportProductId,
+    }).length
+  ), [orders, exportEndDate, exportProductId, exportStartDate]);
 
   const clearFilters = () => {
     setOrderSearch('');
     setOrderStatusFilter('all');
+  };
+
+  const changeOrderView = (nextView) => {
+    setOrderView(nextView);
+    setOrderSearch('');
+    setOrderStatusFilter('all');
+  };
+
+  const handleOrdersExport = async () => {
+    if (!isAdmin) {
+      setExportMessage('Only the main admin can export order data.');
+      return;
+    }
+
+    if (exportStartDate && exportEndDate && exportStartDate > exportEndDate) {
+      setExportMessage('Choose an end date that is on or after the start date.');
+      return;
+    }
+
+    try {
+      const result = await downloadOrdersExcel({
+        orders,
+        startDate: exportStartDate,
+        endDate: exportEndDate,
+        productId: exportProductId,
+      });
+      setExportMessage(`Downloaded ${result.rowCount} item row${result.rowCount === 1 ? '' : 's'} from ${result.orderCount} order${result.orderCount === 1 ? '' : 's'}.`);
+    } catch (error) {
+      console.error('Unable to export orders', error);
+      setExportMessage('The export could not be created. Please try again.');
+    }
   };
 
   return (
@@ -137,7 +192,7 @@ const AdminOrdersTab = (props) => {
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Order workspace</p>
-                      <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Customer Orders</h2>
+                      <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Customer Orders</h2>
                       <p className="mt-1 text-artisan-text-muted">Manage reviews, declines, cancellations, and status updates.</p>
                     </div>
 
@@ -152,6 +207,14 @@ const AdminOrdersTab = (props) => {
                       </div>
                     </div>
                   </div>
+
+                  {isAdmin && (
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Order visibility">
+                      <Button type="button" size="sm" variant={orderView === 'active' ? 'default' : 'outline'} onClick={() => changeOrderView('active')}>Active orders</Button>
+                      <Button type="button" size="sm" variant={orderView === 'archived' ? 'default' : 'outline'} onClick={() => changeOrderView('archived')}>Archived <span className="ml-1 opacity-80">{archivedOrderCount}</span></Button>
+                      <p className="text-sm text-artisan-text-muted">{orderView === 'archived' ? 'Archived records remain in exports and analytics.' : 'Archived records are hidden from this operational view.'}</p>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-3">
                     <div className="relative">
@@ -185,12 +248,59 @@ const AdminOrdersTab = (props) => {
                       </select>
                     </div>
                   </div>
+
+                  {isAdmin && (
+                    <section className="border-t border-artisan-primary/10 pt-5" aria-labelledby="orders-export-heading">
+                      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+                        <div>
+                          <p id="orders-export-heading" className="text-sm font-bold text-artisan-text">Export orders</p>
+                          <p className="mt-1 text-sm text-artisan-text-muted">Creates a local Excel file. Shipping addresses and customer contact details are excluded.</p>
+                        </div>
+                        <p className="text-sm font-semibold text-artisan-text-muted">{exportOrderCount} matching order{exportOrderCount === 1 ? '' : 's'}</p>
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.25fr)_auto]">
+                        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">
+                          From
+                          <input
+                            type="date"
+                            value={exportStartDate}
+                            max={exportEndDate || undefined}
+                            onChange={(event) => setExportStartDate(event.target.value)}
+                            className="h-11 rounded-xl border border-artisan-border bg-white px-3 text-sm normal-case tracking-normal text-artisan-text outline-none transition focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">
+                          To
+                          <input
+                            type="date"
+                            value={exportEndDate}
+                            min={exportStartDate || undefined}
+                            onChange={(event) => setExportEndDate(event.target.value)}
+                            className="h-11 rounded-xl border border-artisan-border bg-white px-3 text-sm normal-case tracking-normal text-artisan-text outline-none transition focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">
+                          Product
+                          <select
+                            value={exportProductId}
+                            onChange={(event) => setExportProductId(event.target.value)}
+                            className="h-11 rounded-xl border border-artisan-border bg-white px-3 text-sm normal-case tracking-normal text-artisan-text outline-none transition focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                          >
+                            <option value="">All products</option>
+                            {exportProducts.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                          </select>
+                        </label>
+                        <Button type="button" onClick={handleOrdersExport} className="h-11 self-end whitespace-nowrap">Download Excel</Button>
+                      </div>
+                      <p className="mt-2 min-h-5 text-sm text-artisan-text-muted" role="status" aria-live="polite">{exportMessage}</p>
+                    </section>
+                  )}
                 </div>
 
                 <div>
                   <div className="hidden max-h-[42rem] overflow-auto md:block">
-                  <table className="w-full min-w-[940px]">
-                    <thead className="sticky top-0 z-10 border-b border-artisan-primary/10 bg-artisan-primary-wash/95 text-artisan-text shadow-sm">
+                  <table className="artisan-data-table w-full min-w-[940px]">
+                    <thead className="sticky top-0 z-10 shadow-sm">
                       <tr>
                         <th className="p-4 text-left text-sm font-bold">Date Ordered</th>
                         <th className="p-4 text-left text-sm font-bold">Order ID</th>
@@ -313,6 +423,12 @@ const AdminOrdersTab = (props) => {
                                   Mark as Refunded
                                 </Button>
                               )}
+
+                              {isAdmin && (order.archive?.isArchived ? (
+                                <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('restore', order)}>Restore</Button>
+                              ) : ARCHIVABLE_ORDER_STATUSES.has(order.status) ? (
+                                <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('archive', order)}>Archive</Button>
+                              ) : null)}
                             </div>
                           </td>
                         </tr>
@@ -368,6 +484,7 @@ const AdminOrdersTab = (props) => {
                             handleDeclineOrder={handleDeclineOrder}
                             handleCancellation={handleCancellation}
                             setSelectedOrder={setSelectedOrder}
+                            openOrderLifecycleDialog={openOrderLifecycleDialog}
                           />
                         </div>
                       </article>
@@ -421,6 +538,7 @@ const OrderActions = ({
   handleDeclineOrder,
   handleCancellation,
   setSelectedOrder,
+  openOrderLifecycleDialog,
 }) => (
   <div className="flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
     {isAwaitingReview(order.status) ? (
@@ -491,6 +609,12 @@ const OrderActions = ({
         Mark as Refunded
       </Button>
     )}
+
+    {isAdmin && (order.archive?.isArchived ? (
+      <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('restore', order)}>Restore</Button>
+    ) : ARCHIVABLE_ORDER_STATUSES.has(order.status) ? (
+      <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('archive', order)}>Archive</Button>
+    ) : null)}
   </div>
 );
 

@@ -7,22 +7,21 @@ import { Paintbrush, Heart, PenTool, ArrowRight, Flower2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import CircularText from '@/components/effects/CircularText';
-import ShinyText from '@/components/effects/ShinyText';
 
 const AboutPage = () => {
   const values = [
     {
-      icon: <Paintbrush className="text-artisan-primary" size={28} strokeWidth={2.2} />,
+      icon: <Paintbrush className="text-[#E7DED3]" size={28} strokeWidth={2.2} />,
       title: 'Hand Painted',
       desc: 'Every canvas is meticulously painted by skilled artisans with decades of experience.',
     },
     {
-      icon: <PenTool className="text-artisan-primary" size={28} strokeWidth={2.2} />,
+      icon: <PenTool className="text-[#E7DED3]" size={28} strokeWidth={2.2} />,
       title: 'Custom Designs',
       desc: 'We bring your unique vision to life — from painted masters to PDF chart files.',
     },
     {
-      icon: <Heart className="text-artisan-mauve-deep" size={28} strokeWidth={2.2} />,
+      icon: <Heart className="text-[#E7DED3]" size={28} strokeWidth={2.2} />,
       title: 'Made with Love',
       desc: 'Each piece carries the passion and care of artisans who love what they create.',
     },
@@ -47,33 +46,16 @@ const AboutPage = () => {
             className="relative mx-auto mb-16 grid max-w-6xl items-center gap-10 py-10 text-center lg:grid-cols-[1fr_auto] lg:gap-20 lg:py-16 lg:text-left"
           >
             <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-artisan-primary/15 bg-white/80 px-4 py-2 text-sm font-medium text-artisan-primary shadow-sm backdrop-blur-sm">
-              <Flower2 size={15} aria-hidden="true" />
-              About D.A.B.S. Co.
-            </div>
-
             <h1
-              className="mb-6 font-artisan-display text-5xl font-bold leading-[0.9] tracking-tight text-artisan-text md:text-6xl lg:text-7xl"
+              className="mb-6 font-artisan-display text-5xl font-bold leading-[0.9] tracking-[-0.045em] text-artisan-text md:text-6xl lg:text-7xl"
             >
               Who We Are
             </h1>
 
             <p className="mx-auto max-w-3xl text-lg leading-relaxed text-artisan-text-mid lg:mx-0 md:text-2xl">
-              "We support needlepoint designers in expanding their businesses through our
-              outsourced canvas painting services. Whether you're a startup or an
-              established brand, we are here to collaborate with you as your dedicated
-              partner in growth."
+              We support needlepoint designers with outsourced canvas painting services,
+              from first order to growing production.
             </p>
-            <div className="mt-7 text-lg font-medium lg:text-xl">
-              <ShinyText
-                text="Crafted with intention, made for your vision."
-                color="#5C2D91"
-                shineColor="#C9A0DC"
-                speed={5}
-                spread={120}
-                pauseOnHover
-              />
-            </div>
             </div>
 
             <motion.div
@@ -102,35 +84,27 @@ const AboutPage = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.45 }}
-            className="relative mb-12 overflow-hidden rounded-[2rem] border border-white/15 bg-[#2D0E5A] p-6 shadow-[0_24px_60px_rgba(45,14,90,0.24)] md:mb-16 md:p-10"
+            className="relative -mx-5 mb-12 overflow-hidden bg-[#2D0E5A] px-5 py-12 md:mb-16 md:py-16 lg:-mx-8 lg:px-8"
           >
             <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.05)_0,rgba(255,255,255,0.05)_1px,transparent_1px,transparent_50%),repeating-linear-gradient(-45deg,rgba(255,255,255,0.05)_0,rgba(255,255,255,0.05)_1px,transparent_1px,transparent_50%)] [background-size:18px_18px]" />
-            <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-artisan-primary-light/25 blur-3xl" />
-            <div className="relative z-10 mx-auto mb-8 max-w-2xl text-center md:mb-10">
-              <p className="font-artisan-script text-xl text-artisan-primary-pale">What guides our work</p>
-              <h2 className="mt-2 font-artisan-display text-3xl font-bold text-white md:text-4xl">Crafted for creative partners</h2>
+            <div className="relative z-10 mx-auto mb-10 max-w-5xl md:mb-12">
+              <h2 className="font-artisan-display text-4xl font-bold tracking-[-0.035em] text-white md:text-5xl">What guides our work</h2>
             </div>
-            <div className="relative z-10 mx-auto grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-3 md:gap-6">
+            <div className="relative z-10 mx-auto grid max-w-5xl divide-y divide-white/20 border-y border-white/20 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               {values.map((value, index) => (
                 <motion.div
                   key={value.title}
-                  initial={{ opacity: 0, x: index === 0 ? -28 : index === 2 ? 28 : 0, y: index === 1 ? 20 : 0 }}
-                  whileInView={{ opacity: 1, x: 0, y: 0 }}
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: false, amount: 0.35 }}
                   transition={{ duration: 0.35, delay: index * 0.08 }}
-                  whileHover={{ y: -8, scale: 1.02 }}
-                  className={`group flex flex-col rounded-3xl border border-white/15 bg-white/10 p-7 backdrop-blur-sm transition-colors hover:bg-white/16 ${
-                    index === 0
-                      ? 'items-start text-left sm:translate-y-8'
-                      : index === 1
-                        ? 'items-center text-center'
-                        : 'items-end text-right sm:translate-y-8'
-                  }`}
+                  whileHover={{ x: 4 }}
+                  className="group px-0 py-7 transition-colors sm:px-7 sm:py-1 first:sm:pl-0 last:sm:pr-0"
                 >
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-artisan-primary-pale to-artisan-mauve shadow-artisan-sm transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110">
+                  <div className="mb-5 transition-transform duration-300 group-hover:rotate-6">
                     {value.icon}
                   </div>
-                  <span className="mb-2 text-base font-bold text-white">
+                  <span className="mb-2 font-nunito text-base font-bold text-white">
                     {value.title}
                   </span>
                   <p className="text-sm leading-relaxed text-white/70">
@@ -147,39 +121,31 @@ const AboutPage = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.4 }}
             transition={{ duration: 0.45 }}
-            className="relative overflow-hidden rounded-[2rem] border border-artisan-primary/12 bg-gradient-to-br from-[#F0E5F8] via-[#FCF7F1] to-[#E5D2F2] p-8 text-center shadow-[0_18px_45px_rgba(92,45,145,0.12)] md:p-12 md:text-left"
+            className="border-t border-artisan-primary/20 py-10 text-center md:py-12 md:text-left"
           >
-            <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-white/60 blur-3xl" />
-            <div className="relative z-10">
-            <h2
-              className="mb-2 font-artisan-display text-3xl font-bold text-artisan-text md:text-4xl"
-            >
-              Ready to start your project?
-            </h2>
-            <p className="mb-6 text-sm text-artisan-text-mid">
-              Let's build something beautiful together.
-            </p>
+            <div className="grid items-end gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:gap-10">
+              <div>
+                <h2 className="mb-2 font-artisan-display text-4xl font-bold tracking-[-0.035em] text-artisan-text md:text-5xl">
+                  Start a project
+                </h2>
+                <p className="text-artisan-text-mid">
+                  Tell us about your design.
+                </p>
+              </div>
+              <div className="grid w-full gap-3 sm:grid-cols-2 md:w-[31rem]">
+                <Link to="/contact" className="w-full">
+                  <Button className="h-14 w-full bg-artisan-primary text-base font-semibold text-white shadow-[0_8px_24px_rgba(92,45,145,0.2)] transition-transform hover:scale-[1.02] hover:bg-[#4A247B]">
+                    Contact Us
+                  </Button>
+                </Link>
 
-            <div className="mx-auto mt-2 grid w-full max-w-[520px] grid-cols-1 gap-4 md:mx-0 sm:grid-cols-2">
-              <Link to="/contact" className="w-full">
-                <Button
-                  className="h-14 w-full rounded-full text-base font-semibold text-white transition-all hover:scale-[1.02]"
-                  style={{ background: 'linear-gradient(135deg, #5C2D91, #7B3FA0)', boxShadow: '0 8px 24px rgba(92,45,145,0.28)' }}
-                >
-                  Contact Us
-                </Button>
-              </Link>
-
-              <Link to="/gallery" className="w-full">
-                <Button
-                  variant="outline"
-                  className="group h-14 w-full rounded-full border-2 border-artisan-primary px-6 py-0 text-base font-semibold text-artisan-primary transition-colors hover:bg-white/70"
-                >
-                  View Gallery
-                  <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
-            </div>
+                <Link to="/gallery" className="w-full">
+                  <Button variant="outline" className="group h-14 w-full border-2 border-artisan-primary px-6 py-0 text-base font-semibold text-artisan-primary transition-colors hover:bg-white/70">
+                    View Gallery
+                    <ArrowRight size={18} className="ml-2 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </motion.section>
         </div>
