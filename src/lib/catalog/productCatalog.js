@@ -10,7 +10,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-export const CATALOG_PAGE_SIZE = 5;
+// Keep a full gallery view practical while avoiding unnecessary page controls
+// for small catalogs. Pagination appears only after the twentieth result.
+export const CATALOG_PAGE_SIZE = 20;
 const REVIEW_PRODUCT_ID_BATCH_SIZE = 30;
 
 const SORT_OPTIONS = {
