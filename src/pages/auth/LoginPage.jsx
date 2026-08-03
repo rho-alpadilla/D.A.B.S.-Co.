@@ -4,11 +4,13 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { auth, db } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import SocialSignInButtons from '@/components/auth/SocialSignInButtons';
+import { assertAccountCanSignIn, getAuthenticationErrorMessage } from '@/lib/authProviders';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -83,33 +85,53 @@ const LoginPage = () => {
     );
   };
 
+  const completeLogin = async (loggedInUser, { redirectToProfile = false } = {}) => {
+    await assertAccountCanSignIn(loggedInUser);
+    const guestCart = getGuestCart();
+
+    if (guestCart.length > 0 && loggedInUser?.uid) {
+      await mergeAndSaveCart(loggedInUser.uid, guestCart);
+      localStorage.removeItem(LOCAL_CART_KEY);
+    }
+
+    await refreshCart(loggedInUser.uid);
+
+    const isAdmin = loggedInUser.email?.toLowerCase().includes('admin');
+    navigate(
+      redirectToProfile ? '/profile' : isAdmin ? '/admin-panel' : '/gallery',
+      { replace: true, state: redirectToProfile ? { onboarding: true } : undefined }
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const guestCart = getGuestCart();
-
       const userCredential = await signInWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
 
-      const loggedInUser = userCredential.user;
-
-      if (guestCart.length > 0 && loggedInUser?.uid) {
-        await mergeAndSaveCart(loggedInUser.uid, guestCart);
-        localStorage.removeItem(LOCAL_CART_KEY);
-      }
-
-      await refreshCart(loggedInUser.uid);
-
-      const isAdmin = formData.email.toLowerCase().includes('admin');
-      navigate(isAdmin ? '/admin-panel' : '/gallery', { replace: true });
+      await completeLogin(userCredential.user);
     } catch (err) {
-      setError(err.message);
+      if (err?.code === 'dabs/account-deactivated') await signOut(auth);
+      setError(getAuthenticationErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialSuccess = async ({ user: socialUser }) => {
+    setLoading(true);
+    setError('');
+    try {
+      await completeLogin(socialUser, { redirectToProfile: true });
+    } catch (err) {
+      if (err?.code === 'dabs/account-deactivated') await signOut(auth);
+      setError(getAuthenticationErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -193,6 +215,9 @@ const LoginPage = () => {
                       onChange={handleChange}
                     />
                   </div>
+                  <div className="text-right">
+                    <Link to="/forgot-password" className="text-sm font-semibold text-[#5C2D91] hover:underline">Forgot password?</Link>
+                  </div>
                 </div>
 
                 <Button
@@ -204,6 +229,11 @@ const LoginPage = () => {
                   {loading ? 'Logging in...' : 'Log In'}
                 </Button>
               </form>
+
+              <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-[#766880] before:h-px before:flex-1 before:bg-[#E6DDEB] after:h-px after:flex-1 after:bg-[#E6DDEB]">
+                Or continue with
+              </div>
+              <SocialSignInButtons onSuccess={handleSocialSuccess} onError={setError} disabled={loading} />
 
               <div className="mt-6 text-center text-sm text-artisan-text-muted">
                 Don&apos;t have an account?{' '}

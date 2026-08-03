@@ -1,7 +1,7 @@
 // src/pages/ProductDetailPage.jsx ← FINAL: MULTI-IMAGE EDITING (ADD/REMOVE IMAGES IN ADMIN MODE)
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   doc, onSnapshot, updateDoc, collection, query, where, 
   orderBy, getDocs, limit 
@@ -16,6 +16,8 @@ import {
   Star, MessageCircle, ChevronLeft, ChevronRight, Trash2, Plus 
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { getAvailableStock, isPurchasable } from '@/lib/stock';
+import StickyProductPurchaseSummary from '@/components/shop/StickyProductPurchaseSummary';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -24,8 +26,16 @@ const CATEGORIES = [
   "Painting on Canvas"
 ];
 
+const getItemsPerPage = () => {
+  if (typeof window === 'undefined') return 4;
+  if (window.innerWidth < 768) return 2;
+  if (window.innerWidth < 1024) return 3;
+  return 4;
+};
+
 const ProductDetailPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.email.includes('admin');
   const { addToCart } = useCart();
@@ -43,13 +53,15 @@ const ProductDetailPage = () => {
   const [form, setForm] = useState({});
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const purchaseActionsRef = useRef(null);
+  const [showStickyPurchase, setShowStickyPurchase] = useState(false);
 
   // Multi-image state
   const [mainImageIndex, setMainImageIndex] = useState(0);
 
   // Carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
-  const itemsPerPage = window.innerWidth < 768 ? 2 : window.innerWidth < 1024 ? 3 : 4;
+  const [itemsPerPage, setItemsPerPage] = useState(getItemsPerPage);
 
   // Admin reply state
   const [replyingTo, setReplyingTo] = useState(null);
@@ -144,13 +156,26 @@ const ProductDetailPage = () => {
     loadRecommendations();
   }, [product?.category, id]);
 
-  // Carousel navigation (unchanged)
+  useEffect(() => {
+    const updateItemsPerPage = () => setItemsPerPage(getItemsPerPage());
+    updateItemsPerPage();
+    window.addEventListener('resize', updateItemsPerPage);
+    return () => window.removeEventListener('resize', updateItemsPerPage);
+  }, []);
+
+  useEffect(() => {
+    const maxSlide = Math.max(0, recommended.length - itemsPerPage);
+    setCurrentSlide((slide) => Math.min(slide, maxSlide));
+  }, [recommended.length, itemsPerPage]);
+
+  const maxSlide = Math.max(0, recommended.length - itemsPerPage);
+
   const nextSlide = () => {
-    setCurrentSlide(prev => (prev + itemsPerPage) % recommended.length);
+    setCurrentSlide((slide) => (slide >= maxSlide ? 0 : Math.min(slide + itemsPerPage, maxSlide)));
   };
 
   const prevSlide = () => {
-    setCurrentSlide(prev => (prev - itemsPerPage + recommended.length) % recommended.length);
+    setCurrentSlide((slide) => (slide <= 0 ? maxSlide : Math.max(slide - itemsPerPage, 0)));
   };
 
   const handleAddImages = async (e) => {
@@ -254,16 +279,39 @@ const ProductDetailPage = () => {
   };
 
   const getBuyerStockStatus = () => {
-    if (!product.inStock) return <span className="text-red-600 font-bold">Out of Stock</span>;
-    if (product.stockQuantity > 0 && product.stockQuantity <= 5)
-      return <span className="text-orange-600 font-bold">Only {product.stockQuantity} left!</span>;
-    return <span className="text-green-600 font-bold">In Stock</span>;
+    const availableStock = getAvailableStock(product);
+
+    if (availableStock === 0) return <span className="text-red-600 font-bold">Sold out</span>;
+    if (availableStock <= 5)
+      return <span className="text-orange-600 font-bold">{availableStock} left</span>;
+    return <span className="text-green-600 font-bold">{availableStock} available</span>;
   };
 
   const getAdminStockStatus = () => {
-    if (!product.inStock) return <span className="text-red-600 font-bold">Out of Stock (0)</span>;
-    return <span className="text-gray-800 font-bold">In Stock: {product.stockQuantity}</span>;
+    const availableStock = getAvailableStock(product);
+
+    if (availableStock === 0) return <span className="text-red-600 font-bold">Sold out (0)</span>;
+    return <span className="text-gray-800 font-bold">Stock: {availableStock}</span>;
   };
+
+  useEffect(() => {
+    const purchaseActions = purchaseActionsRef.current;
+
+    if (!product || isAdmin || editing || !purchaseActions) {
+      setShowStickyPurchase(false);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowStickyPurchase(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(purchaseActions);
+    return () => observer.disconnect();
+  }, [product?.id, isAdmin, editing]);
 
   if (loading) {
     return (
@@ -303,12 +351,23 @@ const ProductDetailPage = () => {
     setMainImageIndex(prev => (prev - 1 + allImages.length) % allImages.length);
   };
 
+  const handleCustomOrder = () => {
+    const requestedQuantity = Math.max(getAvailableStock(product) + 1, 1);
+    const query = new URLSearchParams({
+      productId: product.id,
+      productName: product.name || 'Selected product',
+      quantity: String(requestedQuantity),
+    });
+
+    navigate(`/contact?${query.toString()}`);
+  };
+
   return (
     <>
       <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
 
       <div className="artisan-grid-page min-h-screen py-10 sm:py-16">
-        <div className="container mx-auto max-w-6xl px-5 sm:px-6 lg:px-8">
+        <div className="container mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
           <header className="mb-8 flex items-center justify-between gap-4 border-b border-white/70 pb-5">
             <Link to="/gallery" className="inline-flex items-center gap-2 rounded-full bg-white/65 px-4 py-2 font-semibold text-[#5C2D91] shadow-sm backdrop-blur-sm transition-colors hover:text-[#4A2578] hover:underline">
               <ArrowLeft size={20} /> Back to Gallery
@@ -321,7 +380,7 @@ const ProductDetailPage = () => {
           </header>
 
           {/* MAIN PRODUCT CARD */}
-          <article className="mb-12 grid grid-cols-1 overflow-hidden rounded-[2rem] border border-white/60 bg-white/95 shadow-2xl shadow-[#2D0E5A]/15 backdrop-blur-md md:grid-cols-[1.05fr_0.95fr]">
+          <article className="mb-12 grid grid-cols-1 overflow-hidden rounded-3xl border border-[#E7DED3] bg-[#FAF8F1]/95 shadow-[0_16px_42px_rgba(36,16,31,0.12)] md:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]">
             {/* Images Section */}
             <div className="relative">
               {/* Main Image */}
@@ -415,7 +474,7 @@ const ProductDetailPage = () => {
             </div>
 
             {/* Details Section */}
-            <div className="flex flex-col justify-center space-y-7 p-7 md:p-10 lg:p-12">
+            <div className="flex flex-col justify-center space-y-6 p-6 sm:p-8 lg:p-10">
               {editing ? (
                 <>
                   <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border-b-2 border-[#DCCBE7] text-4xl font-bold text-[#5C2D91] outline-none focus:border-[#5C2D91] md:text-5xl" required />
@@ -443,45 +502,53 @@ const ProductDetailPage = () => {
                 </>
               ) : (
                 <>
-                  <span className="mb-3 inline-flex w-fit rounded-full bg-[#F0E6F7] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#7B3FA0]">
+                  <span className="mb-2 inline-flex w-fit border-l-2 border-[#88538C] pl-3 text-xs font-bold uppercase tracking-[0.14em] text-[#7B3FA0]">
                     {product.category}
                   </span>
-                  <h1 className="mb-6 font-artisan-display text-4xl font-bold leading-[0.98] tracking-[-0.03em] text-[#2A1739] md:text-5xl">
+                  <h1 className="mb-4 font-artisan-display text-3xl font-bold leading-[1.02] tracking-[-0.03em] text-[#01243A] sm:text-4xl lg:text-5xl">
                     {product.name}
                   </h1>
 
                   {totalReviews > 0 && (
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="mb-2 flex items-center gap-3">
                       {renderStars(Math.round(averageRating))}
                       <span className="text-2xl font-bold text-[#5C2D91]">{averageRating}</span>
                       <span className="text-gray-600">({totalReviews} reviews)</span>
                     </div>
                   )}
 
-                  <p className="text-lg text-gray-700 leading-relaxed mb-10">
+                  <p className="max-w-prose text-base leading-7 text-[#495968] md:text-lg">
                     {product.description}
                   </p>
 
-                  <div className="mb-6">
-                    <p className="text-xl font-bold">
+                  <div className="flex items-center gap-2 pt-1 text-sm">
+                    <span className="font-medium text-[#667482]">Availability</span>
+                    <span className="font-semibold">
                       {isAdmin ? getAdminStockStatus() : getBuyerStockStatus()}
-                    </p>
+                    </span>
                   </div>
                 </>
               )}
 
-              <div className="py-6">
-                <span className="text-5xl font-bold tabular-nums text-[#7B3FA0]">
+              <div className="border-y border-[#E7DED3] py-5">
+                <span className="text-4xl font-bold tabular-nums text-[#47003C] sm:text-5xl">
                   {formatPrice(product.price)}
                 </span>
               </div>
 
-              {!isAdmin && !editing && product.inStock && (
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" onClick={() => addToCart(product)} className="flex-1 bg-[#5C2D91] font-semibold hover:bg-[#4A2578]" disabled={product.stockQuantity === 0}>
-                    {product.stockQuantity === 0 ? "Out of Stock" : "Add to Cart"}
-                  </Button>
-                  <Button size="lg" variant="outline" className="flex-1 border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]">
+              {!isAdmin && !editing && (
+                <div ref={purchaseActionsRef} className="flex flex-col gap-3 sm:flex-row">
+                  {isPurchasable(product) && (
+                    <Button size="lg" onClick={() => addToCart(product)} className="flex-1 rounded-xl bg-[#47003C] font-semibold text-white hover:bg-[#5A124E]">
+                      Add to Cart
+                    </Button>
+                  )}
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={handleCustomOrder}
+                    className="flex-1 rounded-xl border-[#88538C] text-[#47003C] hover:bg-[#F7F0FA]"
+                  >
                     Contact for Custom Order
                   </Button>
                 </div>
@@ -498,11 +565,21 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              <p className="text-sm text-gray-500 pt-8 border-t">
+              <p className="border-t border-[#E7DED3] pt-5 text-xs tracking-wide text-[#667482]">
                 Product ID: {product.id}
               </p>
             </div>
           </article>
+
+          {!isAdmin && !editing && showStickyPurchase && (
+            <StickyProductPurchaseSummary
+              product={product}
+              imageUrl={currentImage}
+              formatPrice={formatPrice}
+              onAddToCart={() => addToCart(product)}
+              onCustomOrder={handleCustomOrder}
+            />
+          )}
 
           {/* REVIEWS SECTION */}
           {totalReviews > 0 && (
@@ -600,28 +677,28 @@ const ProductDetailPage = () => {
 
           {/* UNIFIED "YOU MAY ALSO LIKE" CAROUSEL */}
           {recommended.length > 0 && (
-            <section className="mt-16 rounded-[2rem] border border-white/60 bg-white/95 p-7 shadow-2xl shadow-[#2D0E5A]/15 backdrop-blur-md md:p-10">
-              <h2 className="mb-12 text-center font-artisan-display text-4xl font-bold text-[#2A1739]">
+            <section className="mt-16 rounded-3xl border border-[#E7DED3] bg-[#FAF8F1]/90 px-5 py-10 shadow-[0_16px_40px_rgba(36,16,31,0.08)] md:px-8 md:py-12">
+              <h2 className="mb-10 font-artisan-display text-3xl font-bold text-[#01243A] md:text-4xl">
                 You May Also Like
               </h2>
 
               <div className="relative">
                 <div className="overflow-hidden">
-                  <div 
-                    className="flex transition-transform duration-700 ease-out gap-6"
+                  <div
+                    className="-mx-2 flex transition-transform duration-500 ease-out"
                     style={{ transform: `translateX(-${currentSlide * (100 / itemsPerPage)}%)` }}
                   >
                     {recommended.map(item => (
-                      <Link 
-                        key={item.id} 
+                      <Link
+                        key={item.id}
                         to={`/product/${item.id}`}
-                        className="flex-shrink-0 w-full sm:w-1/2 lg:w-1/3 xl:w-1/4 group"
+                        className="group flex w-full shrink-0 px-2 sm:w-1/2 lg:w-1/3 xl:w-1/4"
                       >
-                        <div className="artisan-card-hover overflow-hidden rounded-2xl border border-[#E6DDEB] bg-[#FAF6FC] shadow-lg">
-                          <div className="aspect-square relative">
-                            {item.imageUrl ? (
-                              <img 
-                                src={item.imageUrl} 
+                        <article className="grid h-full w-full grid-rows-[auto_1fr] overflow-hidden rounded-2xl border border-[#E7DED3] bg-white transition-[transform,box-shadow] duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_14px_28px_rgba(36,16,31,0.14)]">
+                          <div className="relative aspect-square">
+                            {item.imageUrl || item.imageUrls?.[0] ? (
+                              <img
+                                src={item.imageUrl || item.imageUrls?.[0]}
                                 alt={item.name}
                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               />
@@ -643,18 +720,18 @@ const ProductDetailPage = () => {
                             )}
                           </div>
 
-                          <div className="p-6 text-center">
-                            <h3 className="mb-3 line-clamp-2 font-bold text-[#5C2D91] transition-colors group-hover:text-[#4A2578]">
+                          <div className="grid min-h-40 grid-rows-[minmax(3.25rem,auto)_1.5rem_auto] gap-3 p-5 text-left">
+                            <h3 className="line-clamp-2 font-artisan-display font-bold leading-snug text-[#01243A] transition-colors group-hover:text-[#47003C]">
                               {item.name}
                             </h3>
-                            <div className="flex justify-center gap-2 mb-3">
+                            <div className="flex gap-2">
                               {renderStars(Math.round(item.averageRating || 0))}
                             </div>
-                            <p className="text-2xl font-bold text-[#7B3FA0]">
+                            <p className="self-end text-2xl font-bold tabular-nums text-[#47003C]">
                               {formatPrice(item.price)}
                             </p>
                           </div>
-                        </div>
+                        </article>
                       </Link>
                     ))}
                   </div>
@@ -664,13 +741,15 @@ const ProductDetailPage = () => {
                   <>
                     <button 
                       onClick={prevSlide}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-lg p-5 rounded-full shadow-2xl hover:scale-110 transition z-10 border border-gray-200"
+                      aria-label="Show previous recommendations"
+                      className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-[#47003C] shadow-lg transition hover:scale-105"
                     >
                       <ChevronLeft size={32} className="text-[#5C2D91]" />
                     </button>
                     <button 
                       onClick={nextSlide}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white/90 backdrop-blur-lg p-5 rounded-full shadow-2xl hover:scale-110 transition z-10 border border-gray-200"
+                      aria-label="Show more recommendations"
+                      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#E7DED3] bg-[#FAF8F1] p-4 text-[#47003C] shadow-lg transition hover:scale-105"
                     >
                       <ChevronRight size={32} className="text-[#5C2D91]" />
                     </button>

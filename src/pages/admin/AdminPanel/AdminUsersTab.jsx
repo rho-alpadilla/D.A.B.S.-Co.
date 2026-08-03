@@ -99,12 +99,14 @@ const AdminUsersTab = (props) => {
                       </p>
                     </div>
 
-                    <Button
-                      onClick={() => setRefreshKey((key) => key + 1)}
-                      className="w-full lg:w-auto"
-                    >
-                      Reload Users
-                    </Button>
+                    <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row">
+                      <Button
+                        onClick={() => setRefreshKey((key) => key + 1)}
+                        className="w-full lg:w-auto"
+                      >
+                        Reload Users
+                      </Button>
+                    </div>
                   </div>
 
                   {!isAdmin && (

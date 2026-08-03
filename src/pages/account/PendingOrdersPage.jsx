@@ -1,37 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth, db } from '@/lib/firebase';
 import {
   collection,
   doc,
   onSnapshot,
   query,
-  updateDoc,
   serverTimestamp,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Package,
-  Clock,
-  CheckCircle,
-  Truck,
   AlertCircle,
-  X,
+  ArrowRight,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock3,
   Eye,
-  ShoppingBag,
-  ArrowRight,
+  Package,
   ReceiptText,
+  ShoppingBag,
+  Truck,
+  X,
+  XCircle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCurrency } from '@/context/CurrencyContext';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 
 const ACTIVE_ORDER_STATUSES = [
   'pending',
@@ -45,80 +43,22 @@ const ACTIVE_ORDER_STATUSES = [
 ];
 
 const COMPLETED_ORDER_STATUSES = ['completed'];
+const CANCELLED_ORDER_STATUSES = ['declined', 'cancelled', 'Cancelled – Pending Refund', 'Refunded'];
 
-const CANCELLED_ORDER_STATUSES = [
-  'declined',
-  'cancelled',
-  'Cancelled – Pending Refund',
-  'Refunded',
-];
-
-const formatStatusText = (status) => {
-  const map = {
-    pending: 'Awaiting Review',
-    pending_review: 'Awaiting Review',
-    on_review: 'On Review',
-    payment_confirmed: 'Payment Confirmed',
-    'Paid / Processing': 'Paid / Processing',
-    processing: 'Processing',
-    shipping: 'Shipping',
-    completed: 'Completed',
-    declined: 'Declined',
-    cancelled: 'Cancelled',
-    'Cancellation Requested': 'Cancellation Requested',
-    'Cancelled – Pending Refund': 'Cancelled – Pending Refund',
-    Refunded: 'Refunded',
-  };
-
-  return map[status] || 'Awaiting Review';
-};
-
-// STATUS BADGE
-const getStatusBadge = (status) => {
-  const styles = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    pending_review: 'bg-yellow-100 text-yellow-700',
-    on_review: 'bg-blue-100 text-blue-700',
-    payment_confirmed: 'bg-emerald-100 text-emerald-700',
-    'Paid / Processing': 'bg-blue-100 text-blue-700',
-    processing: 'bg-sky-100 text-sky-700',
-    shipping: 'bg-cyan-100 text-cyan-700',
-    completed: 'bg-green-100 text-green-700',
-    declined: 'bg-red-100 text-red-700',
-    cancelled: 'bg-gray-100 text-gray-700',
-    'Cancellation Requested': 'bg-orange-100 text-orange-700',
-    'Cancelled – Pending Refund': 'bg-red-100 text-red-700',
-    Refunded: 'bg-purple-100 text-purple-700',
-  };
-
-  const icons = {
-    pending: <Clock className="text-yellow-600" size={18} />,
-    pending_review: <Clock className="text-yellow-600" size={18} />,
-    on_review: <Eye className="text-blue-600" size={18} />,
-    payment_confirmed: <CheckCircle className="text-emerald-600" size={18} />,
-    'Paid / Processing': <CheckCircle className="text-blue-600" size={18} />,
-    processing: <Package className="text-sky-600" size={18} />,
-    shipping: <Truck className="text-cyan-600" size={18} />,
-    completed: <CheckCircle className="text-green-600" size={18} />,
-    declined: <X className="text-red-600" size={18} />,
-    cancelled: <X className="text-gray-600" size={18} />,
-    'Cancellation Requested': <AlertCircle className="text-orange-600" size={18} />,
-    'Cancelled – Pending Refund': <AlertCircle className="text-red-600" size={18} />,
-    Refunded: <CheckCircle className="text-purple-600" size={18} />,
-  };
-
-  const key = status || 'pending_review';
-
-  return (
-    <span
-      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
-        styles[key] || 'bg-gray-100 text-gray-700'
-      }`}
-    >
-      {icons[key] || <Clock size={18} />}
-      {formatStatusText(key)}
-    </span>
-  );
+const STATUS_DETAILS = {
+  pending: { label: 'Awaiting review', className: 'bg-amber-100 text-amber-800', icon: Clock3 },
+  pending_review: { label: 'Awaiting review', className: 'bg-amber-100 text-amber-800', icon: Clock3 },
+  on_review: { label: 'On review', className: 'bg-sky-100 text-sky-800', icon: Eye },
+  payment_confirmed: { label: 'Payment confirmed', className: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
+  'Paid / Processing': { label: 'Paid / processing', className: 'bg-sky-100 text-sky-800', icon: CheckCircle2 },
+  processing: { label: 'Processing', className: 'bg-sky-100 text-sky-800', icon: Package },
+  shipping: { label: 'Shipping', className: 'bg-cyan-100 text-cyan-800', icon: Truck },
+  completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
+  declined: { label: 'Declined', className: 'bg-rose-100 text-rose-800', icon: X },
+  cancelled: { label: 'Cancelled', className: 'bg-stone-200 text-stone-700', icon: XCircle },
+  'Cancellation Requested': { label: 'Cancellation requested', className: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+  'Cancelled – Pending Refund': { label: 'Pending refund', className: 'bg-rose-100 text-rose-800', icon: AlertCircle },
+  Refunded: { label: 'Refunded', className: 'bg-artisan-primary-wash text-artisan-primary', icon: CheckCircle2 },
 };
 
 const CANCEL_REASONS = [
@@ -135,39 +75,38 @@ const PendingOrdersPage = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { formatPrice } = useCurrency();
-
   const [activeTab, setActiveTab] = useState('all');
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [ordersError, setOrdersError] = useState(null);
   const [visibleCount, setVisibleCount] = useState(5);
-
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [selectedReason, setSelectedReason] = useState('');
   const [otherReason, setOtherReason] = useState('');
 
-  const selectedStatuses = useMemo(() => {
-    if (activeTab === 'all') return [];
-    if (activeTab === 'active') return ACTIVE_ORDER_STATUSES;
-    if (activeTab === 'completed') return COMPLETED_ORDER_STATUSES;
-    if (activeTab === 'cancelled') return CANCELLED_ORDER_STATUSES;
-    return [];
-  }, [activeTab]);
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login', { replace: true });
+    }
+  }, [authLoading, navigate, user]);
 
   useEffect(() => {
-    if (!user?.email) return undefined;
+    if (!user?.email) {
+      setAllOrders([]);
+      setLoading(false);
+      return undefined;
+    }
 
     setLoading(true);
     setOrdersError(null);
-
     return onSnapshot(
       query(collection(db, 'orders'), where('buyerEmail', '==', user.email)),
       (snapshot) => {
         const toMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || 0;
         const nextOrders = snapshot.docs
           .map((orderDoc) => ({ id: orderDoc.id, ...orderDoc.data() }))
-          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+          .sort((firstOrder, secondOrder) => toMillis(secondOrder.createdAt) - toMillis(firstOrder.createdAt));
 
         setAllOrders(nextOrders);
         setLoading(false);
@@ -184,18 +123,18 @@ const PendingOrdersPage = () => {
     setVisibleCount(5);
   }, [activeTab]);
 
+  const selectedStatuses = useMemo(() => {
+    if (activeTab === 'active') return ACTIVE_ORDER_STATUSES;
+    if (activeTab === 'completed') return COMPLETED_ORDER_STATUSES;
+    if (activeTab === 'cancelled') return CANCELLED_ORDER_STATUSES;
+    return [];
+  }, [activeTab]);
+
   const matchingOrders = useMemo(() => (
-    selectedStatuses.length
-      ? allOrders.filter((order) => selectedStatuses.includes(order.status))
-      : allOrders
+    selectedStatuses.length ? allOrders.filter((order) => selectedStatuses.includes(order.status)) : allOrders
   ), [allOrders, selectedStatuses]);
 
-  const orders = matchingOrders.slice(0, visibleCount);
-  const hasMore = matchingOrders.length > visibleCount;
-  const loadingMore = false;
-  const loadMore = () => setVisibleCount((count) => count + 5);
-  const collapseToFirstPage = () => setVisibleCount(5);
-  const countsLoading = loading;
+  const visibleOrders = matchingOrders.slice(0, visibleCount);
   const orderCounts = useMemo(() => ({
     all: allOrders.length,
     active: allOrders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)).length,
@@ -212,15 +151,10 @@ const PendingOrdersPage = () => {
 
   const confirmCancellation = async () => {
     if (!orderToCancel || !selectedReason) return;
-
     const reason = selectedReason === 'Other' ? otherReason.trim() : selectedReason;
 
     if (selectedReason === 'Other' && !reason) {
-      toast({
-        title: 'Reason Required',
-        description: 'Please specify your reason.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Reason required', description: 'Add a reason before submitting.', variant: 'destructive' });
       return;
     }
 
@@ -231,320 +165,122 @@ const PendingOrdersPage = () => {
         cancellationRequestedAt: serverTimestamp(),
         cancellationRequestedBy: 'buyer',
       });
-
-      toast({
-        title: 'Cancellation Requested',
-        description: 'Your request has been sent to the admin team.',
-      });
-
+      toast({ title: 'Cancellation requested', description: 'Your request was sent to the admin team.' });
       setCancelModalOpen(false);
       setOrderToCancel(null);
-    } catch (err) {
-      console.error('Cancel error:', err);
-      toast({
-        title: 'Failed',
-        description: 'Could not request cancellation. Try again.',
-        variant: 'destructive',
-      });
+    } catch (error) {
+      console.error('Cancel error:', error);
+      toast({ title: 'Request failed', description: 'Could not request cancellation. Try again.', variant: 'destructive' });
     }
   };
 
-  const canCancel = (order) => {
-    return (
-      ['pending', 'pending_review', 'on_review', 'Paid / Processing'].includes(order.status) &&
-      !order.cancellationRequestedAt
-    );
-  };
+  const canCancel = (order) => (
+    ['pending', 'pending_review', 'on_review', 'Paid / Processing'].includes(order.status)
+    && !order.cancellationRequestedAt
+  );
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-artisan-primary-pale border-t-artisan-primary" aria-label="Loading orders"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    navigate('/login');
-    return null;
-  }
+  if (authLoading || loading) return <OrdersLoadingState />;
+  if (!user) return null;
 
   return (
     <>
-      <Helmet>
-        <title>My Orders - D.A.B.S. Co.</title>
-      </Helmet>
+      <Helmet><title>My Orders - D.A.B.S. Co.</title></Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient
-            color1="#5C2D91"
-            color2="#7B3FA0"
-            color3="#C9A0DC"
-            timeSpeed={0.25}
-            colorBalance={-0.06}
-            warpStrength={1.5}
-            warpFrequency={3.8}
-            warpSpeed={2}
-            warpAmplitude={50}
-            blendAngle={0}
-            blendSoftness={1}
-            rotationAmount={500}
-            noiseScale={2}
-            grainAmount={0.1}
-            grainScale={2}
-            grainAnimated={false}
-            contrast={1.5}
-            gamma={1}
-            saturation={1}
-            centerX={0}
-            centerY={0}
-            zoom={0.9}
-          />
-
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={180}
-              particleSpread={10}
-              speed={0.1}
-              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
-              moveParticlesOnHover
-              particleHoverFactor={1}
-              alphaParticles={false}
-              particleBaseSize={120}
-              sizeRandomness={1.4}
-              cameraDistance={53}
-              disableRotation={false}
-            />
-          </div>
-        </div>
-
-        <div className="relative z-10 container mx-auto max-w-7xl px-5 py-14 sm:px-8 md:py-20">
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="relative mb-8 overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 p-7 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:p-10"
-          >
-            <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-artisan-primary-pale/30 blur-3xl" />
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="relative">
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-artisan-primary/20 bg-artisan-primary-wash px-4 py-2 text-xs font-semibold uppercase tracking-wider text-artisan-primary">
-                  Order Tracking
-                </div>
-
-                <h1 className="flex items-center gap-3 font-artisan-display text-4xl font-bold text-artisan-text md:text-5xl">
-                  <Package className="text-artisan-primary" size={34} />
-                  My Orders
-                </h1>
-
-                <p className="mt-3 max-w-xl text-artisan-text-muted">
-                  Review your active, completed, and cancelled orders.
-                </p>
-              </div>
-
-              <div className="relative flex flex-col gap-3 sm:flex-row">
-                <Button asChild className="w-full sm:w-auto">
-                  <Link to="/cart"><ShoppingBag size={17} className="mr-2" />Back to Cart</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full sm:w-auto">
-                  <Link to="/buyer-dashboard">Dashboard <ArrowRight size={17} className="ml-2" /></Link>
-                </Button>
-              </div>
+      <main className="artisan-grid-page min-h-screen px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+        <div className="mx-auto max-w-6xl">
+          <header className="flex flex-col gap-5 border-b border-[#5C2D91]/25 pb-8 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-artisan-primary">Orders</p>
+              <h1 className="mt-3 font-artisan-display text-4xl font-semibold tracking-[-0.04em] text-artisan-text sm:text-5xl">My orders</h1>
             </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.08 }}
-            className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
-          >
-            <OrderStat label="All orders" value={orderCounts.all} tone="bg-white/95" loading={countsLoading} />
-            <OrderStat label="Active" value={orderCounts.active} tone="bg-amber-50/95" loading={countsLoading} />
-            <OrderStat label="Completed" value={orderCounts.completed} tone="bg-emerald-50/95" loading={countsLoading} />
-            <OrderStat label="Cancelled" value={orderCounts.cancelled} tone="bg-rose-50/95" loading={countsLoading} />
-          </motion.div>
-
-          {!countsLoading && orderCounts.all === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-[2rem] border border-white/45 bg-white/95 py-14 text-center shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md"
-            >
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-artisan-primary-wash">
-                <Package size={32} className="text-artisan-primary" />
-              </div>
-              <h2 className="font-artisan-display text-2xl font-bold text-artisan-text">No orders yet</h2>
-              <p className="mx-auto mt-2 max-w-sm text-artisan-text-muted">Your purchased pieces will appear here as soon as an order is placed.</p>
-              <Link to="/gallery">
-                <Button className="mt-6">
-                  Browse Products <ArrowRight size={17} className="ml-2" />
-                </Button>
+            <nav aria-label="Order page actions" className="flex items-center gap-4 text-sm font-semibold">
+              <Link to="/buyer-dashboard" className="text-artisan-text-muted transition-colors hover:text-artisan-primary">Dashboard</Link>
+              <Link to="/cart" className="inline-flex items-center gap-2 rounded-full border border-[#5C2D91]/25 bg-[#FAF8F1] px-4 py-2.5 text-artisan-text transition-colors hover:bg-artisan-primary-wash">
+                <ShoppingBag size={16} /> Cart
               </Link>
-            </motion.div>
+            </nav>
+          </header>
+
+          <dl className="mt-6 grid grid-cols-2 divide-x divide-y divide-[#5C2D91]/15 border-y border-[#5C2D91]/15 sm:grid-cols-4 sm:divide-y-0">
+            <OrderStat label="All" value={orderCounts.all} />
+            <OrderStat label="Active" value={orderCounts.active} />
+            <OrderStat label="Completed" value={orderCounts.completed} />
+            <OrderStat label="Cancelled" value={orderCounts.cancelled} />
+          </dl>
+
+          {orderCounts.all === 0 ? (
+            <section className="py-20 text-center" aria-labelledby="no-orders-heading">
+              <Package size={28} className="mx-auto text-artisan-primary" aria-hidden="true" />
+              <h2 id="no-orders-heading" className="mt-5 font-artisan-display text-3xl font-semibold text-artisan-text">No orders yet</h2>
+              <Button asChild className="mt-6"><Link to="/gallery">Browse gallery <ArrowRight className="ml-2" size={16} /></Link></Button>
+            </section>
           ) : (
-            <div className="overflow-hidden rounded-[2rem] border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
+            <section className="mt-8 overflow-hidden rounded-3xl border border-[#5C2D91]/20 bg-[#FAF8F1]" aria-label="Order list">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid min-h-0 w-full grid-cols-2 gap-2 rounded-none border-0 border-b border-artisan-primary/10 bg-artisan-primary-wash/35 p-3 sm:grid-cols-4">
-                  <TabsTrigger value="all">All <span className="ml-1 opacity-70">({orderCounts.all})</span></TabsTrigger>
-                  <TabsTrigger value="active">Active <span className="ml-1 opacity-70">({orderCounts.active})</span></TabsTrigger>
-                  <TabsTrigger value="completed">Completed <span className="ml-1 opacity-70">({orderCounts.completed})</span></TabsTrigger>
-                  <TabsTrigger value="cancelled">Cancelled <span className="ml-1 opacity-70">({orderCounts.cancelled})</span></TabsTrigger>
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-0 rounded-none border-b border-[#5C2D91]/15 bg-transparent p-0 sm:grid-cols-4">
+                  <OrdersTab value="all" label="All" count={orderCounts.all} />
+                  <OrdersTab value="active" label="Active" count={orderCounts.active} />
+                  <OrdersTab value="completed" label="Completed" count={orderCounts.completed} />
+                  <OrdersTab value="cancelled" label="Cancelled" count={orderCounts.cancelled} />
                 </TabsList>
 
-                <TabsContent value="all" className="mt-0">
-                  <OrderTable
-                    orders={orders}
-                    hasMore={hasMore}
-                    loadingMore={loadingMore}
-                    onLoadMore={loadMore}
-                    canLoadLess={orders.length > 10}
-                    onLoadLess={collapseToFirstPage}
-                    error={ordersError}
-                    formatPrice={formatPrice}
-                    onCancel={openCancelModal}
-                    canCancel={canCancel}
-                  />
-                </TabsContent>
-
-                <TabsContent value="active" className="mt-0">
-                  <OrderTable
-                    orders={orders}
-                    hasMore={hasMore}
-                    loadingMore={loadingMore}
-                    onLoadMore={loadMore}
-                    canLoadLess={orders.length > 10}
-                    onLoadLess={collapseToFirstPage}
-                    error={ordersError}
-                    formatPrice={formatPrice}
-                    onCancel={openCancelModal}
-                    canCancel={canCancel}
-                  />
-                </TabsContent>
-
-                <TabsContent value="completed" className="mt-0">
-                  <OrderTable
-                    orders={orders}
-                    hasMore={hasMore}
-                    loadingMore={loadingMore}
-                    onLoadMore={loadMore}
-                    canLoadLess={orders.length > 10}
-                    onLoadLess={collapseToFirstPage}
-                    error={ordersError}
-                    formatPrice={formatPrice}
-                    onCancel={openCancelModal}
-                    canCancel={canCancel}
-                  />
-                </TabsContent>
-
-                <TabsContent value="cancelled" className="mt-0">
-                  <OrderTable
-                    orders={orders}
-                    hasMore={hasMore}
-                    loadingMore={loadingMore}
-                    onLoadMore={loadMore}
-                    canLoadLess={orders.length > 10}
-                    onLoadLess={collapseToFirstPage}
-                    error={ordersError}
-                    formatPrice={formatPrice}
-                    onCancel={openCancelModal}
-                    canCancel={canCancel}
-                  />
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-
-          {cancelModalOpen && orderToCancel && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-              <div className="relative w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-7 text-artisan-text shadow-2xl sm:p-8">
-                <button
-                  onClick={() => setCancelModalOpen(false)}
-                  type="button"
-                  aria-label="Close cancellation dialog"
-                  className="absolute right-4 top-4 rounded-full p-2 text-artisan-text-muted transition-colors duration-200 hover:bg-artisan-primary-wash hover:text-artisan-primary"
-                >
-                  <X size={24} />
-                </button>
-
-                <h2 className="text-2xl font-bold text-red-600 mb-6 flex items-center gap-3">
-                  <AlertCircle size={28} /> Cancel Order?
-                </h2>
-
-                <p className="mb-6 text-artisan-text-muted">
-                  Order <strong>#{orderToCancel.id.slice(0, 8)}</strong> will be cancelled. This
-                  action cannot be undone.
-                </p>
-
-                <div className="mb-6">
-                  <p className="mb-3 font-semibold text-artisan-text">Please select a reason:</p>
-                  <div className="space-y-3">
-                    {CANCEL_REASONS.map((reason) => (
-                      <label key={reason} className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition-colors duration-200 hover:bg-artisan-primary-wash/70">
-                        <input
-                          type="radio"
-                          name="cancelReason"
-                          value={reason}
-                          checked={selectedReason === reason}
-                          onChange={(e) => setSelectedReason(e.target.value)}
-                          className="w-5 h-5 text-red-600 focus:ring-red-500"
-                        />
-                        <span className="text-artisan-text">{reason}</span>
-                      </label>
-                    ))}
-                  </div>
-
-                  {selectedReason === 'Other' && (
-                    <textarea
-                      value={otherReason}
-                      onChange={(e) => setOtherReason(e.target.value)}
-                      placeholder="Please explain your reason..."
-                      className="mt-4 h-28 w-full resize-none rounded-2xl border border-artisan-border bg-white px-4 py-3 text-artisan-text placeholder:text-artisan-text-faint focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
-                      required
+                {['all', 'active', 'completed', 'cancelled'].map((tab) => (
+                  <TabsContent key={tab} value={tab} className="mt-0">
+                    <OrderList
+                      orders={visibleOrders}
+                      hasMore={matchingOrders.length > visibleCount}
+                      canLoadLess={visibleCount > 5}
+                      error={ordersError}
+                      formatPrice={formatPrice}
+                      onCancel={openCancelModal}
+                      canCancel={canCancel}
+                      onLoadMore={() => setVisibleCount((count) => count + 5)}
+                      onLoadLess={() => setVisibleCount(5)}
                     />
-                  )}
-                </div>
-
-                <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-                  <Button variant="outline" onClick={() => setCancelModalOpen(false)}>
-                    Nevermind
-                  </Button>
-                  <Button
-                    onClick={confirmCancellation}
-                    disabled={!selectedReason || (selectedReason === 'Other' && !otherReason.trim())}
-                    className="bg-red-600 text-white hover:bg-red-700"
-                  >
-                    Confirm Cancellation
-                  </Button>
-                </div>
-              </div>
-            </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </section>
           )}
         </div>
-      </div>
+      </main>
+
+      {cancelModalOpen && orderToCancel && (
+        <CancelOrderDialog
+          order={orderToCancel}
+          selectedReason={selectedReason}
+          otherReason={otherReason}
+          onClose={() => setCancelModalOpen(false)}
+          onReasonChange={setSelectedReason}
+          onOtherReasonChange={setOtherReason}
+          onConfirm={confirmCancellation}
+        />
+      )}
     </>
   );
 };
 
-const OrderTable = ({
-  orders,
-  hasMore,
-  loadingMore,
-  onLoadMore,
-  canLoadLess,
-  onLoadLess,
-  error,
-  formatPrice,
-  onCancel,
-  canCancel,
-}) => {
-  if (orders.length === 0) {
+const OrdersLoadingState = () => (
+  <div className="artisan-grid-page flex min-h-screen items-center justify-center px-6">
+    <div className="flex items-center gap-3 rounded-full border border-[#5C2D91]/20 bg-[#FAF8F1] px-5 py-3 text-sm font-medium text-artisan-text shadow-sm">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-artisan-primary/25 border-t-artisan-primary" aria-hidden="true" />
+      Loading orders
+    </div>
+  </div>
+);
+
+const OrdersTab = ({ value, label, count }) => (
+  <TabsTrigger value={value} className="rounded-none border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-artisan-text-muted data-[state=active]:border-artisan-primary data-[state=active]:bg-transparent data-[state=active]:text-artisan-primary">
+    {label} <span className="ml-1 font-normal">{count}</span>
+  </TabsTrigger>
+);
+
+const OrderList = ({ orders, hasMore, canLoadLess, error, formatPrice, onCancel, canCancel, onLoadMore, onLoadLess }) => {
+  if (!orders.length) {
     return (
-      <div className="px-6 py-14 text-center">
-        <ReceiptText size={34} className="mx-auto mb-3 text-artisan-primary-pale" />
-        <p className="font-semibold text-artisan-text">No orders in this category.</p>
-        <p className="mt-1 text-sm text-artisan-text-muted">Try another tab to view your order history.</p>
+      <div className="px-6 py-16 text-center">
+        <ReceiptText size={28} className="mx-auto text-artisan-primary" aria-hidden="true" />
+        <p className="mt-4 font-semibold text-artisan-text">No matching orders</p>
       </div>
     );
   }
@@ -552,116 +288,112 @@ const OrderTable = ({
   return (
     <div>
       <div className="hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[760px] text-left">
-        <thead className="bg-artisan-primary-wash/45 text-artisan-text">
-          <tr>
-            <th className="p-5 text-sm font-bold">Order ID</th>
-            <th className="p-5 text-sm font-bold">Date</th>
-            <th className="p-5 text-sm font-bold">Items</th>
-            <th className="p-5 text-sm font-bold">Total</th>
-            <th className="p-5 text-sm font-bold">Status</th>
-            <th className="p-5 text-sm font-bold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map((order) => (
-            <tr key={order.id} className="border-t border-artisan-primary/10 transition-colors duration-200 hover:bg-artisan-primary-wash/30">
-              <td className="p-5 font-semibold text-artisan-text">#{order.id.slice(0, 8)}</td>
-              <td className="p-5 text-artisan-text-muted">
-                {order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-              </td>
-              <td className="p-5 text-artisan-text-muted">
-                {order.items?.map((item, i) => (
-                  <p key={i} className="text-sm">
-                    • {item.name} x{item.quantity}
-                  </p>
-                )) || <p className="text-sm text-gray-500">No items</p>}
-              </td>
-              <td className="p-5 font-bold text-artisan-primary">
-                {formatPrice(order.total || order.grandTotal || 0)}
-              </td>
-              <td className="p-5">{getStatusBadge(order.status)}</td>
-              <td className="p-5 space-y-2">
-                {canCancel(order) && (
-                  <Button
-                    onClick={() => onCancel(order)}
-                    variant="outline"
-                    size="sm"
-                    className="border-red-300 text-red-600 hover:bg-red-50"
-                  >
-                    Cancel Order
-                  </Button>
-                )}
-                {order.cancelReason && (
-                  <p className="text-xs italic text-artisan-text-muted">Reason: {order.cancelReason}</p>
-                )}
-              </td>
+        <table className="w-full min-w-[720px] text-left">
+          <thead className="border-b border-[#5C2D91]/15 text-artisan-text-muted">
+            <tr className="text-xs uppercase tracking-[0.14em]">
+              <th className="px-6 py-4 font-semibold">Order</th>
+              <th className="px-6 py-4 font-semibold">Date</th>
+              <th className="px-6 py-4 font-semibold">Items</th>
+              <th className="px-6 py-4 font-semibold">Total</th>
+              <th className="px-6 py-4 font-semibold">Status</th>
+              <th className="px-6 py-4 font-semibold"><span className="sr-only">Actions</span></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {orders.map((order) => <DesktopOrderRow key={order.id} order={order} formatPrice={formatPrice} onCancel={onCancel} canCancel={canCancel} />)}
+          </tbody>
+        </table>
       </div>
 
-      <div className="space-y-4 p-4 md:hidden">
-        {orders.map((order) => (
-          <article key={order.id} className="rounded-2xl border border-artisan-primary/15 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-bold text-artisan-text">Order #{order.id.slice(0, 8)}</p>
-                <p className="mt-1 text-sm text-artisan-text-muted">{order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
-              </div>
-              {getStatusBadge(order.status)}
-            </div>
-
-            <div className="mt-4 border-y border-artisan-primary/10 py-4">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-artisan-text-faint">Items</p>
-              <div className="space-y-1.5 text-sm text-artisan-text-muted">
-                {order.items?.map((item, index) => (
-                  <p key={index}>{item.name} <span className="text-artisan-text-faint">×{item.quantity}</span></p>
-                )) || <p>No items</p>}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-lg font-bold text-artisan-primary">{formatPrice(order.total || order.grandTotal || 0)}</p>
-              {canCancel(order) && (
-                <Button onClick={() => onCancel(order)} variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50">
-                  Cancel Order
-                </Button>
-              )}
-            </div>
-            {order.cancelReason && (
-              <p className="mt-3 text-xs italic text-artisan-text-muted">Reason: {order.cancelReason}</p>
-            )}
-          </article>
-        ))}
+      <div className="divide-y divide-[#5C2D91]/15 md:hidden">
+        {orders.map((order) => <MobileOrderRow key={order.id} order={order} formatPrice={formatPrice} onCancel={onCancel} canCancel={canCancel} />)}
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-3 px-4 py-6 sm:flex-row">
-        {error && (
-          <p className="text-sm text-red-600">{error}</p>
-        )}
-        {hasMore && (
-          <Button variant="outline" onClick={onLoadMore} disabled={loadingMore} className="flex items-center gap-2">
-            {loadingMore ? 'Loading more orders...' : 'Load more orders'}
-            <ChevronDown size={20} />
-          </Button>
-        )}
-        {canLoadLess && (
-          <Button variant="outline" onClick={onLoadLess} className="flex items-center gap-2">
-            View Less
-            <ChevronUp size={20} />
-          </Button>
-        )}
+      <div className="flex flex-col items-center justify-center gap-3 border-t border-[#5C2D91]/15 px-4 py-5 sm:flex-row">
+        {error && <p className="text-sm text-red-700">{error}</p>}
+        {hasMore && <Button variant="outline" onClick={onLoadMore} className="border-[#5C2D91]/25 bg-transparent text-artisan-text hover:bg-artisan-primary-wash">Load more <ChevronDown className="ml-2" size={17} /></Button>}
+        {canLoadLess && <button type="button" onClick={onLoadLess} className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-artisan-primary hover:underline">Show less <ChevronUp size={17} /></button>}
       </div>
     </div>
   );
 };
 
-const OrderStat = ({ label, value, tone, loading }) => (
-  <div className={`rounded-2xl border border-white/55 p-4 shadow-lg shadow-[#2D0E5A]/10 backdrop-blur-md ${tone}`}>
-    <p className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">{label}</p>
-    <p className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">{loading ? '—' : value}</p>
+const DesktopOrderRow = ({ order, formatPrice, onCancel, canCancel }) => (
+  <tr className="border-b border-[#5C2D91]/10 last:border-0 transition-colors duration-200 hover:bg-artisan-primary-wash/35">
+    <td className="px-6 py-5 font-mono text-sm font-semibold text-artisan-text">#{order.id.slice(0, 8)}</td>
+    <td className="px-6 py-5 text-sm text-artisan-text-muted">{formatOrderDate(order)}</td>
+    <td className="max-w-xs px-6 py-5 text-sm text-artisan-text-muted"><OrderItems items={order.items} /></td>
+    <td className="px-6 py-5 text-sm font-semibold tabular-nums text-artisan-text">{formatPrice(order.total || order.grandTotal || 0)}</td>
+    <td className="px-6 py-5"><OrderStatusBadge status={order.status} /></td>
+    <td className="px-6 py-5 text-right">
+      {canCancel(order) && <button type="button" onClick={() => onCancel(order)} className="text-sm font-semibold text-red-700 transition-colors hover:text-red-900 hover:underline">Cancel</button>}
+      {order.cancelReason && <p className="mt-1 text-xs text-artisan-text-muted">{order.cancelReason}</p>}
+    </td>
+  </tr>
+);
+
+const MobileOrderRow = ({ order, formatPrice, onCancel, canCancel }) => (
+  <article className="px-5 py-5">
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="font-mono text-sm font-semibold text-artisan-text">#{order.id.slice(0, 8)}</p>
+        <p className="mt-1 text-sm text-artisan-text-muted">{formatOrderDate(order)}</p>
+      </div>
+      <OrderStatusBadge status={order.status} />
+    </div>
+    <div className="mt-5 border-t border-[#5C2D91]/12 pt-4"><OrderItems items={order.items} /></div>
+    <div className="mt-5 flex items-center justify-between gap-4">
+      <p className="font-semibold tabular-nums text-artisan-text">{formatPrice(order.total || order.grandTotal || 0)}</p>
+      {canCancel(order) && <button type="button" onClick={() => onCancel(order)} className="text-sm font-semibold text-red-700 hover:underline">Cancel</button>}
+    </div>
+    {order.cancelReason && <p className="mt-3 text-sm text-artisan-text-muted">{order.cancelReason}</p>}
+  </article>
+);
+
+const OrderItems = ({ items }) => (
+  <div className="space-y-1 text-sm text-artisan-text-muted">
+    {items?.length ? items.map((item, index) => <p key={`${item.id || item.name}-${index}`}>{item.name} <span className="text-artisan-text-faint">×{item.quantity}</span></p>) : <p>No items recorded</p>}
+  </div>
+);
+
+const OrderStatusBadge = ({ status }) => {
+  const details = STATUS_DETAILS[status] || STATUS_DETAILS.pending_review;
+  const Icon = details.icon;
+  return <span className={`inline-flex max-w-[11rem] items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${details.className}`}><Icon size={14} aria-hidden="true" /><span className="truncate">{details.label}</span></span>;
+};
+
+const OrderStat = ({ label, value }) => (
+  <div className="px-4 py-4 sm:px-5">
+    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-artisan-text-muted">{label}</dt>
+    <dd className="mt-2 text-3xl font-semibold tabular-nums text-artisan-text">{value}</dd>
+  </div>
+);
+
+const formatOrderDate = (order) => order.createdAt?.toDate?.().toLocaleDateString() || 'N/A';
+
+const CancelOrderDialog = ({ order, selectedReason, otherReason, onClose, onReasonChange, onOtherReasonChange, onConfirm }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#2D0E5A]/45 p-4" role="presentation">
+    <section role="dialog" aria-modal="true" aria-labelledby="cancel-order-heading" className="relative w-full max-w-md rounded-3xl bg-[#FAF8F1] p-6 text-artisan-text shadow-[0_24px_64px_rgba(45,14,90,0.3)] sm:p-8">
+      <button onClick={onClose} type="button" aria-label="Close cancellation dialog" className="absolute right-4 top-4 rounded-full p-2 text-artisan-text-muted transition-colors hover:bg-artisan-primary-wash hover:text-artisan-primary"><X size={22} /></button>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-700">Cancel order</p>
+      <h2 id="cancel-order-heading" className="mt-3 font-artisan-display text-3xl font-semibold">#{order.id.slice(0, 8)}</h2>
+      <fieldset className="mt-7">
+        <legend className="text-sm font-semibold">Reason</legend>
+        <div className="mt-3 space-y-1">
+          {CANCEL_REASONS.map((reason) => (
+            <label key={reason} className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-artisan-primary-wash/60">
+              <input type="radio" name="cancelReason" value={reason} checked={selectedReason === reason} onChange={(event) => onReasonChange(event.target.value)} className="h-4 w-4 text-red-600 focus:ring-red-500" />
+              <span className="text-sm">{reason}</span>
+            </label>
+          ))}
+        </div>
+        {selectedReason === 'Other' && <textarea value={otherReason} onChange={(event) => onOtherReasonChange(event.target.value)} placeholder="Add a reason" className="mt-4 h-24 w-full resize-none rounded-xl border border-artisan-border bg-white px-3 py-2 text-sm text-artisan-text placeholder:text-artisan-text-faint focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200" required />}
+      </fieldset>
+      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={onClose}>Keep order</Button>
+        <Button onClick={onConfirm} disabled={!selectedReason || (selectedReason === 'Other' && !otherReason.trim())} className="bg-red-700 text-white hover:bg-red-800">Request cancellation</Button>
+      </div>
+    </section>
   </div>
 );
 

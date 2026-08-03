@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import PurchasePageHero from '@/components/shop/PurchasePageHero';
+import { getAvailableStock } from '@/lib/stock';
 
 const CartPage = () => {
   const { cartItems, removeFromCart, updateQuantity } = useCart();
@@ -124,6 +125,13 @@ const CartPage = () => {
 
                 {cartItems.map((item) => {
                   const isSelected = selectedIds.includes(item.id);
+                  const availableStock = getAvailableStock(item);
+                  const canRequestMore = item.quantity >= availableStock;
+                  const customOrderQuery = new URLSearchParams({
+                    productId: item.id,
+                    productName: item.name || 'Selected product',
+                    quantity: String(Math.max((item.quantity || 0) + 1, 1)),
+                  }).toString();
 
                   return (
                     <motion.div
@@ -176,18 +184,31 @@ const CartPage = () => {
                               id={`qty-${item.id}`}
                               type="number"
                               min="1"
+                              max={Math.max(availableStock, 1)}
                               value={item.quantity}
                               onChange={(e) =>
                                 updateQuantity(item.id, parseInt(e.target.value) || 1)
                               }
                               className="w-16 rounded-xl border border-[#DCCBE7] bg-white px-2 py-1 text-sm text-[#2A1739] focus:border-[#5C2D91] focus:outline-none"
                             />
+                            <span className="text-xs text-artisan-text-muted">
+                              {availableStock > 0 ? `${availableStock} available` : 'Sold out'}
+                            </span>
                           </div>
 
                           <p className="font-bold tabular-nums text-[#5C2D91]">
                             {formatPrice(item.price * item.quantity)}
                           </p>
                         </div>
+
+                        {canRequestMore && (
+                          <Link
+                            to={`/contact?${customOrderQuery}`}
+                            className="mt-3 w-fit text-xs font-semibold text-artisan-primary underline-offset-4 transition-colors hover:text-artisan-primary-mid hover:underline"
+                          >
+                            Request additional pieces
+                          </Link>
+                        )}
                       </div>
                     </motion.div>
                   );

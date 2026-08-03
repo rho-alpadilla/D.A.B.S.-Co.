@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
-import { useAuth, db } from '@/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, useAuth, db } from '@/lib/firebase';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 
 // Layout & Shared Components
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ChatWidget from '@/components/shared/ChatWidget';
+import CustomOrderDrawer from '@/components/shared/CustomOrderDrawer';
 
 // Marketing Pages
 import HomePage from '@/pages/marketing/HomePage';
@@ -28,6 +30,7 @@ import CheckoutPage from '@/pages/shop/CheckoutPage';
 // Auth Pages
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 
 // Account Pages
 import BuyerDashboard from '@/pages/account/BuyerDashboard';
@@ -91,8 +94,35 @@ const ScrollToHash = () => {
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const [accountAccess, setAccountAccess] = useState('checking');
 
-  if (loading) {
+  useEffect(() => {
+    if (!user) {
+      setAccountAccess('allowed');
+      return;
+    }
+
+    let isCurrent = true;
+    getDoc(doc(db, 'users', user.uid))
+      .then((profileSnapshot) => {
+        if (!isCurrent) return;
+        if (profileSnapshot.exists() && profileSnapshot.data().accountStatus === 'deactivated') {
+          setAccountAccess('deactivated');
+          signOut(auth);
+          return;
+        }
+        setAccountAccess('allowed');
+      })
+      .catch(() => {
+        if (isCurrent) setAccountAccess('allowed');
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [user]);
+
+  if (loading || accountAccess === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-artisan-primary border-t-transparent rounded-full animate-spin"></div>
@@ -102,6 +132,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (accountAccess === 'deactivated') {
+    return <Navigate to="/login" replace state={{ accountDeactivated: true }} />;
   }
 
   return children;
@@ -235,6 +269,7 @@ function AppContent() {
 
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route
             path="/buyer-dashboard"
             element={
@@ -302,6 +337,7 @@ function AppContent() {
 
       <Footer />
       <ChatWidget />
+      <CustomOrderDrawer />
       <Toaster />
     </div>
   );

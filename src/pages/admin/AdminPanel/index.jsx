@@ -13,6 +13,7 @@ import {
   onSnapshot,
   doc,
   updateDoc,
+  deleteDoc,
   getDoc,
   increment,
   serverTimestamp
@@ -26,6 +27,7 @@ import {
   PointElement,
   LineElement,
   BarElement,
+  Filler,
   Title,
   Tooltip,
   Legend
@@ -67,8 +69,18 @@ import {
   isDeclinedOrder,
   isPostReviewWorkflow,
 } from './orderStatus';
+import { ACCOUNT_APPROVAL_STATUSES, lockAccountAfterApprovedPurchase } from '@/lib/accountLifecycle';
+import {
+  buildDiagnosticAnalytics,
+  buildDescriptiveAnalytics,
+  buildPrescriptiveRecommendations,
+  buildTrendForecast,
+  createProductRevenueChartData,
+  createRevenueOverTimeChartData,
+} from '@/lib/analytics/descriptiveAnalytics';
+import { validateOrderForAnalytics } from '@/lib/analytics/orderDataQuality';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
 const AdminPanel = () => {
   const navigate = useNavigate();
@@ -93,7 +105,6 @@ const AdminPanel = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [tab, setTab] = useState("dashboard");
-  const [productStats, setProductStats] = useState([]);
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -258,6 +269,79 @@ const AdminPanel = () => {
     }
   };
 
+  const handleReviewDataQualityOrder = async (orderId) => {
+    if (!isAdmin) {
+      alert("Permission blocked. Only the main admin can review data-quality records.");
+      return;
+    }
+
+    const order = orders.find((existingOrder) => existingOrder.id === orderId);
+    if (!order) {
+      alert("This order is no longer available. Refresh the analytics page and try again.");
+      return;
+    }
+
+    const validation = validateOrderForAnalytics(order);
+    if (validation.isValid) {
+      alert("This order no longer has a data-quality issue.");
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "orders", order.id), {
+        "dataQualityReview.reviewedBy": user.uid,
+        "dataQualityReview.reviewedAt": serverTimestamp(),
+        updatedAt: new Date(),
+      });
+
+      setSelectedOrder(order);
+      alert("Data-quality review recorded. Check the order details, then return to the analytics queue if deletion is still required.");
+    } catch (error) {
+      console.error("Failed to record data-quality review:", error);
+      alert("Unable to record the review. Please try again.");
+    }
+  };
+
+  const handleDeleteDataQualityOrder = async (orderId) => {
+    if (!isAdmin) {
+      alert("Permission blocked. Only the main admin can delete data-quality records.");
+      return;
+    }
+
+    const order = orders.find((existingOrder) => existingOrder.id === orderId);
+    if (!order) {
+      alert("This order is no longer available. Refresh the analytics page and try again.");
+      return;
+    }
+
+    const validation = validateOrderForAnalytics(order);
+    if (validation.isValid) {
+      alert("This order no longer belongs in the data-quality queue and cannot be deleted from this screen.");
+      return;
+    }
+
+    if (order.dataQualityReview?.reviewedBy !== user.uid) {
+      alert("Review this order first. Only the main admin who recorded the latest data-quality review can delete it.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Permanently delete order #${order.id.slice(0, 8)}? This cannot be undone. Because this historical order has incomplete data, inventory is not adjusted automatically; verify any stock correction separately before continuing.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, "orders", order.id));
+      if (selectedOrder?.id === order.id) {
+        setSelectedOrder(null);
+      }
+      alert("The incomplete order was permanently deleted.");
+    } catch (error) {
+      console.error("Failed to delete data-quality order:", error);
+      alert("Unable to delete this order. Confirm that you reviewed it first and try again.");
+    }
+  };
+
   const updateOrderStatus = async (orderOrId, newStatus) => {
     const order = typeof orderOrId === 'string'
       ? orders.find((existingOrder) => existingOrder.id === orderOrId)
@@ -273,6 +357,12 @@ const AdminPanel = () => {
 
     try {
       if (newStatus === "completed" && currentStatus !== "completed") {
+        const analyticsValidation = validateOrderForAnalytics(order);
+        if (!analyticsValidation.isValid) {
+          alert(`Cannot mark this order as completed until its analytics data is complete: ${analyticsValidation.issues.map((issue) => issue.label).join(', ')}.`);
+          return;
+        }
+
         const promises = (order.items || []).map(async (item) => {
           const productRef = doc(db, "pricelists", item.id);
           const productSnap = await getDoc(productRef);
@@ -301,6 +391,13 @@ const AdminPanel = () => {
         status: newStatus,
         updatedAt: new Date()
       });
+
+      if (
+        ACCOUNT_APPROVAL_STATUSES.has(newStatus) &&
+        !ACCOUNT_APPROVAL_STATUSES.has(currentStatus)
+      ) {
+        await lockAccountAfterApprovedPurchase(order);
+      }
 
       await notifyBuyerStatusChange(order, newStatus);
 
@@ -404,131 +501,61 @@ const AdminPanel = () => {
   };
 
   const completedOrders = useMemo(
-    () => orders.filter(o => o.status === "completed"),
+    () => orders.filter((order) => order.status === 'completed'),
     [orders]
   );
 
-  const filteredCompletedOrders = useMemo(() => {
-    if (!customStartDate && !customEndDate) return completedOrders;
+  const descriptiveAnalytics = useMemo(
+    () => buildDescriptiveAnalytics({
+      orders,
+      products,
+      startDate: customStartDate,
+      endDate: customEndDate,
+    }),
+    [customEndDate, customStartDate, orders, products]
+  );
 
-    const start = customStartDate ? new Date(`${customStartDate}T00:00:00`) : null;
-    const end = customEndDate ? new Date(`${customEndDate}T23:59:59.999`) : null;
+  const diagnosticAnalytics = useMemo(
+    () => buildDiagnosticAnalytics({
+      orders,
+      products,
+      startDate: customStartDate,
+      endDate: customEndDate,
+    }),
+    [customEndDate, customStartDate, orders, products]
+  );
 
-    return completedOrders.filter((order) => {
-      const orderDate = order.createdAt?.toDate?.() || new Date(order.createdAt || 0);
-      if (!Number.isFinite(orderDate.getTime())) return false;
-      if (start && orderDate < start) return false;
-      if (end && orderDate > end) return false;
-      return true;
-    });
-  }, [completedOrders, customEndDate, customStartDate]);
+  const {
+    averageOrderValue: avgOrderValue,
+    completedOrderCount: totalOrdersCompleted,
+    completedOrders: filteredCompletedOrders,
+    productStats,
+    totalRevenue: totalIncome,
+  } = descriptiveAnalytics;
 
-  const totalIncome = useMemo(() => {
-    return filteredCompletedOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  }, [filteredCompletedOrders]);
+  const revenueChartData = useMemo(
+    () => createProductRevenueChartData(descriptiveAnalytics.topProducts),
+    [descriptiveAnalytics.topProducts]
+  );
 
-  const totalOrdersCompleted = useMemo(() => filteredCompletedOrders.length, [filteredCompletedOrders]);
-  const avgOrderValue = totalOrdersCompleted > 0 ? totalIncome / totalOrdersCompleted : 0;
+  const revenueOverTimeData = useMemo(
+    () => createRevenueOverTimeChartData(descriptiveAnalytics.dailyRevenue),
+    [descriptiveAnalytics.dailyRevenue]
+  );
 
-  useEffect(() => {
-    if (products.length === 0) {
-      setProductStats([]);
-      return;
-    }
+  const forecast = useMemo(
+    () => buildTrendForecast({ dailyRevenue: descriptiveAnalytics.dailyRevenue }),
+    [descriptiveAnalytics.dailyRevenue]
+  );
 
-    const statsMap = {};
-    products.forEach(p => {
-      statsMap[p.id] = {
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        totalSold: 0,
-        revenue: 0,
-        imageUrl: p.imageUrl,
-        stockQuantity: p.stockQuantity
-      };
-    });
-
-    filteredCompletedOrders.forEach(order => {
-      order.items?.forEach(item => {
-        if (statsMap[item.id]) {
-          statsMap[item.id].totalSold += item.quantity;
-          statsMap[item.id].revenue += item.price * item.quantity;
-        }
-      });
-    });
-
-    const statsArray = Object.values(statsMap).sort((a, b) => b.totalSold - a.totalSold);
-    setProductStats(statsArray);
-  }, [filteredCompletedOrders, products]);
-
-  const revenueChartData = useMemo(() => {
-    const top = productStats.slice(0, 10);
-    return {
-      labels: top.map(p => p.name.length > 15 ? p.name.substring(0, 15) + "..." : p.name),
-      datasets: [{
-        label: 'Revenue',
-        data: top.map(p => p.revenue),
-        backgroundColor: 'rgba(92, 45, 145, 0.78)',
-        borderColor: '#5C2D91',
-        borderWidth: 2
-      }]
-    };
-  }, [productStats]);
-
-  const revenueOverTimeData = useMemo(() => {
-    const map = new Map();
-
-    filteredCompletedOrders.forEach(o => {
-      const d = o.createdAt?.toDate?.();
-      if (!d) return;
-      const key = d.toISOString().slice(0, 10);
-      map.set(key, (map.get(key) || 0) + (o.total || 0));
-    });
-
-    const labels = Array.from(map.keys()).sort();
-    const values = labels.map(k => map.get(k));
-
-    return {
-      labels,
-      datasets: [{
-        label: "Daily Revenue",
-        data: values,
-        borderColor: "#5C2D91",
-        backgroundColor: "rgba(92, 45, 145, 0.15)",
-        tension: 0.3,
-        fill: true
-      }]
-    };
-  }, [filteredCompletedOrders]);
-
-  const forecast = useMemo(() => {
-    if (!customStartDate || !customEndDate) {
-      return {
-        avgDaily: 0,
-        nextMonth: 0,
-        growthPct: 0,
-        baseDays: 0
-      };
-    }
-
-    const start = new Date(`${customStartDate}T00:00:00`);
-    const end = new Date(`${customEndDate}T23:59:59`);
-    const diffDays = Math.max(
-      1,
-      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    );
-
-    const baseRevenue = filteredCompletedOrders.reduce((s, o) => s + (o.total || 0), 0);
-    const avgDaily = diffDays > 0 ? baseRevenue / diffDays : 0;
-
-    return {
-      avgDaily,
-      nextMonth: avgDaily * 30,
-      growthPct: 0,
-      baseDays: diffDays
-    };
-  }, [filteredCompletedOrders, customStartDate, customEndDate]);
+  const prescriptiveRecommendations = useMemo(
+    () => buildPrescriptiveRecommendations({
+      descriptiveAnalytics,
+      diagnosticAnalytics,
+      forecast,
+    }),
+    [descriptiveAnalytics, diagnosticAnalytics, forecast]
+  );
 
   const makeSubAdmin = async (userId) => {
     if (!isAdmin) {
@@ -711,6 +738,9 @@ const AdminPanel = () => {
 
   const selectedOrderLive =
     selectedOrder ? orders.find((order) => order.id === selectedOrder.id) || selectedOrder : null;
+  const selectedOrderDataQualityIssues = selectedOrderLive
+    ? validateOrderForAnalytics(selectedOrderLive).issues
+    : [];
 
   if (!user || (role !== "admin" && role !== "sub-admin")) {
     return (
@@ -741,6 +771,8 @@ const AdminPanel = () => {
     customStartDate,
     dashboardMetricsError: null,
     dashboardMetricsLoading: false,
+    descriptiveAnalytics,
+    diagnosticAnalytics,
     declinedCount,
     filteredCompletedOrders,
     filteredOrders,
@@ -756,6 +788,8 @@ const AdminPanel = () => {
     getStatusBadge,
     handleCancellation,
     handleDeclineOrder,
+    handleDeleteDataQualityOrder,
+    handleReviewDataQualityOrder,
     handleReviewOrder,
     isAdmin,
     isSubAdmin,
@@ -772,6 +806,7 @@ const AdminPanel = () => {
     paymentConfirmedCount,
     processingCount,
     productStats,
+    prescriptiveRecommendations,
     products,
     rangeDays,
     recentOrders,
@@ -785,7 +820,6 @@ const AdminPanel = () => {
     setOrderSearch,
     setOrderStatusFilter,
     setOrders,
-    setProductStats,
     setProducts,
     setRangeDays,
     setRole,
@@ -883,7 +917,7 @@ const AdminPanel = () => {
         {selectedOrderLive && (
           <>
             <motion.div
-              className="fixed inset-0 bg-black/40 z-40"
+              className="fixed inset-0 z-[55] bg-black/40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -891,7 +925,7 @@ const AdminPanel = () => {
             />
 
             <motion.div
-              className="fixed right-0 top-0 z-50 flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl"
+              className="fixed right-0 top-0 z-[60] flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -922,6 +956,22 @@ const AdminPanel = () => {
               </div>
 
               <div className="flex-1 space-y-6 overflow-y-auto bg-artisan-primary-wash/35 p-4 sm:p-6">
+                {selectedOrderDataQualityIssues.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="mt-0.5 shrink-0 text-amber-700" size={20} />
+                      <div>
+                        <p className="font-semibold">Data-quality review</p>
+                        <p className="mt-1 text-sm leading-6">
+                          This order has incomplete analytics data: {selectedOrderDataQualityIssues.map((issue) => issue.label).join(', ')}.
+                        </p>
+                        {selectedOrderLive.dataQualityReview?.reviewedBy === user.uid && (
+                          <p className="mt-2 text-sm font-semibold text-emerald-800">Your review is recorded. Return to the analytics queue to delete this record if correction is not possible.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-artisan-primary/10 bg-white p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">Status</p>

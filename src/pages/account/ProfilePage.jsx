@@ -2,11 +2,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { deleteUser, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown } from 'lucide-react';
+import AccountDangerZone from '@/components/account/AccountDangerZone';
+import {
+  getAccountLifecycleErrorMessage,
+  getAccountPurchaseSummary,
+  reauthenticateAccount,
+  removeEligibleAccountData,
+} from '@/lib/accountLifecycle';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -33,6 +42,8 @@ const FIELD_VALUE_CLASS = 'min-h-12 rounded-xl border border-artisan-primary/10 
 
 const ProfilePage = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState({
     username: '',
     fullName: '',
@@ -57,6 +68,10 @@ const ProfilePage = () => {
   const [phoneCountrySearch, setPhoneCountrySearch] = useState("");
   const [addressCountrySearch, setAddressCountrySearch] = useState("");
   const fileInputRef = useRef(null);
+  const [accountData, setAccountData] = useState(null);
+  const [hasApprovedPurchase, setHasApprovedPurchase] = useState(null);
+  const [accountEligibilityError, setAccountEligibilityError] = useState('');
+  const [isAccountActionSubmitting, setIsAccountActionSubmitting] = useState(false);
 
   const [countries] = useState(ALL_COUNTRIES);
 
@@ -67,6 +82,7 @@ const ProfilePage = () => {
     const unsub = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        setAccountData(data);
         const addr = data.addresses?.[0] || {};
 
         // Parse phone
@@ -122,6 +138,38 @@ const ProfilePage = () => {
     return () => unsub();
   }, [user]);
 
+  useEffect(() => {
+    if (!user?.email) {
+      setHasApprovedPurchase(null);
+      return;
+    }
+
+    let isCurrent = true;
+    setAccountEligibilityError('');
+    setHasApprovedPurchase(null);
+
+    getAccountPurchaseSummary(user.email)
+      .then((summary) => {
+        if (isCurrent) setHasApprovedPurchase(summary.hasApprovedPurchase);
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setAccountEligibilityError('We could not verify your purchase history. Account changes are unavailable right now.');
+          setHasApprovedPurchase(true);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (location.state?.onboarding) {
+      setIsEditing(true);
+    }
+  }, [location.state]);
+
   const filteredPhoneCountries = countries.filter(country =>
     country.name.toLowerCase().includes(phoneCountrySearch.toLowerCase()) ||
     country.callingCode.includes(phoneCountrySearch)
@@ -169,12 +217,54 @@ const ProfilePage = () => {
           postalCode: tempData.postalCode,
           country: profile.address.countryObj.name,
           isDefault: true
-        }]
+        }],
+        profileCompleted: true,
       });
       setIsEditing(false);
       alert("Profile updated!");
     } catch (err) {
       alert("Failed to save profile");
+    }
+  };
+
+  const accountIsEligible =
+    accountData?.hasApprovedOrders === false && hasApprovedPurchase === false && !accountEligibilityError;
+
+  const handleDeactivateAccount = async () => {
+    if (!accountIsEligible) {
+      throw new Error('This account is not eligible for deactivation.');
+    }
+
+    setIsAccountActionSubmitting(true);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        accountStatus: 'deactivated',
+        deactivatedAt: serverTimestamp(),
+      });
+      await signOut(auth);
+      navigate('/login', { replace: true, state: { accountDeactivated: true } });
+    } catch (error) {
+      throw new Error(getAccountLifecycleErrorMessage(error));
+    } finally {
+      setIsAccountActionSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async (password) => {
+    if (!accountIsEligible) {
+      throw new Error('This account is not eligible for deletion.');
+    }
+
+    setIsAccountActionSubmitting(true);
+    try {
+      await reauthenticateAccount({ user, password });
+      await removeEligibleAccountData(user.uid);
+      await deleteUser(auth.currentUser);
+      navigate('/', { replace: true });
+    } catch (error) {
+      throw new Error(getAccountLifecycleErrorMessage(error));
+    } finally {
+      setIsAccountActionSubmitting(false);
     }
   };
 
@@ -245,6 +335,12 @@ const ProfilePage = () => {
 
             {/* Profile Info */}
             <div className="space-y-10 p-6 sm:p-10 md:p-14">
+              {location.state?.onboarding && (
+                <div className="rounded-2xl border border-artisan-primary/20 bg-artisan-primary-wash px-5 py-4 text-artisan-text">
+                  <p className="font-bold">Complete your profile</p>
+                  <p className="mt-1 text-sm text-artisan-text-muted">Please review your name, phone number, and delivery address before continuing.</p>
+                </div>
+              )}
               {/* Personal Info */}
               <section>
                 <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -496,6 +592,16 @@ const ProfilePage = () => {
                   </div>
                 </div>
               </section>
+
+              <AccountDangerZone
+                user={user}
+                isEligible={accountIsEligible}
+                isCheckingEligibility={hasApprovedPurchase === null}
+                eligibilityError={accountEligibilityError || (accountData && accountData.hasApprovedOrders !== false ? 'This account is not eligible for self-service deactivation or deletion. Contact support if you need assistance.' : '')}
+                onDeactivate={handleDeactivateAccount}
+                onDelete={handleDeleteAccount}
+                isSubmitting={isAccountActionSubmitting}
+              />
 
               {/* Edit Button */}
               <div className="flex flex-col gap-4 border-t border-artisan-primary/10 pt-8 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
