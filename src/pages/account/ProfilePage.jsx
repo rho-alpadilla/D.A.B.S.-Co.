@@ -322,7 +322,7 @@ const ProfilePage = () => {
 
               <div className="text-center md:text-left">
                 <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-artisan-primary-pale">My profile</p>
-                <h1 className="font-artisan-display text-4xl font-bold sm:text-5xl">
+                <h1 className="font-nunito text-4xl font-bold sm:text-5xl">
                   @{profile.username}
                 </h1>
                 <p className="mt-2 text-xl font-semibold text-white/90 sm:text-2xl">{profile.fullName}</p>
@@ -346,7 +346,7 @@ const ProfilePage = () => {
                 <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Account details</p>
-                    <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Personal information</h2>
+                    <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Personal information</h2>
                   </div>
                   {!isEditing && <p className="text-sm text-artisan-text-muted">Select Edit Profile to update your details.</p>}
                 </div>
@@ -474,7 +474,7 @@ const ProfilePage = () => {
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Delivery details</p>
-                    <h2 className="font-artisan-display text-3xl font-bold text-artisan-text">Address</h2>
+                    <h2 className="font-nunito text-3xl font-bold text-artisan-text">Address</h2>
                   </div>
                 </div>
 

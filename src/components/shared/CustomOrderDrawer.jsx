@@ -58,10 +58,10 @@ const CustomOrderDrawer = () => {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[#24101F]/35 backdrop-blur-[2px]" />
         <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-[#E7DED3] bg-[#FAF8F1] shadow-[-24px_0_60px_rgba(36,16,31,0.2)] outline-none md:w-1/2">
-          <header className="flex items-start justify-between border-b border-[#E7DED3] bg-[#47003C] px-6 py-6 text-white sm:px-8">
+          <header className="flex items-start justify-between border-b border-[#E7DED3] bg-artisan-primary px-6 py-6 text-white sm:px-8">
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/65">Custom order details</p>
-              <Dialog.Title className="font-artisan-display text-3xl font-bold">Request additional pieces</Dialog.Title>
+              <Dialog.Title className="font-nunito text-3xl font-bold">Request additional pieces</Dialog.Title>
               <Dialog.Description className="mt-2 max-w-md text-sm leading-6 text-white/80">Tell us what you need. Your message goes directly to the support inbox.</Dialog.Description>
             </div>
             <Dialog.Close asChild><button className="rounded-full border border-white/25 p-2 text-white transition-colors hover:bg-white/10" aria-label="Close custom order panel"><X size={20} /></button></Dialog.Close>
@@ -96,7 +96,7 @@ const CustomOrderDrawer = () => {
               <label className="block text-sm font-semibold text-[#01243A]" htmlFor="custom-order-message">Message</label>
               <textarea id="custom-order-message" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={3000} required={Boolean(user)} rows={7} placeholder="Describe the quantity, deadline, or changes you need." className="w-full resize-y rounded-xl border border-[#D9C9E3] bg-white px-4 py-3 text-[#01243A] outline-none transition focus:border-[#88538C] focus:ring-4 focus:ring-[#88538C]/15" />
               <p className="text-right text-xs text-[#667482]">{message.length}/3000</p>
-              <Button type="submit" disabled={isSending} className="h-12 w-full rounded-xl bg-[#47003C] text-white hover:bg-[#5A124E]">{user ? (isSending ? 'Sending…' : 'Send custom-order request') : 'Create an account to send'}<Send size={17} className="ml-2" /></Button>
+              <Button type="submit" disabled={isSending} className="h-12 w-full rounded-xl bg-artisan-primary text-white hover:bg-[#4A247B]">{user ? (isSending ? 'Sending…' : 'Send custom-order request') : 'Create an account to send'}<Send size={17} className="ml-2" /></Button>
             </form>
           </div>
         </Dialog.Content>

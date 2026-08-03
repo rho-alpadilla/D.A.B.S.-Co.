@@ -93,7 +93,7 @@ const AdminUsersTab = (props) => {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Access management</p>
-                      <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Sub-admin Management</h2>
+                      <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Sub-admin Management</h2>
                       <p className="mt-1 text-sm text-artisan-text-muted">
                         Search users and promote trusted buyer accounts to Sub-admin / Artisan.
                       </p>
@@ -138,8 +138,8 @@ const AdminUsersTab = (props) => {
                   ) : (
                     <>
                     <div className="hidden max-h-[42rem] overflow-auto md:block">
-                    <table className="w-full min-w-[720px]">
-                      <thead className="sticky top-0 z-10 border-b border-artisan-primary/10 bg-artisan-primary-wash/95 text-artisan-text shadow-sm">
+                    <table className="artisan-data-table w-full min-w-[720px]">
+                      <thead className="sticky top-0 z-10 shadow-sm">
                         <tr>
                           <th className="p-4 text-left text-sm font-bold">Name</th>
                           <th className="p-4 text-left text-sm font-bold">Email</th>

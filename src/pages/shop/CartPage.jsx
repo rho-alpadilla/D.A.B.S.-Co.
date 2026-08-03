@@ -216,7 +216,7 @@ const CartPage = () => {
               </div>
 
               <aside className="h-fit rounded-[2rem] border border-white/25 bg-[#2D0E5A]/95 p-6 text-white shadow-2xl shadow-[#2D0E5A]/35 backdrop-blur-md lg:sticky lg:top-24">
-                <h2 className="mb-4 font-artisan-display text-3xl font-bold text-white">Selected Summary</h2>
+                <h2 className="mb-4 font-nunito text-3xl font-bold text-white">Selected Summary</h2>
 
                 <div className="mb-6 space-y-3 border-b border-white/20 pb-6">
                   <div className="flex justify-between text-white/85">

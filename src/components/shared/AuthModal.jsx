@@ -52,8 +52,7 @@ export default function AuthModal() {
         </button>
 
         <h2
-          className="relative text-center font-artisan-display text-3xl font-bold text-artisan-text mb-8"
-          style={{ color: '#5C2D91', fontFamily: "'Playfair Display', serif" }}
+          className="relative mb-8 text-center font-nunito text-3xl font-bold text-artisan-primary"
         >
           {isLogin ? 'Welcome Back!' : 'Join D.A.B.S. Co.'}
         </h2>

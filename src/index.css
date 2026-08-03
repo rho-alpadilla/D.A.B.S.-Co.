@@ -1,15 +1,14 @@
 /* ─────────────────────────────────────────────────────────────────────────
    src/index.css
    Design A — Artisan Canvas token system
-   All original Tailwind directives and Poppins font preserved.
+   Typography follows the approved Playfair Display and Nunito hierarchy.
    New purple artisan tokens added alongside existing ones.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* ── Original fonts (kept — existing components still reference these) ── */
-@import url('https://fonts.googleapis.com/css2?family=Agbalumo&display=Permanent+Marker&family=Playball&family=Poppins:wght@300;400;500;600;700&display=swap');
+/* ── Legacy font imports removed; only approved families load below. ── */
 
-/* ── Design A — Artisan Canvas fonts ─────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Dancing+Script:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+/* ── Approved font families ───────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -36,7 +35,13 @@
     --artisan-text:          #2D0E5A; /* primary body text                  */
     --artisan-text-mid:      #4A2560; /* medium emphasis text               */
     --artisan-text-muted:    #6B4A80; /* muted / secondary text             */
-    --artisan-text-faint:    #9B7AB0; /* placeholder, disabled text         */
+    --artisan-text-faint:    #755381; /* legacy alias; readable low-priority */
+    --artisan-text-subtle:   #755381; /* low-priority but readable text      */
+    --artisan-footer-muted:  #B6ABC5; /* muted text on dark footer surfaces  */
+
+    /* Approved typography foundation for interface and display surfaces. */
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-ui: 'Nunito', 'Segoe UI', sans-serif;
 
     /* ── Artisan Surfaces ───────────────────────────────── */
     --artisan-surface:       rgba(255, 255, 255, 0.85); /* card / nav glass */
@@ -97,11 +102,9 @@
     background-color: var(--artisan-bg);
     color: var(--artisan-text);
 
-    /* Body font: Inter for UI text (Design A). Poppins kept as fallback
-       so existing components that rely on Tailwind's font-sans still work. */
-    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont,
-      'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans',
-      'Droid Sans', 'Helvetica Neue', sans-serif;
+    /* Nunito is the global interface font. Playfair remains reserved for
+       semantic display elements through the existing display utility. */
+    font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -382,6 +385,57 @@
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Shared data hierarchy. Applied to existing tables without changing
+     data, controls, or responsive table/mobile-card behavior. */
+  .artisan-data-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    color: var(--artisan-text);
+  }
+
+  .artisan-data-table thead {
+    background: rgba(237, 224, 249, 0.92);
+    color: var(--artisan-text);
+  }
+
+  .artisan-data-table thead th {
+    border-bottom: 1px solid rgba(92, 45, 145, 0.22);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .artisan-data-table tbody tr {
+    background: #faf8f1;
+    transition: background-color 160ms var(--artisan-ease-out);
+  }
+
+  .artisan-data-table tbody tr:nth-child(even) {
+    background: #f5eef9;
+  }
+
+  .artisan-data-table tbody tr:hover {
+    background: #ede0f9;
+  }
+
+  .artisan-data-table tbody td {
+    border-bottom: 1px solid rgba(92, 45, 145, 0.22);
+  }
+
+  .artisan-data-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .artisan-data-table--strong-header thead {
+    background: var(--artisan-primary);
+    color: #fff;
+  }
+
+  .artisan-data-table--strong-header thead th {
+    border-bottom-color: rgba(255, 255, 255, 0.28);
   }
 }
 

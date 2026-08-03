@@ -13,7 +13,6 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  deleteDoc,
   getDoc,
   increment,
   serverTimestamp
@@ -79,6 +78,12 @@ import {
   createRevenueOverTimeChartData,
 } from '@/lib/analytics/descriptiveAnalytics';
 import { validateOrderForAnalytics } from '@/lib/analytics/orderDataQuality';
+import {
+  archiveOrder,
+  permanentlyDeleteReviewedInvalidOrder,
+  restoreArchivedOrder,
+} from '@/lib/orders/orderLifecycle';
+import OrderLifecycleDialog from '@/components/admin/OrderLifecycleDialog';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
@@ -108,7 +113,10 @@ const AdminPanel = () => {
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderView, setOrderView] = useState('active');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [lifecycleDialog, setLifecycleDialog] = useState(null);
+  const [isLifecycleSubmitting, setIsLifecycleSubmitting] = useState(false);
 
   const [userSearch, setUserSearch] = useState('');
   useEffect(() => {
@@ -287,6 +295,15 @@ const AdminPanel = () => {
       return;
     }
 
+    if (order.dataQualityReview?.reviewedBy) {
+      alert(
+        order.dataQualityReview.reviewedBy === user.uid
+          ? "You already reviewed this data-quality record."
+          : "Another main admin already reviewed this data-quality record."
+      );
+      return;
+    }
+
     try {
       await updateDoc(doc(db, "orders", order.id), {
         "dataQualityReview.reviewedBy": user.uid,
@@ -325,20 +342,49 @@ const AdminPanel = () => {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Permanently delete order #${order.id.slice(0, 8)}? This cannot be undone. Because this historical order has incomplete data, inventory is not adjusted automatically; verify any stock correction separately before continuing.`
-    );
-    if (!confirmed) return;
+    setLifecycleDialog({ action: 'delete', order });
+  };
 
+  const openOrderLifecycleDialog = (action, order) => {
+    if (!isAdmin) {
+      alert('Permission blocked. Only the main admin can manage archived orders.');
+      return;
+    }
+    if (order) setLifecycleDialog({ action, order });
+  };
+
+  const handleLifecycleDialogConfirm = async ({ reason, confirmation }) => {
+    if (!isAdmin || !user?.uid || !lifecycleDialog?.order) {
+      alert('Permission blocked. Only the main admin can complete this action.');
+      return;
+    }
+
+    const currentOrder = orders.find((order) => order.id === lifecycleDialog.order.id);
+    if (!currentOrder) {
+      alert('This order is no longer available. Refresh and try again.');
+      setLifecycleDialog(null);
+      return;
+    }
+
+    setIsLifecycleSubmitting(true);
     try {
-      await deleteDoc(doc(db, "orders", order.id));
-      if (selectedOrder?.id === order.id) {
-        setSelectedOrder(null);
+      if (lifecycleDialog.action === 'archive') {
+        await archiveOrder({ order: currentOrder, actorUid: user.uid, reason });
+        alert(`Order #${currentOrder.id.slice(0, 8)} was archived.`);
+      } else if (lifecycleDialog.action === 'restore') {
+        await restoreArchivedOrder({ order: currentOrder, actorUid: user.uid, reason });
+        alert(`Order #${currentOrder.id.slice(0, 8)} was restored to the active workspace.`);
+      } else if (lifecycleDialog.action === 'delete') {
+        await permanentlyDeleteReviewedInvalidOrder({ order: currentOrder, actorUid: user.uid, reason, confirmation });
+        alert('The reviewed incomplete order was permanently deleted and its audit record was retained.');
       }
-      alert("The incomplete order was permanently deleted.");
+      if (selectedOrder?.id === currentOrder.id) setSelectedOrder(null);
+      setLifecycleDialog(null);
     } catch (error) {
-      console.error("Failed to delete data-quality order:", error);
-      alert("Unable to delete this order. Confirm that you reviewed it first and try again.");
+      console.error('Order lifecycle action failed:', error);
+      alert(error?.message || 'Unable to complete this order action. Please try again.');
+    } finally {
+      setIsLifecycleSubmitting(false);
     }
   };
 
@@ -694,6 +740,11 @@ const AdminPanel = () => {
     const term = orderSearch.trim().toLowerCase();
 
     return orders.filter((order) => {
+      const matchesView = orderView === 'archived'
+        ? order.archive?.isArchived === true
+        : order.archive?.isArchived !== true;
+      if (!matchesView) return false;
+
       const matchesStatus =
         orderStatusFilter === 'all'
           ? true
@@ -719,7 +770,9 @@ const AdminPanel = () => {
         itemsText.includes(term)
       );
     });
-  }, [orders, orderSearch, orderStatusFilter]);
+  }, [orders, orderSearch, orderStatusFilter, orderView]);
+
+  const archivedOrderCount = orders.filter((order) => order.archive?.isArchived === true).length;
 
   const orderStatusOptions = [
     'all',
@@ -746,7 +799,7 @@ const AdminPanel = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-red-600">Access Denied</h1>
+          <h1 className="font-nunito text-4xl font-bold text-red-600">Access Denied</h1>
           <p className="text-gray-600 mt-2">You must be an admin or sub-admin to view this page.</p>
         </div>
       </div>
@@ -762,6 +815,7 @@ const AdminPanel = () => {
     analyticsError: null,
     analyticsLoading: false,
     avgOrderValue,
+    archivedOrderCount,
     awaitingReviewCount,
     cancellationRequestedCount,
     cancelledCount,
@@ -797,10 +851,12 @@ const AdminPanel = () => {
     makeSubAdmin,
     navigate,
     notifyBuyerStatusChange,
+    openOrderLifecycleDialog,
     onReviewCount,
     orderSearch,
     orderStatusFilter,
     orderStatusOptions,
+    orderView,
     orders,
     outOfStockCount,
     paymentConfirmedCount,
@@ -819,6 +875,7 @@ const AdminPanel = () => {
     setCustomStartDate,
     setOrderSearch,
     setOrderStatusFilter,
+    setOrderView,
     setOrders,
     setProducts,
     setRangeDays,
@@ -855,7 +912,7 @@ const AdminPanel = () => {
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary-pale">
                 {isAdmin ? "ADMIN PANEL" : "SUB-ADMIN PANEL"}
               </div>
-              <h1 className="mt-2 font-artisan-display text-4xl font-bold sm:text-5xl">Store Management</h1>
+              <h1 className="mt-2 font-nunito text-4xl font-bold sm:text-5xl">Store Management</h1>
               <p className="mt-3 max-w-2xl text-sm text-white/80 sm:text-base">Manage orders, customer activity, inventory, and store performance from one workspace.</p>
             </div>
             </div>
@@ -864,7 +921,7 @@ const AdminPanel = () => {
           <div className="mb-7 flex flex-col gap-4 rounded-[1.5rem] border border-amber-200/80 bg-white/95 p-5 text-artisan-text shadow-lg shadow-[#2D0E5A]/10 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-700">Orders requiring attention</p>
-              <h2 className="mt-1 text-xl font-bold text-artisan-text">
+              <h2 className="mt-1 font-nunito text-xl font-bold text-artisan-text">
                 Orders awaiting review: {awaitingReviewCount}
               </h2>
               <p className="mt-1 text-sm text-artisan-text-muted">
@@ -885,11 +942,11 @@ const AdminPanel = () => {
 
           <Tabs value={tab} onValueChange={setTab}>
             <div className="sticky top-[4.5rem] z-30 mb-8 -mx-2 overflow-x-auto px-2">
-              <TabsList aria-label="Admin workspace sections" className="!flex h-auto w-max min-w-max justify-start gap-2 rounded-[1.25rem] border border-white/65 bg-white/90 p-2 shadow-lg shadow-[#2D0E5A]/15 backdrop-blur-md sm:w-full sm:min-w-0 sm:justify-center">
-                <TabsTrigger value="dashboard" className="min-w-[8.5rem] flex-1">Dashboard</TabsTrigger>
-                <TabsTrigger value="orders" className="min-w-[8.5rem] flex-1">Orders</TabsTrigger>
-                <TabsTrigger value="users" className="min-w-[8.5rem] flex-1">Users</TabsTrigger>
-                <TabsTrigger value="analytics" className="min-w-[8.5rem] flex-1">Analytics</TabsTrigger>
+              <TabsList variant="segmented" aria-label="Admin workspace sections" className="!flex h-auto w-max min-w-max justify-start gap-2 rounded-xl border border-white/65 bg-white/90 p-2 shadow-lg shadow-[#2D0E5A]/15 backdrop-blur-md sm:w-full sm:min-w-0 sm:justify-center">
+                <TabsTrigger variant="segmented" value="dashboard" className="min-w-[8.5rem] flex-1">Dashboard</TabsTrigger>
+                <TabsTrigger variant="segmented" value="orders" className="min-w-[8.5rem] flex-1">Orders</TabsTrigger>
+                <TabsTrigger variant="segmented" value="users" className="min-w-[8.5rem] flex-1">Users</TabsTrigger>
+                <TabsTrigger variant="segmented" value="analytics" className="min-w-[8.5rem] flex-1">Analytics</TabsTrigger>
               </TabsList>
             </div>
 
@@ -937,7 +994,7 @@ const AdminPanel = () => {
                     <ReceiptText size={14} />
                     Order Details
                   </div>
-                  <h3 className="font-artisan-display text-3xl font-bold">
+                  <h3 className="font-nunito text-3xl font-bold">
                     #{selectedOrderLive.id.slice(0, 8)}
                   </h3>
                   <p className="mt-1 text-sm text-white/80">
@@ -994,7 +1051,7 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
-                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Customer & Order Info</h4>
+                  <h4 className="mb-5 font-nunito text-2xl font-bold text-artisan-text">Customer & Order Info</h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-start gap-3">
@@ -1054,7 +1111,7 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
-                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Shipping Address</h4>
+                  <h4 className="mb-5 font-nunito text-2xl font-bold text-artisan-text">Shipping Address</h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-start gap-3 sm:col-span-2">
@@ -1108,7 +1165,7 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
-                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Items Ordered</h4>
+                  <h4 className="mb-5 font-nunito text-2xl font-bold text-artisan-text">Items Ordered</h4>
 
                   <div className="space-y-3">
                     {selectedOrderLive.items?.length ? (
@@ -1149,7 +1206,7 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
-                  <h4 className="mb-5 font-artisan-display text-2xl font-bold text-artisan-text">Admin Actions</h4>
+                  <h4 className="mb-5 font-nunito text-2xl font-bold text-artisan-text">Admin Actions</h4>
 
                   <div className="flex flex-wrap gap-3">
                     {isAwaitingReview(selectedOrderLive.status) ? (
@@ -1224,6 +1281,16 @@ const AdminPanel = () => {
                         Mark as Refunded
                       </Button>
                     )}
+
+                    {isAdmin && (selectedOrderLive.archive?.isArchived ? (
+                      <Button variant="outline" onClick={() => openOrderLifecycleDialog('restore', selectedOrderLive)}>
+                        Restore order
+                      </Button>
+                    ) : ['completed', 'declined', 'cancelled', 'Refunded'].includes(selectedOrderLive.status) ? (
+                      <Button variant="outline" onClick={() => openOrderLifecycleDialog('archive', selectedOrderLive)}>
+                        Archive order
+                      </Button>
+                    ) : null)}
                   </div>
                 </div>
               </div>
@@ -1237,6 +1304,15 @@ const AdminPanel = () => {
           </>
         )}
       </AnimatePresence>
+      {lifecycleDialog && (
+        <OrderLifecycleDialog
+          action={lifecycleDialog.action}
+          order={lifecycleDialog.order}
+          isSubmitting={isLifecycleSubmitting}
+          onClose={() => !isLifecycleSubmitting && setLifecycleDialog(null)}
+          onConfirm={handleLifecycleDialogConfirm}
+        />
+      )}
     </>
   );
 };

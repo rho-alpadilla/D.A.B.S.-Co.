@@ -8,6 +8,27 @@
   overscroll-behavior-x: contain;
 }
 
+.circular-gallery::before,
+.circular-gallery::after {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  width: clamp(2.5rem, 10vw, 11rem);
+  content: '';
+  pointer-events: none;
+}
+
+.circular-gallery::before {
+  left: 0;
+  background: linear-gradient(90deg, #FAF8F1 0%, rgba(250, 248, 241, 0.72) 36%, transparent 100%);
+}
+
+.circular-gallery::after {
+  right: 0;
+  background: linear-gradient(270deg, #FAF8F1 0%, rgba(250, 248, 241, 0.72) 36%, transparent 100%);
+}
+
 .circular-gallery canvas {
   display: block;
   width: 100% !important;
@@ -19,6 +40,6 @@
 }
 
 .circular-gallery:focus-visible {
-  outline: 2px solid #47003C;
+  outline: 2px solid #5C2D91;
   outline-offset: 4px;
 }

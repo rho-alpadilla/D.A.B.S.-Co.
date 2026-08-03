@@ -387,8 +387,8 @@ const PricelistsPage = () => {
 
               <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-[#5C2D91] text-white">
+                  <table className="artisan-data-table artisan-data-table--strong-header w-full">
+                    <thead>
                       <tr>
                         <th className="px-6 py-4 text-left">Canvas Size</th>
                         <th className="px-6 py-4 text-left">13-Mesh</th>
@@ -430,7 +430,7 @@ const PricelistsPage = () => {
                     key={i}
                   className="rounded-2xl border border-white/45 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
-                    <h3 className="mb-3 text-lg font-semibold text-[#5C2D91]">{item.size}</h3>
+                    <h3 className="mb-3 font-artisan-display text-lg font-semibold text-[#5C2D91]">{item.size}</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">13-Mesh</span>
@@ -483,7 +483,7 @@ const PricelistsPage = () => {
                     className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <h3 className="text-xl font-semibold text-[#5C2D91]">{item.item}</h3>
+                      <h3 className="font-artisan-display text-xl font-semibold text-[#5C2D91]">{item.item}</h3>
                     </div>
                     <div className="text-2xl font-bold text-[#F2BB16] mb-3">
                       <EditablePrice section="crochet" index={i} field="price" value={item.price} />
@@ -511,8 +511,8 @@ const PricelistsPage = () => {
 
               <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-[#5C2D91] text-white">
+                  <table className="artisan-data-table artisan-data-table--strong-header w-full">
+                    <thead>
                       <tr>
                         <th className="px-6 py-4 text-left">Number of Subjects</th>
                         <th className="px-6 py-4 text-left">Paper</th>
@@ -562,7 +562,7 @@ const PricelistsPage = () => {
                     key={i}
                   className="rounded-2xl border border-white/45 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
-                    <h3 className="mb-3 text-lg font-semibold text-[#5C2D91]">{item.subjects}</h3>
+                    <h3 className="mb-3 font-artisan-display text-lg font-semibold text-[#5C2D91]">{item.subjects}</h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-gray-600">Paper</span>
@@ -620,7 +620,7 @@ const PricelistsPage = () => {
                     whileHover={{ y: -5, scale: 1.01 }}
                     className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
                   >
-                    <h3 className="mb-2 text-xl font-semibold text-[#5C2D91]">{item.size}</h3>
+                    <h3 className="mb-2 font-artisan-display text-xl font-semibold text-[#5C2D91]">{item.size}</h3>
                     <div className="text-2xl font-bold text-[#F2BB16] mb-3">
                       <EditablePrice
                         section="canvas"
@@ -711,7 +711,7 @@ const PricelistsPage = () => {
                   Custom Commissions Available
                 </div>
 
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                <h2 className="font-artisan-display text-3xl font-bold mb-4 md:text-4xl">
                   Need something made just for you?
                 </h2>
 

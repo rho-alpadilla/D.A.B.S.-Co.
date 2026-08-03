@@ -45,7 +45,7 @@ const AddProductPage = () => {
     return (
       <div className="flex min-h-screen items-center justify-center px-5" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="w-full max-w-md rounded-[2rem] border border-white/60 bg-white/95 p-10 text-center shadow-xl shadow-[#2D0E5A]/15">
-          <h1 className="text-4xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <h1 className="font-nunito text-4xl font-bold text-red-600 mb-4">Access Denied</h1>
           <p className="text-artisan-text-muted">Admins only</p>
           <Button onClick={() => navigate('/')} className="mt-6">
             Back to Home
@@ -112,6 +112,7 @@ const AddProductPage = () => {
         ...form,
         price: Number(form.price),
         stockQuantity: Number(form.stockQuantity) || 0,
+        totalSold: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -179,7 +180,7 @@ const AddProductPage = () => {
               <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary-pale">Inventory management</p>
-                  <h1 className="mt-2 font-artisan-display text-4xl font-bold sm:text-5xl">Add New Product</h1>
+                  <h1 className="mt-2 font-nunito text-4xl font-bold sm:text-5xl">Add New Product</h1>
                   <p className="mt-3 max-w-xl text-sm text-white/80 sm:text-base">Create a product listing with pricing, stock information, images, and a clear customer-facing description.</p>
                 </div>
               <Button variant="outline" onClick={() => navigate('/pricelists')} className="border-white/65 bg-white/90 text-artisan-primary hover:border-white hover:bg-white hover:text-artisan-primary">
@@ -192,7 +193,7 @@ const AddProductPage = () => {
               <form onSubmit={handleSubmit} className="space-y-8">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Product information</p>
-                  <h2 className="mt-1 font-artisan-display text-3xl font-bold text-artisan-text">Listing details</h2>
+                  <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Listing details</h2>
                   <p className="mt-2 text-sm text-artisan-text-muted">Fields marked by the form validation are required before you can publish the product.</p>
                 </div>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

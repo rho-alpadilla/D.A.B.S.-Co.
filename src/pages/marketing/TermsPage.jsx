@@ -36,7 +36,6 @@ const TermsPage = () => {
                 <FileText className="text-artisan-primary" size={34} />
                 <h1
                   className="font-artisan-display text-5xl font-bold leading-[0.95] text-artisan-primary md:text-6xl"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
                 >
                   Terms of Service
                 </h1>

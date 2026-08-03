@@ -248,7 +248,7 @@ const ChatAskTab = (props) => {
                           <div className="w-16 h-16 rounded-full bg-[#118C8C]/10 text-[#118C8C] flex items-center justify-center mx-auto mb-4">
                             <LogIn size={28} />
                           </div>
-                          <h3 className="text-xl font-bold text-gray-900">
+                          <h3 className="font-nunito text-xl font-bold text-gray-900">
                             Login First
                           </h3>
                           <p className="text-sm text-gray-600 mt-2 leading-relaxed">

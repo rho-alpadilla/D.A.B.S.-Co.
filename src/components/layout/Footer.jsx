@@ -8,7 +8,7 @@
 // ── WHAT CHANGED (visual only) ──────────────────────────────────────────
 //   • Background: teal #118C8C → deep purple artisan gradient
 //   • Added: cross-stitch decorative pattern overlay (CSS, opacity 0.04)
-//   • Added: "Handcrafted with love" tagline in Dancing Script
+//   • Added: "Handcrafted with love" editorial tagline
 //   • Added: decorative artisan divider between columns and copyright
 //   • Hover colors on links updated to lavender (from white underline)
 
@@ -62,19 +62,17 @@ const Footer = () => {
           {/* Brand column */}
           <div>
             <h3
-              className="text-2xl font-bold text-white mb-1"
-              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="font-artisan-display text-2xl font-bold text-white mb-1"
             >
               D.A.B.S. Co.
             </h3>
-            {/* Artsy tagline in Dancing Script */}
+            {/* Editorial brand tagline */}
             <p
-              className="text-artisan-primary-pale text-base mb-4"
-              style={{ fontFamily: "'Dancing Script', cursive", fontSize: '1.1rem' }}
+              className="mb-4 font-artisan-display text-[1.1rem] text-artisan-primary-pale"
             >
               Handcrafted with love
             </p>
-            <p className="text-white/60 text-sm leading-relaxed max-w-xs mx-auto md:mx-0">
+            <p className="text-artisan-footer-muted text-sm leading-relaxed max-w-xs mx-auto md:mx-0">
               Transforming needlepoint designs into stitch-ready canvases — your dedicated partner in craft.
             </p>
           </div>
@@ -91,7 +89,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/about"
-                  className="text-white/65 hover:text-artisan-primary-pale transition-colors duration-200"
+                  className="text-artisan-footer-muted hover:text-artisan-primary-pale transition-colors duration-200"
                 >
                   About Us
                 </Link>
@@ -99,7 +97,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/gallery"
-                  className="text-white/65 hover:text-artisan-primary-pale transition-colors duration-200"
+                  className="text-artisan-footer-muted hover:text-artisan-primary-pale transition-colors duration-200"
                 >
                   Gallery
                 </Link>
@@ -107,7 +105,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/pricelists"
-                  className="text-white/65 hover:text-artisan-primary-pale transition-colors duration-200"
+                  className="text-artisan-footer-muted hover:text-artisan-primary-pale transition-colors duration-200"
                 >
                   Pricing
                 </Link>
@@ -115,7 +113,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/contact"
-                  className="text-white/65 hover:text-artisan-primary-pale transition-colors duration-200"
+                  className="text-artisan-footer-muted hover:text-artisan-primary-pale transition-colors duration-200"
                 >
                   Contact
                 </Link>
@@ -135,7 +133,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/faqs"
-                  className="text-white/65 hover:text-artisan-primary-pale transition-colors duration-200"
+                  className="text-artisan-footer-muted hover:text-artisan-primary-pale transition-colors duration-200"
                 >
                   FAQs
                 </Link>
@@ -143,7 +141,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/privacy-policy"
-                  className="text-white/65 hover:text-artisan-primary-pale transition-colors duration-200"
+                  className="text-artisan-footer-muted hover:text-artisan-primary-pale transition-colors duration-200"
                 >
                   Privacy Policy
                 </Link>
@@ -151,7 +149,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/terms"
-                  className="text-white/65 hover:text-artisan-primary-pale transition-colors duration-200"
+                  className="text-artisan-footer-muted hover:text-artisan-primary-pale transition-colors duration-200"
                 >
                   Terms of Service
                 </Link>
@@ -171,7 +169,7 @@ const Footer = () => {
         </div>
 
         {/* ── Copyright ────────────────────────────────────────────────── */}
-        <div className="text-center text-sm text-white/45">
+        <div className="text-center text-sm text-artisan-footer-muted">
           © {new Date().getFullYear()} D.A.B.S. Co. • All rights reserved.
         </div>
       </div>
