@@ -195,11 +195,11 @@ const GalleryPage = () => {
 
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-12 sm:px-6 md:py-16 lg:px-8">
           <div className="py-4 md:py-8">
-            <motion.header initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.45 }} className="mb-10 max-w-3xl md:mb-12">
+            <motion.header initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.45 }} className="mb-10 max-w-none md:mb-12">
               <h1 className="font-artisan-display text-5xl font-bold leading-[0.95] tracking-[-0.045em] text-artisan-primary md:text-6xl">
                 Gallery
               </h1>
-              <p className="mt-4 max-w-xl text-base leading-relaxed text-artisan-text-mid md:text-lg">
+              <p className="mt-4 text-sm leading-relaxed text-artisan-text-mid sm:text-base lg:whitespace-nowrap">
                 Browse handmade pieces designed with care — from needlepoint and crochet to portraits and canvas paintings.
               </p>
             </motion.header>
