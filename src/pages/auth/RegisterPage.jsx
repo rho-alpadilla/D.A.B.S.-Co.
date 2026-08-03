@@ -1,8 +1,8 @@
 // src/pages/RegisterPage.jsx ← FINAL: BUYER CAN TYPE COUNTRY + FULL ADDRESS
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
@@ -20,6 +20,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import SocialSignInButtons from '@/components/auth/SocialSignInButtons';
+import { useCart } from '@/context/CartContext';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -42,7 +43,11 @@ const ALL_COUNTRIES = [
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const { mergeGuestCartIntoUserCart } = useCart();
+  const registrationInProgressRef = useRef(false);
+  const checkoutIntent = location.state?.checkoutIntent;
   const [countries] = useState(ALL_COUNTRIES);
   const [selectedPhoneCountry, setSelectedPhoneCountry] = useState(ALL_COUNTRIES[0]);
   const [selectedAddressCountry, setSelectedAddressCountry] = useState(ALL_COUNTRIES[0]);
@@ -72,12 +77,21 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [isSocialSignIn, setIsSocialSignIn] = useState(false);
 
-  const handleSocialSuccess = async () => {
+  const handleSocialSuccess = async ({ user: socialUser }) => {
+    if (checkoutIntent?.destination === '/checkout' && socialUser?.uid) {
+      await mergeGuestCartIntoUserCart(socialUser.uid);
+      navigate('/checkout', {
+        replace: true,
+        state: { selectedItemIds: checkoutIntent.selectedItemIds },
+      });
+      return;
+    }
+
     navigate('/profile', { replace: true, state: { onboarding: true } });
   };
 
   useEffect(() => {
-    if (user && !isSocialSignIn) {
+    if (user && !isSocialSignIn && !registrationInProgressRef.current) {
       navigate('/buyer-dashboard', { replace: true });
     }
   }, [isSocialSignIn, navigate, user]);
@@ -119,6 +133,7 @@ const RegisterPage = () => {
     }
 
     try {
+      registrationInProgressRef.current = true;
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const newUser = userCredential.user;
 
@@ -147,8 +162,18 @@ const RegisterPage = () => {
         ]
       });
 
-      navigate('/buyer-dashboard');
+      await mergeGuestCartIntoUserCart(newUser.uid);
+
+      if (checkoutIntent?.destination === '/checkout') {
+        navigate('/checkout', {
+          replace: true,
+          state: { selectedItemIds: checkoutIntent.selectedItemIds },
+        });
+      } else {
+        navigate('/buyer-dashboard');
+      }
     } catch (err) {
+      registrationInProgressRef.current = false;
       setError(err.message.includes("email-already-in-use")
         ? "Email already registered"
         : "Registration failed. Try again."
@@ -475,7 +500,7 @@ const RegisterPage = () => {
               <div className="mt-10 text-center">
                 <p className="text-lg text-artisan-text-muted">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-xl font-bold text-[#5C2D91] hover:underline">
+                  <Link to="/login" state={location.state} className="text-xl font-bold text-[#5C2D91] hover:underline">
                     Log In
                   </Link>
                 </p>

@@ -23,6 +23,7 @@ import {
   getAvailableStock,
   getStockValidationMessage,
 } from '@/lib/stock';
+import { getProductImageUrl } from '@/lib/catalog/productImages';
 
 const CartContext = createContext(null);
 
@@ -34,32 +35,20 @@ export const CartProvider = ({ children }) => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
 
-  const LOCAL_CART_KEY = 'dabs_guest_cart';
-
   // Prevent save before correct cart source is loaded
   const hydratedRef = useRef(false);
 
   // Skip first save after cart source changes
   const skipNextSaveRef = useRef(false);
+  const loadedOwnerRef = useRef(null);
+  const guestCartRef = useRef([]);
+  const cartTransferRef = useRef(null);
 
-  // Read guest cart from localStorage
-  const getGuestCart = () => {
-    try {
-      return JSON.parse(localStorage.getItem(LOCAL_CART_KEY) || '[]');
-    } catch (error) {
-      console.error('Failed to read guest cart:', error);
-      return [];
-    }
-  };
-
-  // Save guest cart to localStorage
-  const setGuestCart = (items) => {
-    if (!items || items.length === 0) {
-      localStorage.removeItem(LOCAL_CART_KEY);
-    } else {
-      localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(items));
-    }
-  };
+  // Guest carts intentionally live in memory only. This prevents shared carts
+  // across browser contexts and clears the cart after a refresh.
+  useEffect(() => {
+    localStorage.removeItem('dabs_guest_cart');
+  }, []);
 
   // Get logged-in user's Firestore cart
   const getFirestoreCart = async (uid) => {
@@ -104,27 +93,90 @@ export const CartProvider = ({ children }) => {
 
       if (authLoading && !overrideUid) return;
 
+      if (activeUid && cartTransferRef.current?.uid === activeUid) {
+        return cartTransferRef.current.promise;
+      }
+
       skipNextSaveRef.current = true;
       setCartLoading(true);
       hydratedRef.current = false;
+      loadedOwnerRef.current = null;
 
       try {
         if (activeUid) {
           const firestoreItems = await getFirestoreCart(activeUid);
           setCartItems(firestoreItems);
         } else {
-          const guestCart = getGuestCart();
-          setCartItems(guestCart);
+          setCartItems(guestCartRef.current);
         }
       } catch (err) {
         console.error('Cart load error:', err);
       } finally {
         hydratedRef.current = true;
+        loadedOwnerRef.current = activeUid || 'guest';
         setCartLoading(false);
       }
     },
     [user?.uid, authLoading]
   );
+
+  const mergeGuestCartIntoUserCart = useCallback(async (uid) => {
+    if (!uid) throw new Error('A signed-in account is required to transfer a guest cart.');
+
+    if (cartTransferRef.current?.uid === uid) {
+      return cartTransferRef.current.promise;
+    }
+
+    const guestItems = guestCartRef.current;
+    if (guestItems.length === 0) {
+      await refreshCart(uid);
+      return [];
+    }
+
+    const transferPromise = (async () => {
+      skipNextSaveRef.current = true;
+      setCartLoading(true);
+      hydratedRef.current = false;
+      loadedOwnerRef.current = null;
+
+      try {
+        const savedItems = await getFirestoreCart(uid);
+        const mergedItemsById = new Map(savedItems.map((item) => [item.id, { ...item }]));
+
+        guestItems.forEach((guestItem) => {
+          const savedItem = mergedItemsById.get(guestItem.id);
+          mergedItemsById.set(guestItem.id, savedItem
+            ? {
+                ...savedItem,
+                imageUrl: getProductImageUrl(guestItem) || getProductImageUrl(savedItem),
+                imageUrls: guestItem.imageUrls || savedItem.imageUrls,
+                quantity: (Number(savedItem.quantity) || 0) + (Number(guestItem.quantity) || 0),
+              }
+            : { ...guestItem, imageUrl: getProductImageUrl(guestItem) });
+        });
+
+        const mergedItems = Array.from(mergedItemsById.values());
+        await overwriteFirestoreCart(uid, mergedItems);
+        guestCartRef.current = [];
+        setCartItems(mergedItems);
+        return mergedItems;
+      } finally {
+        hydratedRef.current = true;
+        loadedOwnerRef.current = uid;
+        setCartLoading(false);
+      }
+    })();
+
+    cartTransferRef.current = { uid, promise: transferPromise };
+
+    try {
+      return await transferPromise;
+    } finally {
+      if (cartTransferRef.current?.promise === transferPromise) {
+        cartTransferRef.current = null;
+      }
+    }
+  }, [refreshCart]);
 
   // Load correct cart source when auth changes
   useEffect(() => {
@@ -136,6 +188,9 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     if (authLoading || cartLoading || !hydratedRef.current) return;
 
+    const expectedOwner = user?.uid || 'guest';
+    if (loadedOwnerRef.current !== expectedOwner) return;
+
     // Skip first auto-save after reload
     if (skipNextSaveRef.current) {
       skipNextSaveRef.current = false;
@@ -144,11 +199,7 @@ export const CartProvider = ({ children }) => {
 
     const saveCart = async () => {
       try {
-        if (user?.uid) {
-          await overwriteFirestoreCart(user.uid, cartItems);
-        } else {
-          setGuestCart(cartItems);
-        }
+        if (user?.uid) await overwriteFirestoreCart(user.uid, cartItems);
       } catch (err) {
         console.error('Cart save error:', err);
       }
@@ -197,7 +248,7 @@ export const CartProvider = ({ children }) => {
           item: {
             ...item,
             name: product.name || item.name,
-            imageUrl: product.imageUrl || item.imageUrl,
+            imageUrl: getProductImageUrl(product) || getProductImageUrl(item),
             imageUrls: product.imageUrls || item.imageUrls,
             category: product.category || item.category,
             inStock: product.inStock !== false,
@@ -223,7 +274,7 @@ export const CartProvider = ({ children }) => {
     setCustomOrderRequest({
       productId: product.id,
       productName: product.name || 'Selected product',
-      productImage: product.imageUrl || product.imageUrls?.[0] || '',
+      productImage: getProductImageUrl(product),
       availableStock: getAvailableStock(product),
       requestedQuantity: Math.max(1, Number(requestedQuantity) || 1),
     });
@@ -249,28 +300,35 @@ export const CartProvider = ({ children }) => {
 
     setCartItems((prev) => {
       const existing = prev.find((item) => item.id === product.id);
+      const productImageUrl = getProductImageUrl(product);
 
       if (existing) {
-        return prev.map((item) =>
+        const nextItems = prev.map((item) =>
           item.id === product.id
             ? {
                 ...item,
                 ...product,
+                imageUrl: productImageUrl || getProductImageUrl(item),
                 stockQuantity: availableStock,
                 quantity: (item.quantity || 0) + quantityToAdd,
               }
             : item
         );
+        if (!user?.uid) guestCartRef.current = nextItems;
+        return nextItems;
       }
 
-      return [
+      const nextItems = [
         ...prev,
         {
           ...product,
+          imageUrl: productImageUrl,
           stockQuantity: availableStock,
           quantity: quantityToAdd,
         },
       ];
+      if (!user?.uid) guestCartRef.current = nextItems;
+      return nextItems;
     });
 
     toast({
@@ -286,7 +344,11 @@ export const CartProvider = ({ children }) => {
 
   // Remove item
   const removeFromCart = (id) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id));
+    setCartItems((prev) => {
+      const nextItems = prev.filter((item) => item.id !== id);
+      if (!user?.uid) guestCartRef.current = nextItems;
+      return nextItems;
+    });
   };
 
   // Update quantity
@@ -304,11 +366,13 @@ export const CartProvider = ({ children }) => {
       return false;
     }
 
-    setCartItems((prev) =>
-      prev.map((item) =>
+    setCartItems((prev) => {
+      const nextItems = prev.map((item) =>
         item.id === id ? { ...item, quantity: nextQuantity } : item
-      )
-    );
+      );
+      if (!user?.uid) guestCartRef.current = nextItems;
+      return nextItems;
+    });
 
     if (nextQuantity < requestedQuantity) {
       openCustomOrderRequest(item, requestedQuantity);
@@ -320,15 +384,16 @@ export const CartProvider = ({ children }) => {
   // Clear cart
   const clearCart = async () => {
     setCartItems([]);
+    guestCartRef.current = [];
 
     try {
       if (user?.uid) {
         await clearFirestoreCart(user.uid);
-      } else {
-        localStorage.removeItem(LOCAL_CART_KEY);
       }
+      return true;
     } catch (err) {
       console.error('Clear cart error:', err);
+      return false;
     }
   };
 
@@ -414,6 +479,7 @@ export const CartProvider = ({ children }) => {
         cartTotal,
         cartCount,
         refreshCart,
+        mergeGuestCartIntoUserCart,
         validateCartItems,
         customOrderRequest,
         openCustomOrderRequest,
