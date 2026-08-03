@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   CheckCircle,
   Copy,
@@ -32,10 +32,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-import Grainient from '@/components/effects/Grainient';
-import Particles from '@/components/effects/Particles';
 import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
-import PurchasePageHero from '@/components/shop/PurchasePageHero';
 import { getAvailableStock } from '@/lib/stock';
 // ALL COUNTRIES (copied from ProfilePage)
 const ALL_COUNTRIES = [
@@ -57,6 +54,8 @@ const ALL_COUNTRIES = [
 ];
 
 const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
+const CHECKOUT_INPUT_CLASS =
+  'w-full rounded-xl border border-[#DCCBE7] bg-white px-4 py-3 text-artisan-text transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:outline-none focus:ring-4 focus:ring-artisan-primary/15';
 
 const CheckoutPage = () => {
   const {
@@ -70,6 +69,9 @@ const CheckoutPage = () => {
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion();
+  const pageEntryInitial = shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'translateY(12px)' };
+  const pageEntryAnimate = shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: 'translateY(0)' };
 
   const [checkedIds, setCheckedIds] = useState(() => cartItems.map((item) => item.id));
   const [deliveryMethod, setDeliveryMethod] = useState('courier');
@@ -375,69 +377,26 @@ const CheckoutPage = () => {
           <title>Checkout - D.A.B.S. Co.</title>
         </Helmet>
 
-        <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-          <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-            <Grainient
-              color1="#5C2D91"
-              color2="#7B3FA0"
-              color3="#C9A0DC"
-              timeSpeed={0.25}
-              colorBalance={-0.06}
-              warpStrength={1.5}
-              warpFrequency={3.8}
-              warpSpeed={2}
-              warpAmplitude={50}
-              blendAngle={0}
-              blendSoftness={1}
-              rotationAmount={500}
-              noiseScale={2}
-              grainAmount={0.1}
-              grainScale={2}
-              grainAnimated={false}
-              contrast={1.5}
-              gamma={1}
-              saturation={1}
-              centerX={0}
-              centerY={0}
-              zoom={0.9}
-            />
-
-            <div className="absolute inset-0 pointer-events-none">
-              <Particles
-                particleCount={180}
-                particleSpread={10}
-                speed={0.1}
-                particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
-                moveParticlesOnHover
-                particleHoverFactor={1}
-                alphaParticles={false}
-                particleBaseSize={120}
-                sizeRandomness={1.4}
-                cameraDistance={53}
-                disableRotation={false}
-              />
-            </div>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative z-10 container mx-auto max-w-4xl px-5 py-14 sm:px-8 md:py-20"
+        <div className="artisan-grid-page min-h-screen">
+          <motion.main
+            initial={pageEntryInitial}
+            animate={pageEntryAnimate}
+            transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+            className="mx-auto max-w-3xl px-5 py-14 sm:px-8 md:py-20"
           >
-            <div className="rounded-[2rem] border border-white/45 bg-white/95 p-7 shadow-2xl shadow-[#2D0E5A]/30 backdrop-blur-md md:p-12">
-              <div className="text-center mb-10">
-                <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
-                <h2 className="mb-4 font-artisan-display text-4xl font-bold text-[#2A1739]">Thank You!</h2>
-                <p className="text-lg text-gray-700 mb-2">Your order has been placed successfully.</p>
-                <p className="text-sm text-gray-500">
+            <div className="rounded-2xl border border-artisan-primary/15 bg-[#FAF8F1]/95 p-7 shadow-[0_18px_48px_rgba(36,16,31,0.10)] md:p-10">
+              <div className="mb-8 border-b border-artisan-primary/15 pb-7 text-center">
+                <CheckCircle size={46} className="mx-auto mb-4 text-[#1D5C54]" />
+                <h2 className="font-artisan-display text-4xl font-semibold text-artisan-text">Order placed</h2>
+                <p className="mt-2 text-artisan-text-mid">Reference</p>
+                <p className="mt-1 text-sm text-artisan-text-muted">
                   Order ID: <span className="font-mono font-bold">{orderId?.slice(0, 8)}</span>
                 </p>
               </div>
 
-              <div className="space-y-10">
-                <div className="border-l-4 border-[#7B3FA0] pl-6">
-                  <h3 className="mb-4 font-artisan-display text-3xl font-bold text-[#5C2D91]">Next Steps</h3>
-                  <p className="text-gray-700 mb-4">
+              <div className="space-y-7">
+                <div>
+                  <p className="text-artisan-text-mid">
                     {paymentMethod === 'bank'
                       ? 'Please transfer the total amount to the BDO account shown below. Include your Order ID in the reference.'
                       : 'Your PayPal payment has been processed. Admin will confirm shortly.'}
@@ -445,8 +404,8 @@ const CheckoutPage = () => {
                 </div>
 
                 {paymentMethod === 'bank' && (
-                  <div className="rounded-2xl bg-[#FAF6FC] p-6">
-                    <p className="font-semibold mb-2">Bank Details:</p>
+                  <div className="rounded-xl border border-artisan-primary/15 bg-white p-5">
+                    <p className="mb-3 font-semibold text-artisan-text">Bank details</p>
                     <p>
                       Bank: <strong>{bankDetails.bankName}</strong>
                     </p>
@@ -466,26 +425,23 @@ const CheckoutPage = () => {
                         {copied ? 'Copied!' : 'Copy'}
                       </Button>
                     </div>
-                    <p className="text-sm text-gray-600 mt-4">
+                    <p className="mt-4 text-sm text-artisan-text-muted">
                       Include your Order ID <strong>{orderId?.slice(0, 8)}</strong> in the reference.
                     </p>
                   </div>
                 )}
 
-                <div className="text-center mt-10">
-                  <p className="text-lg font-medium text-gray-800 mb-4">
-                    Admin will confirm your order within 24 hours.
-                  </p>
+                <div className="pt-2 text-center">
                   <Button
                     onClick={() => navigate('/buyer-dashboard')}
-                    className="rounded-2xl bg-[#5C2D91] px-10 hover:bg-[#4A2578]"
+                    className="h-11 rounded-lg bg-artisan-primary px-8 font-semibold text-white hover:bg-[#4A247B]"
                   >
                     Go to Dashboard
                   </Button>
                 </div>
               </div>
             </div>
-          </motion.div>
+          </motion.main>
         </div>
       </>
     );
@@ -497,74 +453,35 @@ const CheckoutPage = () => {
         <title>Checkout - D.A.B.S. Co.</title>
       </Helmet>
 
-      <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-gradient-bg)' }}>
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ isolation: 'isolate' }}>
-          <Grainient
-            color1="#5C2D91"
-            color2="#7B3FA0"
-            color3="#C9A0DC"
-            timeSpeed={0.25}
-            colorBalance={-0.06}
-            warpStrength={1.5}
-            warpFrequency={3.8}
-            warpSpeed={2}
-            warpAmplitude={50}
-            blendAngle={0}
-            blendSoftness={1}
-            rotationAmount={500}
-            noiseScale={2}
-            grainAmount={0.1}
-            grainScale={2}
-            grainAnimated={false}
-            contrast={1.5}
-            gamma={1}
-            saturation={1}
-            centerX={0}
-            centerY={0}
-            zoom={0.9}
-          />
-
-          <div className="absolute inset-0 pointer-events-none">
-            <Particles
-              particleCount={180}
-              particleSpread={10}
-              speed={0.1}
-              particleColors={['#FAF8FF', '#E8D8F3', '#C9A0DC']}
-              moveParticlesOnHover
-              particleHoverFactor={1}
-              alphaParticles={false}
-              particleBaseSize={120}
-              sizeRandomness={1.4}
-              cameraDistance={53}
-              disableRotation={false}
-            />
-          </div>
-        </div>
-
-        <div className="relative z-10 container mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
+      <div className="artisan-grid-page min-h-screen">
+        <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <motion.header
+            initial={pageEntryInitial}
+            animate={pageEntryAnimate}
             transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+            className="mb-10 border-b border-artisan-primary/15 pb-7 md:mb-12"
           >
-            <PurchasePageHero
-              eyebrow="Secure checkout"
-              title="Confirm your order"
-              description="Add your delivery details, choose a payment method, and review every item before placing your order."
-            />
-          </motion.div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Checkout</p>
+            <h1 className="mt-3 font-artisan-display text-4xl font-semibold leading-[0.98] text-artisan-text sm:text-5xl">Confirm your order</h1>
+            <p className="mt-3 max-w-xl text-artisan-text-mid">Delivery, payment, and order details in one place.</p>
+          </motion.header>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
-            <div className="space-y-8">
-              <div className="rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10">
+            <motion.div
+              initial={pageEntryInitial}
+              animate={pageEntryAnimate}
+              transition={{ duration: 0.28, delay: 0.04, ease: [0.23, 1, 0.32, 1] }}
+              className="overflow-hidden rounded-2xl border border-artisan-primary/15 bg-[#FAF8F1]/95 shadow-[0_16px_42px_rgba(36,16,31,0.08)]"
+            >
+              <section className="p-6 md:p-8">
                 <div className="flex justify-between items-center mb-4 gap-4">
-                  <h2 className="font-artisan-display text-3xl font-bold text-[#2A1739]">Shipping Address</h2>
+                  <h2 className="font-artisan-display text-3xl font-semibold text-artisan-text">Shipping address</h2>
                   <button
                     onClick={() => {
                       if (editAddress) saveAddressToProfile();
                       setEditAddress(!editAddress);
                     }}
-                    className="flex shrink-0 items-center gap-1 font-semibold text-[#5C2D91] hover:underline"
+                    className="flex shrink-0 items-center gap-1 rounded-md font-semibold text-artisan-primary transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary/60 focus-visible:ring-offset-2 active:scale-[0.98]"
                   >
                     <Edit size={16} /> {editAddress ? 'Done' : 'Edit'}
                   </button>
@@ -578,7 +495,7 @@ const CheckoutPage = () => {
                       placeholder="First Name"
                       value={formData.firstName}
                       onChange={handleChange}
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                      className={CHECKOUT_INPUT_CLASS}
                     />
                     <input
                       type="text"
@@ -586,7 +503,7 @@ const CheckoutPage = () => {
                       placeholder="Last Name"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                      className={CHECKOUT_INPUT_CLASS}
                     />
                     <input
                       type="text"
@@ -594,7 +511,7 @@ const CheckoutPage = () => {
                       placeholder="Phone Number"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15 md:col-span-2"
+                      className={`${CHECKOUT_INPUT_CLASS} md:col-span-2`}
                     />
                     <input
                       type="text"
@@ -602,7 +519,7 @@ const CheckoutPage = () => {
                       placeholder="Street Address"
                       value={formData.street}
                       onChange={handleChange}
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15 md:col-span-2"
+                      className={`${CHECKOUT_INPUT_CLASS} md:col-span-2`}
                     />
                     <input
                       type="text"
@@ -610,7 +527,7 @@ const CheckoutPage = () => {
                       placeholder="City"
                       value={formData.city}
                       onChange={handleChange}
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                      className={CHECKOUT_INPUT_CLASS}
                     />
                     <input
                       type="text"
@@ -618,7 +535,7 @@ const CheckoutPage = () => {
                       placeholder="State / Province"
                       value={formData.stateProvince}
                       onChange={handleChange}
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                      className={CHECKOUT_INPUT_CLASS}
                     />
                     <input
                       type="text"
@@ -626,15 +543,15 @@ const CheckoutPage = () => {
                       placeholder="Postal / ZIP Code"
                       value={formData.postalCode}
                       onChange={handleChange}
-                      className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                      className={CHECKOUT_INPUT_CLASS}
                     />
 
                     <div className="md:col-span-2 relative">
-                      <label className="text-lg font-medium text-gray-700 mb-2 block">Country</label>
+                      <label className="mb-2 block text-sm font-semibold text-artisan-text">Country</label>
                       <button
                         type="button"
                         onClick={() => setIsAddressCountryOpen(!isAddressCountryOpen)}
-                      className="flex w-full items-center justify-between rounded-2xl border-2 border-[#DCCBE7] bg-[#FAF6FC] px-5 py-4 text-[#2A1739] transition hover:bg-[#F0E6F7]"
+                      className="flex w-full items-center justify-between rounded-xl border border-[#DCCBE7] bg-white px-4 py-3 text-artisan-text transition-[border-color,box-shadow,background-color] duration-200 hover:border-artisan-primary/45 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-artisan-primary/15 active:scale-[0.98]"
                       >
                         <div className="flex items-center gap-3">
                           <img src={formData.countryObj.flag} alt="" className="w-8 h-6 rounded" />
@@ -644,14 +561,14 @@ const CheckoutPage = () => {
                       </button>
 
                       {isAddressCountryOpen && (
-                        <div className="absolute z-50 mt-2 max-h-96 w-full overflow-y-auto rounded-2xl border border-[#DCCBE7] bg-white shadow-2xl">
-                          <div className="p-4 border-b">
+                        <div className="absolute z-50 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-[#DCCBE7] bg-white shadow-[0_16px_32px_rgba(36,16,31,0.14)]">
+                          <div className="border-b border-artisan-primary/10 p-3">
                             <input
                               type="text"
                               placeholder="Search country..."
                               value={addressCountrySearch}
                               onChange={(e) => setAddressCountrySearch(e.target.value)}
-                              className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFDFF] px-4 py-3 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
+                              className={CHECKOUT_INPUT_CLASS}
                               autoFocus
                             />
                           </div>
@@ -660,7 +577,7 @@ const CheckoutPage = () => {
                               key={country.code}
                               type="button"
                               onClick={() => selectCountry(country)}
-                              className="flex w-full items-center gap-4 px-5 py-4 text-left text-[#2A1739] hover:bg-[#FAF6FC]"
+                              className="flex w-full items-center gap-4 px-4 py-3 text-left text-artisan-text transition-colors hover:bg-[#F0E6F7]/60 focus-visible:outline-none focus-visible:bg-[#F0E6F7]"
                             >
                               <img src={country.flag} alt="" className="w-10 h-7 rounded" />
                               <span>{country.name}</span>
@@ -683,10 +600,6 @@ const CheckoutPage = () => {
                       <img src={formData.countryObj.flag} alt="" className="w-10 h-7 rounded shadow" />
                       <p className="text-gray-700 font-medium">{formData.countryObj.name}</p>
                     </div>
-                    <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded text-sm mt-2">
-                      <span className="font-bold">HOME</span>
-                    </div>
-
                     {(!formData.firstName || formData.firstName.length < 2) && (
                       <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-2xl flex items-start gap-3 text-sm text-orange-800">
                         <AlertTriangle size={20} className="mt-0.5 flex-shrink-0" />
@@ -697,10 +610,10 @@ const CheckoutPage = () => {
                 )}
 
                 <div className="mt-6">
-                  <h3 className="font-semibold mb-3">Delivery Option</h3>
-                  <div className="space-y-4">
+                  <h3 className="font-nunito font-semibold mb-3 text-artisan-text">Delivery</h3>
+                  <div className="space-y-3">
                     <label
-                      className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
+                      className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] ${
                         deliveryMethod === 'courier'
                           ? 'border-[#5C2D91] bg-[#F0E6F7]'
                           : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -715,15 +628,13 @@ const CheckoutPage = () => {
                         className="h-5 w-5 text-[#5C2D91]"
                       />
                       <div>
-                        <p className="font-medium">Courier Shipping (Seller Drop-Off)</p>
-                        <p className="text-sm text-gray-600">
-                          Seller packs and drops off at courier. Tracking provided.
-                        </p>
+                        <p className="font-medium text-artisan-text">Courier shipping</p>
+                        <p className="text-sm text-artisan-text-muted">Tracking provided.</p>
                       </div>
                     </label>
 
                     <label
-                      className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
+                      className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] ${
                         deliveryMethod === 'pickup'
                           ? 'border-[#5C2D91] bg-[#F0E6F7]'
                           : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -738,29 +649,30 @@ const CheckoutPage = () => {
                         className="h-5 w-5 text-[#5C2D91]"
                       />
                       <div>
-                        <p className="font-medium">Local Pickup</p>
-                        <p className="text-sm text-gray-600">
-                          Pick up from our local point in Quezon City. Schedule via chat.
-                        </p>
+                        <p className="font-medium text-artisan-text">Local pickup</p>
+                        <p className="text-sm text-artisan-text-muted">Quezon City. Schedule via chat.</p>
                       </div>
                     </label>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div className="rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
-                <h2 className="mb-6 font-artisan-display text-3xl font-bold text-[#2A1739]">Order Summary</h2>
+              <section className="border-t border-artisan-primary/15 p-6 md:p-8">
+                <div className="mb-6 flex items-baseline justify-between gap-4">
+                  <h2 className="font-artisan-display text-3xl font-semibold text-artisan-text">Order</h2>
+                  <span className="text-sm text-artisan-text-muted">{checkedIds.length} item{checkedIds.length === 1 ? '' : 's'}</span>
+                </div>
 
                 {cartItems.length === 0 ? (
-                  <p className="text-gray-500">No items in cart.</p>
+                  <p className="text-artisan-text-muted">No items in cart.</p>
                 ) : (
                   <div className="space-y-6">
                     {cartItems.map((item) => {
                       const availableStock = getAvailableStock(item);
 
                       return (
-                      <div key={item.id} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-4 border-b pb-4 sm:flex">
-                        <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
+                      <div key={item.id} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-4 border-b border-artisan-primary/10 pb-5 last:border-0 sm:flex">
+                        <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-[#E7DED3]/45">
                           {item.imageUrl ? (
                             <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                           ) : (
@@ -771,37 +683,39 @@ const CheckoutPage = () => {
                         </div>
 
                         <div className="min-w-0 flex-grow">
-                          <h3 className="font-semibold">{item.name}</h3>
-                          <p className="text-sm text-gray-600">Price: {formatPrice(item.price)}</p>
+                          <h3 className="font-artisan-display font-semibold">{item.name}</h3>
+                          <p className="text-sm text-artisan-text-muted">{formatPrice(item.price)}</p>
                           <p className="mt-1 text-xs text-artisan-text-muted">
                             {availableStock > 0 ? `${availableStock} available` : 'Sold out'}
                           </p>
                         </div>
 
                         <div className="col-span-2 flex flex-wrap items-center justify-between gap-4 sm:col-auto sm:justify-end">
-                          <div className="flex items-center border rounded-xl">
+                          <div className="flex items-center rounded-lg border border-artisan-primary/15 bg-white">
                             <button
                               onClick={() => updateQuantity(item.id, item.quantity - 1)}
                               disabled={item.quantity <= 1}
-                              className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                              className="px-3 py-1 text-artisan-text-muted transition-colors hover:bg-[#E7DED3]/40 disabled:opacity-50"
+                              aria-label={`Decrease quantity of ${item.name}`}
                             >
                               <Minus size={16} />
                             </button>
-                            <span className="px-4 font-medium">{item.quantity}</span>
+                            <span className="px-4 font-medium text-artisan-text">{item.quantity}</span>
                             <button
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
                               disabled={item.quantity >= availableStock}
-                              className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="px-3 py-1 text-artisan-text-muted transition-colors hover:bg-[#E7DED3]/40 disabled:cursor-not-allowed disabled:opacity-50"
+                              aria-label={`Increase quantity of ${item.name}`}
                             >
                               <Plus size={16} />
                             </button>
                           </div>
 
-                          <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-700">
+                          <button onClick={() => removeFromCart(item.id)} className="text-[#9F1239] transition-colors hover:text-[#7F102D]" aria-label={`Remove ${item.name} from cart`}>
                             <Trash2 size={18} />
                           </button>
 
-                          <p className="min-w-[80px] text-right font-bold text-[#5C2D91]">
+                          <p className="min-w-[80px] text-right font-bold text-artisan-primary">
                             {formatPrice(item.price * item.quantity)}
                           </p>
                         </div>
@@ -811,26 +725,21 @@ const CheckoutPage = () => {
                   </div>
                 )}
 
-                <div className="mt-6 space-y-3 text-gray-700">
-                  <div className="flex justify-between">
-                    <span>Subtotal ({checkedIds.length} Items)</span>
-                    <span>{formatPrice(selectedTotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t">
-                    <span>Total</span>
-                    <span>{formatPrice(grandTotal)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </section>
+            </motion.div>
 
-            <aside className="space-y-8 lg:sticky lg:top-24 lg:h-fit">
-              <div className="rounded-[2rem] border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/15 backdrop-blur-md">
-                <h2 className="mb-6 font-artisan-display text-3xl font-bold text-[#2A1739]">Select Payment Method</h2>
+            <motion.aside
+              initial={pageEntryInitial}
+              animate={pageEntryAnimate}
+              transition={{ duration: 0.28, delay: 0.08, ease: [0.23, 1, 0.32, 1] }}
+              className="space-y-5 lg:sticky lg:top-24 lg:h-fit"
+            >
+              <div className="rounded-2xl border border-artisan-primary/15 bg-[#FAF8F1]/95 p-6 shadow-[0_16px_42px_rgba(36,16,31,0.08)]">
+                <h2 className="font-artisan-display text-3xl font-semibold text-artisan-text">Payment</h2>
 
-                <div className="space-y-4">
+                <div className="mt-5 space-y-3">
                   <label
-                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
+                    className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] ${
                       paymentMethod === 'bank'
                         ? 'border-[#5C2D91] bg-[#F0E6F7]'
                         : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -845,14 +754,14 @@ const CheckoutPage = () => {
                       className="h-5 w-5 text-[#5C2D91]"
                     />
                     <div className="flex-grow">
-                      <p className="font-medium">Bank Transfer</p>
-                      <p className="text-sm text-gray-600">Transfer to our BDO account</p>
+                      <p className="font-medium text-artisan-text">Bank transfer</p>
+                      <p className="text-sm text-artisan-text-muted">BDO account</p>
                     </div>
                     {paymentMethod === 'bank' && <CheckCircle size={20} className="text-[#5C2D91]" />}
                   </label>
 
                   <label
-                    className={`flex cursor-pointer items-center gap-4 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow] duration-200 ${
+                    className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] ${
                       paymentMethod === 'paypal'
                         ? 'border-[#5C2D91] bg-[#F0E6F7]'
                         : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -867,16 +776,16 @@ const CheckoutPage = () => {
                       className="h-5 w-5 text-[#5C2D91]"
                     />
                     <div className="flex-grow">
-                      <p className="font-medium">PayPal</p>
-                      <p className="text-sm text-gray-600">Pay securely via PayPal</p>
+                      <p className="font-medium text-artisan-text">PayPal</p>
+                      <p className="text-sm text-artisan-text-muted">Secure payment</p>
                     </div>
                     {paymentMethod === 'paypal' && <CheckCircle size={20} className="text-[#5C2D91]" />}
                   </label>
                 </div>
 
                 {paymentMethod === 'paypal' && showPayPal && (
-                  <div className="mt-6 rounded-2xl bg-[#FAF6FC] p-6">
-                    <p className="font-semibold mb-4 text-center text-lg">Complete Payment with PayPal</p>
+                  <div className="mt-5 rounded-xl border border-artisan-primary/15 bg-white p-5">
+                    <p className="mb-4 font-semibold text-artisan-text">Complete payment</p>
                     <PayPalScriptProvider
                       options={{
                         'client-id': PAYPAL_CLIENT_ID,
@@ -923,11 +832,11 @@ const CheckoutPage = () => {
                 )}
               </div>
 
-              <div className="rounded-[2rem] border border-white/25 bg-[#2D0E5A]/95 p-6 text-white shadow-2xl shadow-[#2D0E5A]/35 backdrop-blur-md">
-                <h2 className="mb-6 font-artisan-display text-3xl font-bold text-white">Order Detail</h2>
+              <div className="rounded-2xl bg-artisan-primary p-6 text-white shadow-[0_18px_42px_rgba(71,0,60,0.22)]">
+                <h2 className="font-artisan-display text-3xl font-semibold text-white">Total</h2>
                 <div className="space-y-3 text-white/85">
                   <div className="flex justify-between">
-                    <span>Subtotal ({checkedIds.length} Items)</span>
+                    <span>Items ({checkedIds.length})</span>
                     <span>{formatPrice(selectedTotal)}</span>
                   </div>
                   <div className="flex justify-between border-t border-white/20 pt-3 text-xl font-bold text-white">
@@ -946,13 +855,13 @@ const CheckoutPage = () => {
                       !deliveryMethod ||
                       !paymentMethod
                     }
-                    className="mt-8 w-full rounded-2xl bg-[#F0E6F7] py-4 text-lg font-bold text-[#4A2578] hover:bg-white"
+                    className="mt-7 h-12 w-full rounded-lg bg-[#FAF8F1] font-semibold text-artisan-primary hover:bg-white"
                   >
-                    {loading ? 'Placing Order...' : 'PLACE ORDER NOW'}
+                    {loading ? 'Placing order…' : 'Place order'}
                   </Button>
                 )}
               </div>
-            </aside>
+            </motion.aside>
           </div>
         </div>
       </div>
