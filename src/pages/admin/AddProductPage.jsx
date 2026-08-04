@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/firebase';
+import { useUserRole } from '@/hooks/useUserRole';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -22,8 +22,7 @@ const FIELD_LABEL_CLASS = 'mb-2 block text-xs font-bold uppercase tracking-[0.12
 const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
 
 const AddProductPage = () => {
-  const { user } = useAuth();
-  const isAdmin = user?.email?.includes('admin');
+  const { isProductManager, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,12 +40,20 @@ const AddProductPage = () => {
   const [previews, setPreviews] = useState([]); // array of preview URLs
   const fileInputRef = useRef(null);
 
-  if (!isAdmin) {
+  if (roleLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" aria-label="Checking access">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-artisan-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isProductManager) {
     return (
       <div className="flex min-h-screen items-center justify-center px-5" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="w-full max-w-md rounded-[2rem] border border-white/60 bg-white/95 p-10 text-center shadow-xl shadow-[#2D0E5A]/15">
           <h1 className="font-nunito text-4xl font-bold text-red-600 mb-4">Access Denied</h1>
-          <p className="text-artisan-text-muted">Admins only</p>
+          <p className="text-artisan-text-muted">Product managers only</p>
           <Button onClick={() => navigate('/')} className="mt-6">
             Back to Home
           </Button>
