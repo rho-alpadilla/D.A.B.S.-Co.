@@ -1,6 +1,13 @@
-# D.A.B.S. Buyer AI Worker
+# D.A.B.S. AI Worker
 
-This Cloudflare Worker is the private server-side proxy for Groq. It verifies a Firebase ID token before calling Groq and only accepts a limited, public catalog snapshot from the buyer chat widget.
+This Cloudflare Worker is the private server-side proxy for Groq. It verifies a Firebase ID token before calling Groq and only accepts the minimum context needed by the relevant chat mode.
+
+## Routes and data boundaries
+
+- `POST /chat` is the buyer product concierge. It receives only a sanitized product catalog.
+- `POST /admin-chat` is for `admin` and `sub-admin` accounts only. The Worker verifies the role by reading the signed-in user's own Firestore profile using their Firebase ID token.
+- Admin AI receives only an aggregate dashboard summary. It never receives raw orders, customer names, emails, addresses, payment references, or shipping information.
+- Only the main `admin` role may receive supplied revenue and average-order-value aggregates. Sub-admins are limited to operational product, stock, and order-status assistance.
 
 ## Local setup
 

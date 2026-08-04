@@ -159,7 +159,7 @@ const ChatAdminAiTab = (props) => {
                       Admin AI
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
-                      Ask about products, orders, stock, revenue, best sellers, and order statuses.
+                      Ask practical questions about the current dashboard, stock, products, and order status.
                     </p>
                   </div>
                 </div>

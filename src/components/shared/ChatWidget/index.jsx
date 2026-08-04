@@ -38,6 +38,7 @@ import { useNavigate } from 'react-router-dom';
 import { faqs, findBestFaqMatch } from '@/data/faqs';
 import { createNotification } from '@/lib/notifications';
 import { buildBuyerAiCatalog, requestBuyerAiReply } from '@/lib/ai/buyerAi';
+import { buildAdminAiDashboard, requestAdminAiReply } from '@/lib/ai/adminAi';
 import ChatAskTab from './ChatAskTab';
 import ChatSupportTab from './ChatSupportTab';
 import ChatAdminAiTab from './ChatAdminAiTab';
@@ -77,6 +78,26 @@ const getBuyerAiErrorMessage = (code) => {
   }
 
   return 'AI is temporarily unavailable. Please try again, or use Factual Questions.';
+};
+
+const getAdminAiErrorMessage = (code) => {
+  if (code === 'AI_NOT_CONFIGURED') {
+    return 'Admin AI is being prepared. Please use the dashboard directly for now.';
+  }
+
+  if (code === 'AI_RATE_LIMITED') {
+    return 'Admin AI is busy right now. Please try again shortly.';
+  }
+
+  if (code === 'UNAUTHORIZED') {
+    return 'Your sign-in session has expired. Please sign in again to continue.';
+  }
+
+  if (code === 'FORBIDDEN') {
+    return 'This assistant is available only to authorized staff accounts.';
+  }
+
+  return 'Admin AI is temporarily unavailable. Please try again.';
 };
 
 const getRandomFaqQuestions = (faqPool, count = 4, exclude = []) => {
@@ -1089,7 +1110,7 @@ const ChatWidget = () => {
   };
 
   const sendAdminMessage = async () => {
-    if (!adminInput.trim() || adminLoading) return;
+    if (!adminInput.trim() || adminLoading || !user) return;
 
     const text = adminInput.trim();
     const userMsg = { role: 'user', content: text };
@@ -1099,7 +1120,17 @@ const ChatWidget = () => {
     setAdminLoading(true);
 
     try {
-      const answer = getAdminAssistantAnswer(text);
+      const accessToken = await user.getIdToken();
+      const answer = await requestAdminAiReply({
+        accessToken,
+        question: text,
+        messages: adminMessages,
+        dashboard: buildAdminAiDashboard({
+          products: adminProducts,
+          orders: adminOrders,
+          isMainAdmin: isAdmin,
+        }),
+      });
 
       setAdminMessages((prev) => [
         ...prev,
@@ -1108,14 +1139,13 @@ const ChatWidget = () => {
           content: answer,
         },
       ]);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error('Admin AI request failed', error?.code || 'unknown_error');
       setAdminMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content:
-            'I could not load the admin data right now. Please try again.',
+          content: getAdminAiErrorMessage(error?.code),
         },
       ]);
     } finally {
