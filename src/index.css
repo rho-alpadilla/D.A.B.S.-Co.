@@ -128,6 +128,21 @@
     outline: 3px solid var(--artisan-focus-ring);
     outline-offset: 3px;
   }
+
+  input,
+  textarea {
+    cursor: text;
+  }
+
+  select,
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* ── Design A — Reusable Utility Classes ─────────────────────────────── */

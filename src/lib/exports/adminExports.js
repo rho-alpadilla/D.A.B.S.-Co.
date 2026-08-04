@@ -1,3 +1,6 @@
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 const EXPORT_ACCENT = '5C2D91';
 const EXPORT_INK = '01243A';
 
@@ -54,6 +57,49 @@ const getOrderItems = (order) => {
   return order.items;
 };
 
+const formatDateTime = (value) => {
+  if (!value) return 'Unavailable';
+  const date = typeof value?.toDate === 'function'
+    ? value.toDate()
+    : value instanceof Date
+      ? value
+      : typeof value?.seconds === 'number'
+        ? new Date(value.seconds * 1000)
+        : new Date(value);
+
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Unavailable';
+};
+
+const getShippingAddress = (shippingInfo = {}) => (
+  [
+    shippingInfo.street,
+    shippingInfo.city,
+    shippingInfo.stateProvince,
+    shippingInfo.postalCode,
+    shippingInfo.country,
+  ].filter(Boolean).join(', ') || 'Not provided'
+);
+
+const getRecipient = (order) => {
+  const shippingInfo = order?.shippingInfo || {};
+  return `${shippingInfo.firstName || ''} ${shippingInfo.lastName || ''}`.trim()
+    || order?.buyerName
+    || 'Not provided';
+};
+
+const getCustomerDetails = (order) => {
+  const shippingInfo = order?.shippingInfo || {};
+  return {
+    customerName: order?.buyerName || getRecipient(order),
+    email: shippingInfo.email || order?.buyerEmail || 'Not provided',
+    phone: shippingInfo.phone || 'Not provided',
+    recipient: getRecipient(order),
+    address: getShippingAddress(shippingInfo),
+  };
+};
+
 const itemMatchesProduct = (item, productId) => (
   String(item?.id || '') === productId || String(item?.productId || '') === productId
 );
@@ -71,26 +117,127 @@ export const filterOrdersForExport = ({ orders = [], startDate = '', endDate = '
   });
 };
 
-const buildOrderRows = (orders) => orders.flatMap((order) => getOrderItems(order).map((item) => {
+const buildOrderSummaryRows = (orders) => orders.map((order) => {
+  const customer = getCustomerDetails(order);
+
+  return {
+    'Order ID': safeSpreadsheetText(order.id || 'Unknown'),
+    'Created date and time': formatDateTime(order.createdAt),
+    Status: safeSpreadsheetText(order.status || 'Unspecified'),
+    Customer: safeSpreadsheetText(customer.customerName),
+    'Customer email': safeSpreadsheetText(customer.email),
+    'Customer phone': safeSpreadsheetText(customer.phone),
+    Recipient: safeSpreadsheetText(customer.recipient),
+    'Shipping address': safeSpreadsheetText(customer.address),
+    Delivery: safeSpreadsheetText(order.deliveryMethod || 'Not specified'),
+    Payment: safeSpreadsheetText(order.paymentMethod || 'Not specified'),
+    'Individual order total': asNumber(order.total),
+  };
+});
+
+const buildOrderItemRows = (orders) => orders.flatMap((order) => getOrderItems(order).map((item) => {
   const quantity = Math.max(0, Math.floor(asNumber(item.quantity)));
   const unitPrice = asNumber(item.price);
 
   return {
     'Order ID': safeSpreadsheetText(order.id || 'Unknown'),
-    'Order date': formatDateKey(order.createdAt) || 'Unavailable',
-    Status: safeSpreadsheetText(order.status || 'Unspecified'),
     Product: safeSpreadsheetText(item.name || 'Unnamed product'),
     Quantity: quantity,
     'Unit price': unitPrice,
     'Line total': unitPrice * quantity,
-    'Order total': asNumber(order.total),
   };
 }));
+
+const getAuditOrder = (audit) => ({
+  ...(audit?.orderSnapshot || {}),
+  id: audit?.orderId || 'Unknown',
+  status: audit?.previousStatus || 'Unknown',
+});
+
+const getAuditScopeDate = (audit) => getOrderDate(audit?.orderSnapshot || {}) || (
+  typeof audit?.occurredAt?.toDate === 'function'
+    ? audit.occurredAt.toDate()
+    : typeof audit?.occurredAt?.seconds === 'number'
+      ? new Date(audit.occurredAt.seconds * 1000)
+      : null
+);
+
+const filterDeletionAuditsForExport = ({ audits = [], startDate = '', endDate = '', productId = '' }) => {
+  const start = getBoundary(startDate);
+  const end = getBoundary(endDate, true);
+
+  return audits.filter((audit) => {
+    const scopeDate = getAuditScopeDate(audit);
+    if (start && (!scopeDate || scopeDate < start)) return false;
+    if (end && (!scopeDate || scopeDate > end)) return false;
+    if (productId && !getOrderItems(audit.orderSnapshot).some((item) => itemMatchesProduct(item, productId))) return false;
+    return true;
+  });
+};
+
+const buildDeletionAuditRows = (audits) => audits.map((audit) => {
+  const order = getAuditOrder(audit);
+  const customer = getCustomerDetails(order);
+
+  return {
+    'Order ID': safeSpreadsheetText(audit.orderId || 'Unknown'),
+    Action: safeSpreadsheetText(audit.action || 'permanently_deleted'),
+    'Original status': safeSpreadsheetText(audit.previousStatus || 'Unknown'),
+    'Created date and time': formatDateTime(order.createdAt),
+    'Deleted date and time': formatDateTime(audit.occurredAt),
+    'Deleted by (UID)': safeSpreadsheetText(audit.actorUid || 'Not retained'),
+    Reason: safeSpreadsheetText(audit.reason || 'Not retained'),
+    Customer: safeSpreadsheetText(customer.customerName),
+    'Customer email': safeSpreadsheetText(customer.email),
+    'Customer phone': safeSpreadsheetText(customer.phone),
+    Recipient: safeSpreadsheetText(customer.recipient),
+    'Shipping address': safeSpreadsheetText(customer.address),
+    Delivery: safeSpreadsheetText(order.deliveryMethod || 'Not retained'),
+    Payment: safeSpreadsheetText(order.paymentMethod || 'Not retained'),
+    'Original order total': asNumber(order.total),
+    'Products and quantities': safeSpreadsheetText(getOrderItems(order)
+      .map((item) => `${item.name || 'Unnamed product'} x${Math.max(0, Math.floor(asNumber(item.quantity)))}`)
+      .join('; ') || 'Not retained'),
+    'Record detail': audit.orderSnapshot ? 'Full operational snapshot retained' : 'Historical audit only',
+  };
+});
+
+const loadPermanentDeletionAudits = async () => {
+  const auditCollections = [
+    'orderDeletionAudits',
+    'recycleBinDeletionAudits',
+    'activeOrderDeletionAudits',
+  ];
+  const snapshots = await Promise.all(auditCollections.map((name) => getDocs(collection(db, name))));
+
+  return snapshots.flatMap((snapshot, index) => snapshot.docs.map((auditDocument) => ({
+    id: auditDocument.id,
+    auditCollection: auditCollections[index],
+    ...auditDocument.data(),
+  })));
+};
+
+const styleSheetHeader = (sheet, lastColumn) => {
+  sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${EXPORT_ACCENT}` } };
+  sheet.autoFilter = { from: 'A1', to: `${lastColumn}1` };
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+};
 
 export const downloadOrdersExcel = async ({ orders = [], startDate = '', endDate = '', productId = '' }) => {
   const { default: ExcelJS } = await import('exceljs');
   const filteredOrders = filterOrdersForExport({ orders, startDate, endDate, productId });
-  const rows = buildOrderRows(filteredOrders);
+  const deletionAudits = filterDeletionAuditsForExport({
+    audits: await loadPermanentDeletionAudits(),
+    startDate,
+    endDate,
+    productId,
+  });
+  const orderRows = buildOrderSummaryRows(filteredOrders);
+  const itemRows = buildOrderItemRows(filteredOrders);
+  const deletionRows = buildDeletionAuditRows(deletionAudits);
+  const orderTotal = filteredOrders.reduce((total, order) => total + asNumber(order.total), 0);
+  const deletedOrderTotal = deletionAudits.reduce((total, audit) => total + asNumber(audit.orderSnapshot?.total), 0);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'D.A.B.S. Co.';
   workbook.created = new Date();
@@ -102,36 +249,84 @@ export const downloadOrdersExcel = async ({ orders = [], startDate = '', endDate
     ['Date range', `${startDate || 'Earliest'} to ${endDate || 'Today'}`],
     ['Product filter', filterLabel],
     ['Orders included', filteredOrders.length],
-    ['Order total', filteredOrders.reduce((total, order) => total + asNumber(order.total), 0)],
+    ['Grand order total', orderTotal],
+    ['Permanent deletion audit entries', deletionAudits.length],
+    ['Deleted-order total retained in snapshots', deletedOrderTotal],
     [],
-    ['Privacy notice', 'Shipping addresses and customer contact details are intentionally excluded.'],
+    ['Privacy notice', 'Contains customer and shipping details for main-admin operational use. Store and share this file securely.'],
+    ['Historical deletion note', 'Deletion audits created before snapshot support contain only the immutable audit details available at that time.'],
   ]);
   summarySheet.columns = [{ width: 22 }, { width: 74 }];
   summarySheet.getCell('A1').font = { bold: true, size: 14, color: { argb: `FF${EXPORT_ACCENT}` } };
   summarySheet.getCell('B6').numFmt = '₱#,##0.00';
 
+  summarySheet.getCell('B8').numFmt = summarySheet.getCell('B6').numFmt;
+
   const ordersSheet = workbook.addWorksheet('Orders');
   ordersSheet.columns = [
     { header: 'Order ID', key: 'Order ID', width: 26 },
-    { header: 'Order date', key: 'Order date', width: 14 },
+    { header: 'Created date and time', key: 'Created date and time', width: 24 },
     { header: 'Status', key: 'Status', width: 24 },
-    { header: 'Product', key: 'Product', width: 32 },
-    { header: 'Quantity', key: 'Quantity', width: 10 },
-    { header: 'Unit price', key: 'Unit price', width: 14 },
-    { header: 'Line total', key: 'Line total', width: 14 },
-    { header: 'Order total', key: 'Order total', width: 14 },
+    { header: 'Customer', key: 'Customer', width: 24 },
+    { header: 'Customer email', key: 'Customer email', width: 30 },
+    { header: 'Customer phone', key: 'Customer phone', width: 20 },
+    { header: 'Recipient', key: 'Recipient', width: 24 },
+    { header: 'Shipping address', key: 'Shipping address', width: 48 },
+    { header: 'Delivery', key: 'Delivery', width: 18 },
+    { header: 'Payment', key: 'Payment', width: 18 },
+    { header: 'Individual order total', key: 'Individual order total', width: 20 },
   ];
-  const exportRows = rows.length ? rows : [{
+  const exportRows = orderRows.length ? orderRows : [{
     'Order ID': 'No orders match this export scope.',
-    'Order date': '', Status: '', Product: '', Quantity: '', 'Unit price': '', 'Line total': '', 'Order total': '',
+    'Created date and time': '', Status: '', Customer: '', 'Customer email': '', 'Customer phone': '', Recipient: '', 'Shipping address': '', Delivery: '', Payment: '', 'Individual order total': '',
   }];
   ordersSheet.addRows(exportRows);
   ordersSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   ordersSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${EXPORT_ACCENT}` } };
-  ordersSheet.autoFilter = { from: 'A1', to: 'H1' };
-  ['F', 'G', 'H'].forEach((column) => {
+  ordersSheet.autoFilter = { from: 'A1', to: 'K1' };
+  ['K'].forEach((column) => {
     ordersSheet.getColumn(column).numFmt = '₱#,##0.00';
   });
+
+  const itemsSheet = workbook.addWorksheet('Order Items');
+  itemsSheet.columns = [
+    { header: 'Order ID', key: 'Order ID', width: 26 },
+    { header: 'Product', key: 'Product', width: 36 },
+    { header: 'Quantity', key: 'Quantity', width: 12 },
+    { header: 'Unit price', key: 'Unit price', width: 16 },
+    { header: 'Line total', key: 'Line total', width: 16 },
+  ];
+  itemsSheet.addRows(itemRows.length ? itemRows : [{
+    'Order ID': 'No order items match this export scope.', Product: '', Quantity: '', 'Unit price': '', 'Line total': '',
+  }]);
+  styleSheetHeader(itemsSheet, 'E');
+  ['D', 'E'].forEach((column) => { itemsSheet.getColumn(column).numFmt = ordersSheet.getColumn('K').numFmt; });
+
+  const deletedSheet = workbook.addWorksheet('Permanent Deletions');
+  deletedSheet.columns = [
+    { header: 'Order ID', key: 'Order ID', width: 26 },
+    { header: 'Action', key: 'Action', width: 36 },
+    { header: 'Original status', key: 'Original status', width: 22 },
+    { header: 'Created date and time', key: 'Created date and time', width: 24 },
+    { header: 'Deleted date and time', key: 'Deleted date and time', width: 24 },
+    { header: 'Deleted by (UID)', key: 'Deleted by (UID)', width: 32 },
+    { header: 'Reason', key: 'Reason', width: 44 },
+    { header: 'Customer', key: 'Customer', width: 24 },
+    { header: 'Customer email', key: 'Customer email', width: 30 },
+    { header: 'Customer phone', key: 'Customer phone', width: 20 },
+    { header: 'Recipient', key: 'Recipient', width: 24 },
+    { header: 'Shipping address', key: 'Shipping address', width: 48 },
+    { header: 'Delivery', key: 'Delivery', width: 18 },
+    { header: 'Payment', key: 'Payment', width: 18 },
+    { header: 'Original order total', key: 'Original order total', width: 20 },
+    { header: 'Products and quantities', key: 'Products and quantities', width: 48 },
+    { header: 'Record detail', key: 'Record detail', width: 28 },
+  ];
+  deletedSheet.addRows(deletionRows.length ? deletionRows : [{
+    'Order ID': 'No permanent deletions match this export scope.', Action: '', 'Original status': '', 'Created date and time': '', 'Deleted date and time': '', 'Deleted by (UID)': '', Reason: '', Customer: '', 'Customer email': '', 'Customer phone': '', Recipient: '', 'Shipping address': '', Delivery: '', Payment: '', 'Original order total': '', 'Products and quantities': '', 'Record detail': '',
+  }]);
+  styleSheetHeader(deletedSheet, 'Q');
+  deletedSheet.getColumn('O').numFmt = ordersSheet.getColumn('K').numFmt;
 
   const fileBuffer = await workbook.xlsx.writeBuffer();
   const dateScope = `${safeFilePart(startDate || 'all-dates')}-to-${safeFilePart(endDate || 'today')}`;
@@ -141,7 +336,11 @@ export const downloadOrdersExcel = async ({ orders = [], startDate = '', endDate
     `dabs-orders-${dateScope}${productScope}.xlsx`,
   );
 
-  return { orderCount: filteredOrders.length, rowCount: rows.length };
+  return {
+    orderCount: filteredOrders.length,
+    rowCount: itemRows.length,
+    deletionAuditCount: deletionAudits.length,
+  };
 };
 
 const formatCurrency = (value) => new Intl.NumberFormat('en-PH', {

@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import {
   ArrowLeft,
   Search,
@@ -572,8 +573,9 @@ await addDoc(collection(db, 'messages'), {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search customer, email, subject..."
-                        className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                        className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-12 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                       />
+                      <ClearSearchButton value={searchTerm} onClear={() => setSearchTerm('')} label="Clear conversation search" />
                     </div>
                   ) : (
                     <div>

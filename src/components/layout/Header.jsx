@@ -65,6 +65,7 @@ import {
   where,
 } from 'firebase/firestore';
 import CircularText from '@/components/effects/CircularText';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import dabsLogo from '@/assets/dabs-logo-square.png';
 import {
   backfillAdminAlertHistory,
@@ -1125,9 +1126,10 @@ const Header = () => {
                           placeholder="Search currency..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2.5 border border-artisan-primary-wash rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-artisan-primary/20 focus:border-artisan-primary-light transition"
+                          className="w-full pl-9 pr-12 py-2.5 border border-artisan-primary-wash rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-artisan-primary/20 focus:border-artisan-primary-light transition"
                           autoFocus
                         />
+                        <ClearSearchButton value={searchQuery} onClear={() => setSearchQuery('')} label="Clear currency search" />
                       </div>
                     </div>
 

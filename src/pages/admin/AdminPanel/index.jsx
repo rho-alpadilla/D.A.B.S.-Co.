@@ -79,11 +79,18 @@ import {
 } from '@/lib/analytics/descriptiveAnalytics';
 import { validateOrderForAnalytics } from '@/lib/analytics/orderDataQuality';
 import {
+  ARCHIVABLE_ORDER_STATUSES,
   archiveOrder,
+  archiveOrders,
+  permanentlyDeleteActiveOrders,
+  permanentlyDeleteArchivedOrder,
+  permanentlyDeleteArchivedOrders,
   permanentlyDeleteReviewedInvalidOrder,
   restoreArchivedOrder,
 } from '@/lib/orders/orderLifecycle';
 import OrderLifecycleDialog from '@/components/admin/OrderLifecycleDialog';
+import BulkOrderRecycleDialog from '@/components/admin/BulkOrderRecycleDialog';
+import BulkPermanentOrderDeleteDialog from '@/components/admin/BulkPermanentOrderDeleteDialog';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
@@ -116,6 +123,8 @@ const AdminPanel = () => {
   const [orderView, setOrderView] = useState('active');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [lifecycleDialog, setLifecycleDialog] = useState(null);
+  const [bulkRecycleDialog, setBulkRecycleDialog] = useState(null);
+  const [bulkPermanentDeleteDialog, setBulkPermanentDeleteDialog] = useState(null);
   const [isLifecycleSubmitting, setIsLifecycleSubmitting] = useState(false);
 
   const [userSearch, setUserSearch] = useState('');
@@ -347,10 +356,40 @@ const AdminPanel = () => {
 
   const openOrderLifecycleDialog = (action, order) => {
     if (!isAdmin) {
-      alert('Permission blocked. Only the main admin can manage archived orders.');
+      alert('Permission blocked. Only the main admin can manage deleted orders.');
       return;
     }
     if (order) setLifecycleDialog({ action, order });
+  };
+
+  const openBulkRecycleDialog = (ordersToRecycle) => {
+    if (!isAdmin) {
+      alert('Permission blocked. Only the main admin can delete orders.');
+      return;
+    }
+
+    const orderIds = Array.from(new Set((ordersToRecycle || []).map((order) => order?.id).filter(Boolean)));
+    if (orderIds.length === 0) {
+      alert('Select at least one completed, cancelled, or declined order.');
+      return;
+    }
+    setBulkRecycleDialog({ orderIds });
+  };
+
+  const openBulkPermanentDeleteDialog = (ordersToDelete, source = 'recycle-bin') => {
+    if (!isAdmin) {
+      alert('Permission blocked. Only the main admin can permanently delete orders.');
+      return;
+    }
+
+    const orderIds = Array.from(new Set((ordersToDelete || []).map((order) => order?.id).filter(Boolean)));
+    if (orderIds.length === 0) {
+      alert(source === 'active-orders'
+        ? 'Select at least one completed, cancelled, or declined active order.'
+        : 'Select at least one completed, cancelled, or declined order from the recycle bin.');
+      return;
+    }
+    setBulkPermanentDeleteDialog({ orderIds, source });
   };
 
   const handleLifecycleDialogConfirm = async ({ reason, confirmation }) => {
@@ -370,19 +409,70 @@ const AdminPanel = () => {
     try {
       if (lifecycleDialog.action === 'archive') {
         await archiveOrder({ order: currentOrder, actorUid: user.uid, reason });
-        alert(`Order #${currentOrder.id.slice(0, 8)} was archived.`);
+        alert(`Order #${currentOrder.id.slice(0, 8)} was moved to the recycle bin.`);
       } else if (lifecycleDialog.action === 'restore') {
         await restoreArchivedOrder({ order: currentOrder, actorUid: user.uid, reason });
         alert(`Order #${currentOrder.id.slice(0, 8)} was restored to the active workspace.`);
       } else if (lifecycleDialog.action === 'delete') {
         await permanentlyDeleteReviewedInvalidOrder({ order: currentOrder, actorUid: user.uid, reason, confirmation });
         alert('The reviewed incomplete order was permanently deleted and its audit record was retained.');
+      } else if (lifecycleDialog.action === 'deleteArchived') {
+        await permanentlyDeleteArchivedOrder({ order: currentOrder, actorUid: user.uid, reason, confirmation });
+        alert(`Order #${currentOrder.id.slice(0, 8)} was permanently deleted from the recycle bin.`);
       }
       if (selectedOrder?.id === currentOrder.id) setSelectedOrder(null);
       setLifecycleDialog(null);
     } catch (error) {
       console.error('Order lifecycle action failed:', error);
       alert(error?.message || 'Unable to complete this order action. Please try again.');
+    } finally {
+      setIsLifecycleSubmitting(false);
+    }
+  };
+
+  const handleBulkRecycleConfirm = async ({ reason }) => {
+    if (!isAdmin || !user?.uid || !bulkRecycleDialog?.orderIds?.length) {
+      alert('Permission blocked. Only the main admin can delete orders.');
+      return;
+    }
+
+    const currentOrders = bulkRecycleDialog.orderIds
+      .map((orderId) => orders.find((order) => order.id === orderId))
+      .filter(Boolean);
+
+    setIsLifecycleSubmitting(true);
+    try {
+      const result = await archiveOrders({ orders: currentOrders, actorUid: user.uid, reason });
+      alert(`${result.archivedCount} order${result.archivedCount === 1 ? '' : 's'} moved to the recycle bin.`);
+      setBulkRecycleDialog(null);
+    } catch (error) {
+      console.error('Unable to move selected orders to the recycle bin:', error);
+      alert(error?.message || 'Unable to move the selected orders to the recycle bin. Please try again.');
+    } finally {
+      setIsLifecycleSubmitting(false);
+    }
+  };
+
+  const handleBulkPermanentDeleteConfirm = async ({ reason }) => {
+    if (!isAdmin || !user?.uid || !bulkPermanentDeleteDialog?.orderIds?.length) {
+      alert('Permission blocked. Only the main admin can permanently delete orders.');
+      return;
+    }
+
+    const currentOrders = bulkPermanentDeleteDialog.orderIds
+      .map((orderId) => orders.find((order) => order.id === orderId))
+      .filter(Boolean);
+
+    setIsLifecycleSubmitting(true);
+    try {
+      const result = bulkPermanentDeleteDialog.source === 'active-orders'
+        ? await permanentlyDeleteActiveOrders({ orders: currentOrders, actorUid: user.uid, reason })
+        : await permanentlyDeleteArchivedOrders({ orders: currentOrders, actorUid: user.uid, reason });
+      alert(`${result.deletedCount} order${result.deletedCount === 1 ? '' : 's'} permanently deleted${bulkPermanentDeleteDialog.source === 'active-orders' ? '.' : ' from the recycle bin.'}`);
+      setBulkPermanentDeleteDialog(null);
+    } catch (error) {
+      console.error('Unable to permanently delete selected recycle-bin orders:', error);
+      alert(error?.message || 'Unable to permanently delete the selected orders. Please try again.');
     } finally {
       setIsLifecycleSubmitting(false);
     }
@@ -852,6 +942,8 @@ const AdminPanel = () => {
     navigate,
     notifyBuyerStatusChange,
     openOrderLifecycleDialog,
+    openBulkPermanentDeleteDialog,
+    openBulkRecycleDialog,
     onReviewCount,
     orderSearch,
     orderStatusFilter,
@@ -1283,12 +1375,24 @@ const AdminPanel = () => {
                     )}
 
                     {isAdmin && (selectedOrderLive.archive?.isArchived ? (
-                      <Button variant="outline" onClick={() => openOrderLifecycleDialog('restore', selectedOrderLive)}>
-                        Restore order
-                      </Button>
-                    ) : ['completed', 'declined', 'cancelled', 'Refunded'].includes(selectedOrderLive.status) ? (
+                      <>
+                        <Button variant="outline" onClick={() => openOrderLifecycleDialog('restore', selectedOrderLive)}>
+                          Restore order
+                        </Button>
+                        {ARCHIVABLE_ORDER_STATUSES.has(selectedOrderLive.status) && (
+                          <Button variant="destructive" onClick={() => openOrderLifecycleDialog('deleteArchived', selectedOrderLive)}>
+                            Permanently delete
+                          </Button>
+                        )}
+                        {!ARCHIVABLE_ORDER_STATUSES.has(selectedOrderLive.status) && (
+                          <p className="w-full text-sm text-artisan-text-muted">
+                            Only Completed, Cancelled, or Declined orders can be permanently deleted. Restore this order to correct its status.
+                          </p>
+                        )}
+                      </>
+                    ) : ARCHIVABLE_ORDER_STATUSES.has(selectedOrderLive.status) ? (
                       <Button variant="outline" onClick={() => openOrderLifecycleDialog('archive', selectedOrderLive)}>
-                        Archive order
+                        Delete order
                       </Button>
                     ) : null)}
                   </div>
@@ -1311,6 +1415,23 @@ const AdminPanel = () => {
           isSubmitting={isLifecycleSubmitting}
           onClose={() => !isLifecycleSubmitting && setLifecycleDialog(null)}
           onConfirm={handleLifecycleDialogConfirm}
+        />
+      )}
+      {bulkRecycleDialog && (
+        <BulkOrderRecycleDialog
+          orders={bulkRecycleDialog.orderIds.map((orderId) => orders.find((order) => order.id === orderId)).filter(Boolean)}
+          isSubmitting={isLifecycleSubmitting}
+          onClose={() => !isLifecycleSubmitting && setBulkRecycleDialog(null)}
+          onConfirm={handleBulkRecycleConfirm}
+        />
+      )}
+      {bulkPermanentDeleteDialog && (
+        <BulkPermanentOrderDeleteDialog
+          orders={bulkPermanentDeleteDialog.orderIds.map((orderId) => orders.find((order) => order.id === orderId)).filter(Boolean)}
+          source={bulkPermanentDeleteDialog.source}
+          isSubmitting={isLifecycleSubmitting}
+          onClose={() => !isLifecycleSubmitting && setBulkPermanentDeleteDialog(null)}
+          onConfirm={handleBulkPermanentDeleteConfirm}
         />
       )}
     </>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import { downloadOrdersExcel, filterOrdersForExport } from '@/lib/exports/adminExports';
 import { ARCHIVABLE_ORDER_STATUSES } from '@/lib/orders/orderLifecycle';
 import {
@@ -31,7 +32,10 @@ import {
   ReceiptText,
   MapPin,
   Phone,
-  Wallet
+  Wallet,
+  CheckSquare,
+  Square,
+  Trash2
 } from "lucide-react";
 
 // Receives every field the Admin controller (AdminPanel/index.jsx) computes,
@@ -74,6 +78,8 @@ const AdminOrdersTab = (props) => {
     navigate,
     notifyBuyerStatusChange,
     openOrderLifecycleDialog,
+    openBulkRecycleDialog,
+    openBulkPermanentDeleteDialog,
     onReviewCount,
     orderSearch,
     orderStatusFilter,
@@ -124,16 +130,43 @@ const AdminOrdersTab = (props) => {
   const [exportEndDate, setExportEndDate] = useState('');
   const [exportProductId, setExportProductId] = useState('');
   const [exportMessage, setExportMessage] = useState('');
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [selectedArchivedOrderIds, setSelectedArchivedOrderIds] = useState([]);
 
   useEffect(() => {
     setVisibleCount(5);
-  }, [orderSearch, orderStatusFilter]);
+    setSelectedOrderIds([]);
+    setSelectedArchivedOrderIds([]);
+  }, [orderSearch, orderStatusFilter, orderView]);
 
   const visibleOrders = useMemo(() => {
     return filteredOrders.slice(0, visibleCount);
   }, [filteredOrders, visibleCount]);
 
   const hasMore = filteredOrders.length > visibleCount;
+  const recyclableOrders = useMemo(() => (
+    orders.filter((order) => !order.archive?.isArchived && ARCHIVABLE_ORDER_STATUSES.has(order.status))
+  ), [orders]);
+  const visibleRecyclableOrders = useMemo(() => (
+    visibleOrders.filter((order) => ARCHIVABLE_ORDER_STATUSES.has(order.status))
+  ), [visibleOrders]);
+  const selectedRecyclableOrders = useMemo(() => (
+    recyclableOrders.filter((order) => selectedOrderIds.includes(order.id))
+  ), [recyclableOrders, selectedOrderIds]);
+  const recyclableArchivedOrders = useMemo(() => (
+    orders.filter((order) => order.archive?.isArchived && ARCHIVABLE_ORDER_STATUSES.has(order.status))
+  ), [orders]);
+  const visibleRecyclableArchivedOrders = useMemo(() => (
+    visibleOrders.filter((order) => ARCHIVABLE_ORDER_STATUSES.has(order.status))
+  ), [visibleOrders]);
+  const selectedRecyclableArchivedOrders = useMemo(() => (
+    recyclableArchivedOrders.filter((order) => selectedArchivedOrderIds.includes(order.id))
+  ), [recyclableArchivedOrders, selectedArchivedOrderIds]);
+  const isRecycleBinView = orderView === 'archived';
+  const selectableVisibleOrders = isRecycleBinView ? visibleRecyclableArchivedOrders : visibleRecyclableOrders;
+  const selectedSelectableOrders = isRecycleBinView ? selectedRecyclableArchivedOrders : selectedRecyclableOrders;
+  const selectedIdsForCurrentView = isRecycleBinView ? selectedArchivedOrderIds : selectedOrderIds;
+  const areVisibleOrdersSelected = selectableVisibleOrders.length > 0 && selectableVisibleOrders.every((order) => selectedIdsForCurrentView.includes(order.id));
   const hasActiveFilters = Boolean(orderSearch.trim()) || orderStatusFilter !== 'all';
   const exportProducts = useMemo(() => (
     products
@@ -161,6 +194,37 @@ const AdminOrdersTab = (props) => {
     setOrderStatusFilter('all');
   };
 
+  const toggleOrderSelection = (orderId) => {
+    const updateSelection = isRecycleBinView ? setSelectedArchivedOrderIds : setSelectedOrderIds;
+    updateSelection((previous) => (
+      previous.includes(orderId)
+        ? previous.filter((id) => id !== orderId)
+        : [...previous, orderId]
+    ));
+  };
+
+  const toggleVisibleOrderSelection = () => {
+    const visibleIds = selectableVisibleOrders.map((order) => order.id);
+    const updateSelection = isRecycleBinView ? setSelectedArchivedOrderIds : setSelectedOrderIds;
+    updateSelection((previous) => (
+      areVisibleOrdersSelected
+        ? previous.filter((id) => !visibleIds.includes(id))
+        : Array.from(new Set([...previous, ...visibleIds]))
+    ));
+  };
+
+  useEffect(() => {
+    setSelectedOrderIds((previous) => previous.filter((orderId) => (
+      recyclableOrders.some((order) => order.id === orderId)
+    )));
+  }, [recyclableOrders]);
+
+  useEffect(() => {
+    setSelectedArchivedOrderIds((previous) => previous.filter((orderId) => (
+      recyclableArchivedOrders.some((order) => order.id === orderId)
+    )));
+  }, [recyclableArchivedOrders]);
+
   const handleOrdersExport = async () => {
     if (!isAdmin) {
       setExportMessage('Only the main admin can export order data.');
@@ -179,7 +243,9 @@ const AdminOrdersTab = (props) => {
         endDate: exportEndDate,
         productId: exportProductId,
       });
-      setExportMessage(`Downloaded ${result.rowCount} item row${result.rowCount === 1 ? '' : 's'} from ${result.orderCount} order${result.orderCount === 1 ? '' : 's'}.`);
+      setExportMessage(
+        `Downloaded ${result.rowCount} item row${result.rowCount === 1 ? '' : 's'} from ${result.orderCount} order${result.orderCount === 1 ? '' : 's'}, including ${result.deletionAuditCount} permanent-deletion audit record${result.deletionAuditCount === 1 ? '' : 's'}.`,
+      );
     } catch (error) {
       console.error('Unable to export orders', error);
       setExportMessage('The export could not be created. Please try again.');
@@ -211,9 +277,40 @@ const AdminOrdersTab = (props) => {
                   {isAdmin && (
                     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Order visibility">
                       <Button type="button" size="sm" variant={orderView === 'active' ? 'default' : 'outline'} onClick={() => changeOrderView('active')}>Active orders</Button>
-                      <Button type="button" size="sm" variant={orderView === 'archived' ? 'default' : 'outline'} onClick={() => changeOrderView('archived')}>Archived <span className="ml-1 opacity-80">{archivedOrderCount}</span></Button>
-                      <p className="text-sm text-artisan-text-muted">{orderView === 'archived' ? 'Archived records remain in exports and analytics.' : 'Archived records are hidden from this operational view.'}</p>
+                      <Button type="button" size="sm" variant={orderView === 'archived' ? 'default' : 'outline'} onClick={() => changeOrderView('archived')}>Recycle bin <span className="ml-1 opacity-80">{archivedOrderCount}</span></Button>
+                      <p className="text-sm text-artisan-text-muted">{orderView === 'archived' ? 'Deleted orders can be restored and remain in exports and analytics.' : 'Deleted orders are hidden from this operational view.'}</p>
                     </div>
+                  )}
+
+                  {isAdmin && (orderView === 'active' || orderView === 'archived') && (
+                    <section className="flex flex-col gap-3 border-t border-artisan-primary/10 pt-5 lg:flex-row lg:items-center lg:justify-between" aria-label="Order deletion controls">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={toggleVisibleOrderSelection}
+                          disabled={selectableVisibleOrders.length === 0}
+                          className="inline-flex items-center gap-2 text-sm font-semibold text-artisan-text transition hover:text-artisan-primary disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
+                        >
+                          {areVisibleOrdersSelected ? <CheckSquare size={18} className="text-artisan-primary" /> : <Square size={18} className="text-artisan-text-muted" />}
+                          {areVisibleOrdersSelected ? 'Deselect displayed' : 'Select displayed'}
+                        </button>
+                        <span className="text-sm text-artisan-text-muted">{selectedSelectableOrders.length} selected</span>
+                      </div>
+                      {isRecycleBinView ? (
+                        <Button type="button" variant="destructive" disabled={selectedRecyclableArchivedOrders.length === 0} onClick={() => openBulkPermanentDeleteDialog(selectedRecyclableArchivedOrders)}>
+                          <Trash2 className="mr-2" size={16} /> Permanently delete selected ({selectedRecyclableArchivedOrders.length})
+                        </Button>
+                      ) : (
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button type="button" variant="destructive" disabled={selectedRecyclableOrders.length === 0} onClick={() => openBulkPermanentDeleteDialog(selectedRecyclableOrders, 'active-orders')}>
+                            <Trash2 className="mr-2" size={16} /> Permanently delete selected ({selectedRecyclableOrders.length})
+                          </Button>
+                          <Button type="button" variant="outline" disabled={recyclableOrders.length === 0} onClick={() => openBulkRecycleDialog(recyclableOrders)}>
+                            Move all eligible to Recycle Bin ({recyclableOrders.length})
+                          </Button>
+                        </div>
+                      )}
+                    </section>
                   )}
 
                   <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-3">
@@ -226,8 +323,9 @@ const AdminOrdersTab = (props) => {
                         value={orderSearch}
                         onChange={(e) => setOrderSearch(e.target.value)}
                         placeholder="Search loaded orders by ID, customer email, or item..."
-                        className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                        className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-12 text-sm text-artisan-text outline-none transition placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                       />
+                      <ClearSearchButton value={orderSearch} onClear={() => setOrderSearch('')} label="Clear order search" />
                     </div>
 
                     <div className="relative">
@@ -302,6 +400,19 @@ const AdminOrdersTab = (props) => {
                   <table className="artisan-data-table w-full min-w-[940px]">
                     <thead className="sticky top-0 z-10 shadow-sm">
                       <tr>
+                        {isAdmin && (orderView === 'active' || orderView === 'archived') && (
+                          <th className="w-14 p-4 text-left text-sm font-bold">
+                            <input
+                              type="checkbox"
+                              checked={areVisibleOrdersSelected}
+                              disabled={selectableVisibleOrders.length === 0}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={toggleVisibleOrderSelection}
+                              aria-label={isRecycleBinView ? 'Select displayed completed, cancelled, or declined recycled orders' : 'Select displayed completed, cancelled, or declined orders'}
+                              className="h-4 w-4 rounded border-artisan-primary/30 text-artisan-primary focus:ring-artisan-primary"
+                            />
+                          </th>
+                        )}
                         <th className="p-4 text-left text-sm font-bold">Date Ordered</th>
                         <th className="p-4 text-left text-sm font-bold">Order ID</th>
                         <th className="p-4 text-left text-sm font-bold">Customer</th>
@@ -313,12 +424,30 @@ const AdminOrdersTab = (props) => {
                     </thead>
 
                     <tbody>
-                      {visibleOrders.map(order => (
+                      {visibleOrders.map(order => {
+                        const canSelectOrder = isAdmin && ARCHIVABLE_ORDER_STATUSES.has(order.status) && (
+                          (orderView === 'active' && !order.archive?.isArchived)
+                          || (orderView === 'archived' && order.archive?.isArchived)
+                        );
+                        return (
                         <tr
                           key={order.id}
                           className="cursor-pointer border-t border-artisan-primary/10 text-artisan-text transition-colors duration-200 hover:bg-artisan-primary-wash/30"
-                          onClick={() => !isAwaitingReview(order.status) && setSelectedOrder(order)}
+                          onClick={() => setSelectedOrder(order)}
                         >
+                          {isAdmin && (orderView === 'active' || orderView === 'archived') && (
+                            <td className="p-4" onClick={(event) => event.stopPropagation()}>
+                              {canSelectOrder && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIdsForCurrentView.includes(order.id)}
+                                  onChange={() => toggleOrderSelection(order.id)}
+                                  aria-label={`Select order #${order.id.slice(0, 8)}`}
+                                  className="h-4 w-4 rounded border-artisan-primary/30 text-artisan-primary focus:ring-artisan-primary"
+                                />
+                              )}
+                            </td>
+                          )}
                           <td className="p-4 text-sm text-artisan-text-muted">
                             {order.createdAt?.toDate?.().toLocaleDateString() || "N/A"}
                           </td>
@@ -336,10 +465,10 @@ const AdminOrdersTab = (props) => {
                           <td className="p-4">{getStatusBadge(order.status)}</td>
                           <td className="p-4">
                             <div
-                              className="flex flex-wrap gap-2"
+                              className="hidden"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {isAwaitingReview(order.status) ? (
+                              {!order.archive?.isArchived && isAwaitingReview(order.status) ? (
                                 <>
                                   <Button
                                     size="sm"
@@ -368,7 +497,7 @@ const AdminOrdersTab = (props) => {
                                     View Details
                                   </Button>
 
-                                  {isPostReviewWorkflow(order.status) && (
+                                  {!order.archive?.isArchived && isPostReviewWorkflow(order.status) && (
                                     isAdmin ? (
                                       <select
                                         value={order.status || "on_review"}
@@ -404,7 +533,7 @@ const AdminOrdersTab = (props) => {
                                 </>
                               )}
 
-                              {isAdmin && order.status === "Cancellation Requested" && (
+                              {isAdmin && !order.archive?.isArchived && order.status === "Cancellation Requested" && (
                                 <Button
                                   size="sm"
                                   onClick={() => handleCancellation(order, "approve")}
@@ -418,6 +547,7 @@ const AdminOrdersTab = (props) => {
                                 <Button
                                   size="sm"
                                   onClick={() => handleCancellation(order, "refunded")}
+                                  disabled={Boolean(order.archive?.isArchived)}
                                   className="bg-purple-600 hover:bg-purple-700 text-white"
                                 >
                                   Mark as Refunded
@@ -425,33 +555,55 @@ const AdminOrdersTab = (props) => {
                               )}
 
                               {isAdmin && (order.archive?.isArchived ? (
-                                <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('restore', order)}>Restore</Button>
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('restore', order)}>Restore</Button>
+                                  {ARCHIVABLE_ORDER_STATUSES.has(order.status) && (
+                                    <Button size="sm" variant="destructive" onClick={() => openOrderLifecycleDialog('deleteArchived', order)}>Permanently delete</Button>
+                                  )}
+                                </>
                               ) : ARCHIVABLE_ORDER_STATUSES.has(order.status) ? (
-                                <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('archive', order)}>Archive</Button>
+                                <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('archive', order)}>Delete</Button>
                               ) : null)}
                             </div>
+                            <ReadOnlyOrderActions order={order} setSelectedOrder={setSelectedOrder} />
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                   </div>
 
                   <div className="max-h-[42rem] space-y-4 overflow-y-auto p-4 md:hidden">
-                    {visibleOrders.map((order) => (
+                    {visibleOrders.map((order) => {
+                      const canSelectOrder = isAdmin && ARCHIVABLE_ORDER_STATUSES.has(order.status) && (
+                        (orderView === 'active' && !order.archive?.isArchived)
+                        || (orderView === 'archived' && order.archive?.isArchived)
+                      );
+                      return (
                       <article
                         key={order.id}
-                        onClick={() => !isAwaitingReview(order.status) && setSelectedOrder(order)}
-                        className={`rounded-2xl border border-artisan-primary/10 bg-white p-5 shadow-sm ${
-                          isAwaitingReview(order.status) ? '' : 'cursor-pointer transition-[border-color,box-shadow] duration-200 hover:border-artisan-primary/30 hover:shadow-md'
-                        }`}
+                        onClick={() => setSelectedOrder(order)}
+                        className="cursor-pointer rounded-2xl border border-artisan-primary/10 bg-white p-5 shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-artisan-primary/30 hover:shadow-md"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="font-bold text-artisan-text">Order #{order.id.slice(0, 8)}</p>
                             <p className="mt-1 text-sm text-artisan-text-muted">{order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
                           </div>
-                          {getStatusBadge(order.status)}
+                          <div className="flex items-center gap-2">
+                            {canSelectOrder && (
+                              <input
+                                type="checkbox"
+                                checked={selectedIdsForCurrentView.includes(order.id)}
+                                onClick={(event) => event.stopPropagation()}
+                                onChange={() => toggleOrderSelection(order.id)}
+                                aria-label={`Select order #${order.id.slice(0, 8)}`}
+                                className="h-4 w-4 rounded border-artisan-primary/30 text-artisan-primary focus:ring-artisan-primary"
+                              />
+                            )}
+                            {getStatusBadge(order.status)}
+                          </div>
                         </div>
 
                         <div className="mt-4 border-y border-artisan-primary/10 py-4">
@@ -471,24 +623,18 @@ const AdminOrdersTab = (props) => {
 
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                           <p className="text-lg font-bold text-artisan-primary">{formatPrice(order.total || 0)}</p>
-                          {!isAwaitingReview(order.status) && <span className="text-xs font-medium text-artisan-text-muted">Tap card to open details</span>}
+                          <span className="text-xs font-medium text-artisan-text-muted">Tap card to open details</span>
                         </div>
 
                         <div className="mt-4">
-                          <OrderActions
+                          <ReadOnlyOrderActions
                             order={order}
-                            isAdmin={isAdmin}
-                            subAdminAllowedStatuses={subAdminAllowedStatuses}
-                            updateOrderStatus={updateOrderStatus}
-                            handleReviewOrder={handleReviewOrder}
-                            handleDeclineOrder={handleDeclineOrder}
-                            handleCancellation={handleCancellation}
                             setSelectedOrder={setSelectedOrder}
-                            openOrderLifecycleDialog={openOrderLifecycleDialog}
                           />
                         </div>
                       </article>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {orders.length === 0 && (
@@ -541,7 +687,7 @@ const OrderActions = ({
   openOrderLifecycleDialog,
 }) => (
   <div className="flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
-    {isAwaitingReview(order.status) ? (
+    {!order.archive?.isArchived && isAwaitingReview(order.status) ? (
       <>
         <Button size="sm" onClick={() => handleReviewOrder(order, true)}>
           Review
@@ -562,7 +708,7 @@ const OrderActions = ({
           View Details
         </Button>
 
-        {isPostReviewWorkflow(order.status) && (
+        {!order.archive?.isArchived && isPostReviewWorkflow(order.status) && (
           isAdmin ? (
             <select
               value={order.status || 'on_review'}
@@ -598,23 +744,37 @@ const OrderActions = ({
       </>
     )}
 
-    {isAdmin && order.status === 'Cancellation Requested' && (
+    {isAdmin && !order.archive?.isArchived && order.status === 'Cancellation Requested' && (
       <Button size="sm" onClick={() => handleCancellation(order, 'approve')} className="bg-orange-600 text-white hover:bg-orange-700">
         Approve Cancellation
       </Button>
     )}
 
     {isAdmin && order.status === 'Cancelled â€“ Pending Refund' && (
-      <Button size="sm" onClick={() => handleCancellation(order, 'refunded')} className="bg-purple-600 text-white hover:bg-purple-700">
+      <Button size="sm" onClick={() => handleCancellation(order, 'refunded')} disabled={Boolean(order.archive?.isArchived)} className="bg-purple-600 text-white hover:bg-purple-700">
         Mark as Refunded
       </Button>
     )}
 
     {isAdmin && (order.archive?.isArchived ? (
-      <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('restore', order)}>Restore</Button>
+      <>
+        <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('restore', order)}>Restore</Button>
+        {ARCHIVABLE_ORDER_STATUSES.has(order.status) && (
+          <Button size="sm" variant="destructive" onClick={() => openOrderLifecycleDialog('deleteArchived', order)}>Permanently delete</Button>
+        )}
+      </>
     ) : ARCHIVABLE_ORDER_STATUSES.has(order.status) ? (
-      <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('archive', order)}>Archive</Button>
+      <Button size="sm" variant="outline" onClick={() => openOrderLifecycleDialog('archive', order)}>Delete</Button>
     ) : null)}
+  </div>
+);
+
+const ReadOnlyOrderActions = ({ order, setSelectedOrder }) => (
+  <div className="flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+    <Button size="sm" variant="outline" onClick={() => setSelectedOrder(order)}>
+      <Eye className="mr-2" size={14} />
+      View Details
+    </Button>
   </div>
 );
 

@@ -93,7 +93,7 @@ service cloud.firestore {
     }
 
     function hasArchivableStatus() {
-      return resource.data.status in ['completed', 'declined', 'cancelled', 'Refunded'];
+      return resource.data.status in ['completed', 'cancelled', 'declined'];
     }
 
     function isAuditReason(value) {
@@ -155,7 +155,6 @@ service cloud.firestore {
       return isAdmin() &&
         ('archive' in resource.data) &&
         resource.data.archive.isArchived == true &&
-        hasArchivableStatus() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archive', 'updatedAt']) &&
         isArchiveMap(archive) &&
         archive.isArchived == false &&
@@ -220,6 +219,29 @@ service cloud.firestore {
         resource.data.dataQualityReview.reviewedAt is timestamp;
     }
 
+    function hasDeletionOrderSnapshot(audit, orderBefore) {
+      let snapshot = audit.orderSnapshot;
+      return snapshot is map &&
+        snapshot.keys().hasOnly([
+          'buyerName',
+          'buyerEmail',
+          'shippingInfo',
+          'deliveryMethod',
+          'paymentMethod',
+          'createdAt',
+          'items',
+          'total'
+        ]) &&
+        snapshot.buyerName == (('buyerName' in orderBefore) ? orderBefore.buyerName : '') &&
+        snapshot.buyerEmail == (('buyerEmail' in orderBefore) ? orderBefore.buyerEmail : '') &&
+        snapshot.shippingInfo == (('shippingInfo' in orderBefore) ? orderBefore.shippingInfo : {}) &&
+        snapshot.deliveryMethod == (('deliveryMethod' in orderBefore) ? orderBefore.deliveryMethod : '') &&
+        snapshot.paymentMethod == (('paymentMethod' in orderBefore) ? orderBefore.paymentMethod : '') &&
+        snapshot.createdAt == (('createdAt' in orderBefore) ? orderBefore.createdAt : null) &&
+        snapshot.items == (('items' in orderBefore) ? orderBefore.items : []) &&
+        snapshot.total == (('total' in orderBefore) ? orderBefore.total : 0);
+    }
+
     function hasMatchingDeletionAudit(orderId) {
       let audit = getAfter(/databases/$(database)/documents/orderDeletionAudits/$(orderId)).data;
       return audit.keys().hasOnly([
@@ -230,7 +252,8 @@ service cloud.firestore {
           'occurredAt',
           'reason',
           'reviewedBy',
-          'reviewedAt'
+          'reviewedAt',
+          'orderSnapshot'
         ]) &&
         audit.orderId == orderId &&
         audit.action == 'permanently_deleted' &&
@@ -239,13 +262,69 @@ service cloud.firestore {
         audit.occurredAt == request.time &&
         isAuditReason(audit.reason) &&
         audit.reviewedBy == resource.data.dataQualityReview.reviewedBy &&
-        audit.reviewedAt == resource.data.dataQualityReview.reviewedAt;
+        audit.reviewedAt == resource.data.dataQualityReview.reviewedAt &&
+        hasDeletionOrderSnapshot(audit, resource.data);
     }
 
     function deletesReviewedInvalidOrder(orderId) {
       return isAdmin() &&
         hasReviewedInvalidDataQualityRecord() &&
         hasMatchingDeletionAudit(orderId);
+    }
+
+    function hasMatchingRecycleBinDeletionAudit(orderId) {
+      let audit = getAfter(/databases/$(database)/documents/recycleBinDeletionAudits/$(orderId)).data;
+      return audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason',
+          'orderSnapshot'
+        ]) &&
+        audit.orderId == orderId &&
+        audit.action == 'permanently_deleted_from_recycle_bin' &&
+        audit.previousStatus == resource.data.status &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        isAuditReason(audit.reason) &&
+        hasDeletionOrderSnapshot(audit, resource.data);
+    }
+
+    function deletesArchivedOrder(orderId) {
+      return isAdmin() &&
+        hasArchivableStatus() &&
+        ('archive' in resource.data) &&
+        resource.data.archive.isArchived == true &&
+        hasMatchingRecycleBinDeletionAudit(orderId);
+    }
+
+    function hasMatchingActiveOrderDeletionAudit(orderId) {
+      let audit = getAfter(/databases/$(database)/documents/activeOrderDeletionAudits/$(orderId)).data;
+      return audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason',
+          'orderSnapshot'
+        ]) &&
+        audit.orderId == orderId &&
+        audit.action == 'permanently_deleted_from_active_orders' &&
+        audit.previousStatus == resource.data.status &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        isAuditReason(audit.reason) &&
+        hasDeletionOrderSnapshot(audit, resource.data);
+    }
+
+    function deletesActiveArchivableOrder(orderId) {
+      return isAdmin() &&
+        hasArchivableStatus() &&
+        (!('archive' in resource.data) || resource.data.archive.isArchived != true) &&
+        hasMatchingActiveOrderDeletionAudit(orderId);
     }
 
     function createsDeletionAudit(auditId) {
@@ -261,7 +340,8 @@ service cloud.firestore {
           'occurredAt',
           'reason',
           'reviewedBy',
-          'reviewedAt'
+          'reviewedAt',
+          'orderSnapshot'
         ]) &&
         audit.action == 'permanently_deleted' &&
         audit.previousStatus == orderBefore.status &&
@@ -284,6 +364,57 @@ service cloud.firestore {
         orderBefore.dataQualityReview.reviewedBy == request.auth.uid &&
         audit.reviewedBy == orderBefore.dataQualityReview.reviewedBy &&
         audit.reviewedAt == orderBefore.dataQualityReview.reviewedAt &&
+        hasDeletionOrderSnapshot(audit, orderBefore) &&
+        !existsAfter(/databases/$(database)/documents/orders/$(audit.orderId));
+    }
+
+    function createsRecycleBinDeletionAudit(auditId) {
+      let audit = request.resource.data;
+      let orderBefore = get(/databases/$(database)/documents/orders/$(audit.orderId)).data;
+      return isAdmin() &&
+        auditId == audit.orderId &&
+        audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason',
+          'orderSnapshot'
+        ]) &&
+        audit.action == 'permanently_deleted_from_recycle_bin' &&
+        audit.previousStatus == orderBefore.status &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        isAuditReason(audit.reason) &&
+        hasDeletionOrderSnapshot(audit, orderBefore) &&
+        orderBefore.status in ['completed', 'cancelled', 'declined'] &&
+        ('archive' in orderBefore) &&
+        orderBefore.archive.isArchived == true;
+    }
+
+    function createsActiveOrderDeletionAudit(auditId) {
+      let audit = request.resource.data;
+      let orderBefore = get(/databases/$(database)/documents/orders/$(audit.orderId)).data;
+      return isAdmin() &&
+        auditId == audit.orderId &&
+        audit.keys().hasOnly([
+          'orderId',
+          'action',
+          'previousStatus',
+          'actorUid',
+          'occurredAt',
+          'reason',
+          'orderSnapshot'
+        ]) &&
+        audit.action == 'permanently_deleted_from_active_orders' &&
+        audit.previousStatus == orderBefore.status &&
+        audit.actorUid == request.auth.uid &&
+        audit.occurredAt == request.time &&
+        isAuditReason(audit.reason) &&
+        hasDeletionOrderSnapshot(audit, orderBefore) &&
+        orderBefore.status in ['completed', 'cancelled', 'declined'] &&
+        (!('archive' in orderBefore) || orderBefore.archive.isArchived != true) &&
         !existsAfter(/databases/$(database)/documents/orders/$(audit.orderId));
     }
 
@@ -418,7 +549,9 @@ service cloud.firestore {
           ]
         );
 
-      allow delete: if deletesReviewedInvalidOrder(orderId);
+      allow delete: if deletesReviewedInvalidOrder(orderId) ||
+        deletesArchivedOrder(orderId) ||
+        deletesActiveArchivableOrder(orderId);
     }
 
     match /orderLifecycleAudits/{auditId} {
@@ -430,6 +563,18 @@ service cloud.firestore {
     match /orderDeletionAudits/{orderId} {
       allow read: if isAdmin();
       allow create: if createsDeletionAudit(orderId);
+      allow update, delete: if false;
+    }
+
+    match /recycleBinDeletionAudits/{orderId} {
+      allow read: if isAdmin();
+      allow create: if createsRecycleBinDeletionAudit(orderId);
+      allow update, delete: if false;
+    }
+
+    match /activeOrderDeletionAudits/{orderId} {
+      allow read: if isAdmin();
+      allow create: if createsActiveOrderDeletionAudit(orderId);
       allow update, delete: if false;
     }
 

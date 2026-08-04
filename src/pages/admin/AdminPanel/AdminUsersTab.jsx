@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -125,8 +126,9 @@ const AdminUsersTab = (props) => {
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
                       placeholder="Search loaded users by name, email, or role..."
-                      className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-4 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                      className="w-full rounded-2xl border border-artisan-border bg-white py-3 pl-11 pr-12 text-sm text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
                     />
+                    <ClearSearchButton value={userSearch} onClear={() => setUserSearch('')} label="Clear user search" />
                   </div>
                 </div>
 

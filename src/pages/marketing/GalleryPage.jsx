@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus, Trash2, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import { useCurrency } from '@/context/CurrencyContext';
 import { db } from '@/lib/firebase';
 import { doc, writeBatch } from 'firebase/firestore';
@@ -276,7 +277,8 @@ const GalleryPage = () => {
               <div className="flex flex-col xl:flex-row gap-4 xl:gap-5 xl:items-center xl:justify-between">
                 <div className="relative w-full xl:max-w-md">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-artisan-text-muted" size={18} />
-                  <input type="text" placeholder="Search products, categories, or descriptions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-12 w-full rounded-lg border border-artisan-primary-wash bg-white pl-11 pr-4 text-sm outline-none transition focus:border-artisan-primary-light focus:ring-4 focus:ring-artisan-primary/10 md:text-base" />
+                  <input type="text" placeholder="Search products, categories, or descriptions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-12 w-full rounded-lg border border-artisan-primary-wash bg-white pl-11 pr-12 text-sm outline-none transition focus:border-artisan-primary-light focus:ring-4 focus:ring-artisan-primary/10 md:text-base" />
+                  <ClearSearchButton value={searchQuery} onClear={() => setSearchQuery('')} label="Clear product search" />
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto xl:justify-end">
                   <div className="flex h-12 w-full items-center gap-2 rounded-lg border border-artisan-primary-wash bg-white px-3 sm:w-auto">

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import {
   collection,
   query,
@@ -263,12 +264,15 @@ const ChatSupportTab = (props) => {
 
                       <>
                         {isAdminLike && (
+                          <div className="relative">
                           <input
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Search by name, email, subject, or message..."
-                            className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
+                            className="w-full border border-gray-200 rounded-2xl px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#118C8C]/30"
                           />
+                          <ClearSearchButton value={searchTerm} onClear={() => setSearchTerm('')} label="Clear support search" />
+                          </div>
                         )}
 
                         <Button

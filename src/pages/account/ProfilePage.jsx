@@ -8,6 +8,7 @@ import { doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase';
 import { deleteUser, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown } from 'lucide-react';
 import AccountDangerZone from '@/components/account/AccountDangerZone';
 import {
@@ -402,15 +403,16 @@ const ProfilePage = () => {
 
                         {isPhoneCountryOpen && (
                           <div className="absolute top-full z-50 mt-2 max-h-96 w-[min(24rem,calc(100vw-3rem))] overflow-y-auto rounded-2xl border border-artisan-border bg-white shadow-2xl">
-                            <div className="border-b border-artisan-primary/10 p-4">
+                            <div className="relative border-b border-artisan-primary/10 p-4">
                               <input
                                 type="text"
                                 placeholder="Search country..."
                                 value={phoneCountrySearch}
                                 onChange={(e) => setPhoneCountrySearch(e.target.value)}
-                                className={FIELD_INPUT_CLASS}
+                                className={`${FIELD_INPUT_CLASS} pr-12`}
                                 autoFocus
                               />
+                              <ClearSearchButton value={phoneCountrySearch} onClear={() => setPhoneCountrySearch('')} label="Clear phone country search" />
                             </div>
                             {filteredPhoneCountries.map(country => (
                               <button
@@ -555,15 +557,16 @@ const ProfilePage = () => {
 
                         {isAddressCountryOpen && (
                           <div className="absolute top-full z-50 mt-2 max-h-96 w-full overflow-y-auto rounded-2xl border border-artisan-border bg-white shadow-2xl">
-                            <div className="border-b border-artisan-primary/10 p-4">
+                            <div className="relative border-b border-artisan-primary/10 p-4">
                               <input
                                 type="text"
                                 placeholder="Search country..."
                                 value={addressCountrySearch}
                                 onChange={(e) => setAddressCountrySearch(e.target.value)}
-                                className={FIELD_INPUT_CLASS}
+                                className={`${FIELD_INPUT_CLASS} pr-12`}
                                 autoFocus
                               />
+                              <ClearSearchButton value={addressCountrySearch} onClear={() => setAddressCountrySearch('')} label="Clear address country search" />
                             </div>
                             {filteredAddressCountries.map(country => (
                               <button

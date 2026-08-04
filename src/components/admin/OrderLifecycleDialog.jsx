@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { getDeletionConfirmationPhrase, validateLifecycleReason } from '@/lib/orders/orderLifecycle';
 
 const DIALOG_COPY = {
-  archive: { title: 'Archive order', description: 'This removes the order from the default operational list. Historical analytics and exports will keep it.', actionLabel: 'Archive order', icon: Archive },
-  restore: { title: 'Restore order', description: 'This returns the order to the default operational list without changing its original status.', actionLabel: 'Restore order', icon: RotateCcw },
+  archive: { title: 'Delete order', description: 'This moves the completed, cancelled, or declined order to the recycle bin. It can be restored later, and analytics and exports are retained.', actionLabel: 'Move to recycle bin', icon: Archive },
+  restore: { title: 'Restore order', description: 'This returns the order from the recycle bin to the active list without changing its original status.', actionLabel: 'Restore order', icon: RotateCcw },
   delete: { title: 'Permanently delete invalid record', description: 'This removes an already-reviewed incomplete record forever. Valid, paid, shipped, processing, completed, and refunded orders cannot use this action.', actionLabel: 'Permanently delete', icon: Trash2 },
+  deleteArchived: { title: 'Permanently delete order', description: 'This removes the completed, cancelled, or declined order from the recycle bin forever. It cannot be restored afterwards.', actionLabel: 'Permanently delete', icon: Trash2 },
 };
 
 export default function OrderLifecycleDialog({ action, order, isSubmitting, onClose, onConfirm }) {
@@ -15,7 +16,7 @@ export default function OrderLifecycleDialog({ action, order, isSubmitting, onCl
   const dialogRef = useRef(null);
   const copy = DIALOG_COPY[action];
   const Icon = copy?.icon || AlertTriangle;
-  const isDelete = action === 'delete';
+  const isDelete = action === 'delete' || action === 'deleteArchived';
   const validation = validateLifecycleReason(reason);
   const confirmationPhrase = getDeletionConfirmationPhrase(order);
   const canSubmit = validation.isValid && (!isDelete || confirmation.trim() === confirmationPhrase) && !isSubmitting;

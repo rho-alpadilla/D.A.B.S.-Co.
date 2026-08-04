@@ -8,6 +8,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import {
   Mail,
   Lock,
@@ -281,15 +282,16 @@ const RegisterPage = () => {
 
                       {isPhoneCountryOpen && (
                         <div className="absolute top-full mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                          <div className="p-4 border-b">
+                          <div className="relative p-4 border-b">
                             <input
                               type="text"
                               placeholder="Search country..."
                               value={phoneCountrySearch}
                               onChange={(e) => setPhoneCountrySearch(e.target.value)}
-                              className="w-full px-4 py-3 border rounded-lg"
+                              className="w-full px-4 py-3 pr-12 border rounded-lg"
                               autoFocus
                             />
+                            <ClearSearchButton value={phoneCountrySearch} onClear={() => setPhoneCountrySearch('')} label="Clear phone country search" />
                           </div>
                           {filteredPhoneCountries.map(country => (
                             <button
@@ -386,15 +388,16 @@ const RegisterPage = () => {
 
                       {isAddressCountryOpen && (
                         <div className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                          <div className="p-4 border-b">
+                          <div className="relative p-4 border-b">
                             <input
                               type="text"
                               placeholder="Search country..."
                               value={addressCountrySearch}
                               onChange={(e) => setAddressCountrySearch(e.target.value)}
-                              className="w-full px-4 py-3 border rounded-lg"
+                              className="w-full px-4 py-3 pr-12 border rounded-lg"
                               autoFocus
                             />
+                            <ClearSearchButton value={addressCountrySearch} onClear={() => setAddressCountrySearch('')} label="Clear address country search" />
                           </div>
                           {filteredAddressCountries.map(country => (
                             <button

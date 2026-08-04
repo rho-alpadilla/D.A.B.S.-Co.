@@ -15,6 +15,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -590,15 +591,16 @@ const CheckoutPage = () => {
 
                       {isAddressCountryOpen && (
                         <div className="absolute z-50 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-[#DCCBE7] bg-white shadow-[0_16px_32px_rgba(36,16,31,0.14)]">
-                          <div className="border-b border-artisan-primary/10 p-3">
+                          <div className="relative border-b border-artisan-primary/10 p-3">
                             <input
                               type="text"
                               placeholder="Search country..."
                               value={addressCountrySearch}
                               onChange={(e) => setAddressCountrySearch(e.target.value)}
-                              className={CHECKOUT_INPUT_CLASS}
+                              className={`${CHECKOUT_INPUT_CLASS} pr-12`}
                               autoFocus
                             />
+                            <ClearSearchButton value={addressCountrySearch} onClear={() => setAddressCountrySearch('')} label="Clear address country search" />
                           </div>
                           {filteredAddressCountries.map((country) => (
                             <button
