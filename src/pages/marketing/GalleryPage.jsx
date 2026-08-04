@@ -5,10 +5,13 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus, Trash2, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrency } from '@/context/CurrencyContext';
-import { useAuth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
+import { doc, writeBatch } from 'firebase/firestore';
+import { useToast } from '@/components/ui/use-toast';
+import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableStock, getStockLabel } from '@/lib/stock';
 import {
   CATALOG_PAGE_SIZE,
@@ -38,8 +41,11 @@ const GalleryPage = () => {
   const requestVersionRef = useRef(0);
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const isAdmin = user?.email?.includes('admin');
+  const { isAdmin, isProductManager } = useUserRole();
+  const { toast } = useToast();
+  const [isManagingProducts, setIsManagingProducts] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [isDeletingProducts, setIsDeletingProducts] = useState(false);
   const hasSearchQuery = Boolean(searchQuery.trim());
   const usesClientCatalog = hasSearchQuery || sortOrder === 'topSellers';
 
@@ -152,6 +158,67 @@ const GalleryPage = () => {
     }
   };
 
+  const selectedProducts = products.filter((product) => selectedProductIds.includes(product.id));
+  const areAllVisibleProductsSelected = products.length > 0 && selectedProducts.length === products.length;
+
+  useEffect(() => {
+    setSelectedProductIds((previous) => previous.filter((id) => products.some((product) => product.id === id)));
+  }, [products]);
+
+  const toggleProductSelection = (productId) => {
+    setSelectedProductIds((previous) => (
+      previous.includes(productId)
+        ? previous.filter((id) => id !== productId)
+        : [...previous, productId]
+    ));
+  };
+
+  const toggleAllVisibleProducts = () => {
+    setSelectedProductIds(areAllVisibleProductsSelected ? [] : products.map((product) => product.id));
+  };
+
+  const handleBulkDeleteProducts = async () => {
+    if (selectedProducts.length === 0) return;
+
+    const namedProducts = selectedProducts
+      .slice(0, 3)
+      .map((product) => product.name || 'Unnamed product')
+      .join(', ');
+    const remainingCount = selectedProducts.length - 3;
+    const productSummary = remainingCount > 0 ? `${namedProducts}, and ${remainingCount} more` : namedProducts;
+    const confirmed = window.confirm(
+      `Remove ${selectedProducts.length} product${selectedProducts.length === 1 ? '' : 's'} from the gallery?\n\n${productSummary}\n\nThis cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setIsDeletingProducts(true);
+    try {
+      const batch = writeBatch(db);
+      selectedProducts.forEach((product) => batch.delete(doc(db, 'pricelists', product.id)));
+      await batch.commit();
+      setImageIndices((previous) => {
+        const next = { ...previous };
+        selectedProductIds.forEach((id) => delete next[id]);
+        return next;
+      });
+      setSelectedProductIds([]);
+      setReloadKey((value) => value + 1);
+      toast({
+        title: `${selectedProducts.length} product${selectedProducts.length === 1 ? '' : 's'} removed`,
+        description: 'The Gallery has been refreshed.',
+      });
+    } catch (error) {
+      console.error('Unable to remove selected products', error);
+      toast({
+        title: 'Products could not be removed',
+        description: 'Please refresh and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingProducts(false);
+    }
+  };
+
   const getPaginationItems = (pageCount) => {
     if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
 
@@ -231,6 +298,20 @@ const GalleryPage = () => {
                     </select>
                   </div>
                   {isAdmin && (
+                    <Button
+                      type="button"
+                      variant={isManagingProducts ? 'outline' : 'default'}
+                      onClick={() => {
+                        setIsManagingProducts((value) => !value);
+                        setSelectedProductIds([]);
+                      }}
+                      className="h-12 px-5 font-semibold shadow-sm"
+                      aria-pressed={isManagingProducts}
+                    >
+                      {isManagingProducts ? 'Done managing' : 'Manage products'}
+                    </Button>
+                  )}
+                  {isProductManager && !isAdmin && (
                     <Button onClick={() => navigate('/add-product')} className="h-12 px-5 font-semibold shadow-sm">
                       <Plus size={17} className="mr-2" />
                       Add Product
@@ -239,6 +320,55 @@ const GalleryPage = () => {
                 </div>
               </div>
             </div>
+
+            {isAdmin && isManagingProducts && (
+              <div className="sticky top-3 z-30 mb-6 flex flex-col gap-3 border border-artisan-primary/20 bg-white/95 p-3 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex h-10 items-center gap-2 rounded-lg border border-artisan-primary/20 bg-white px-3">
+                    <label htmlFor="manage-products-category" className="text-xs font-bold uppercase tracking-wide text-artisan-text-muted">
+                      Category
+                    </label>
+                    <select
+                      id="manage-products-category"
+                      value={activeTab}
+                      onChange={(event) => {
+                        setActiveTab(event.target.value);
+                        setSelectedProductIds([]);
+                      }}
+                      className="bg-transparent text-sm font-medium text-artisan-text outline-none"
+                    >
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>{category.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleAllVisibleProducts}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-artisan-text transition hover:text-artisan-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
+                    aria-label={areAllVisibleProductsSelected ? 'Deselect filtered products on this page' : 'Select filtered products on this page'}
+                  >
+                    {areAllVisibleProductsSelected ? <CheckSquare size={19} className="text-artisan-primary" /> : <Square size={19} className="text-artisan-text-muted" />}
+                    {areAllVisibleProductsSelected ? 'Deselect filtered products' : 'Select filtered products'}
+                  </button>
+                  <span className="text-sm text-artisan-text-muted">{selectedProducts.length} selected on this page</span>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button type="button" variant="outline" onClick={() => navigate('/add-product')} className="h-10">
+                    <Plus size={16} className="mr-2" /> Add product
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleBulkDeleteProducts}
+                    disabled={selectedProducts.length === 0 || isDeletingProducts}
+                    className="h-10 bg-artisan-primary text-white hover:bg-[#4A247B]"
+                  >
+                    <Trash2 size={16} className="mr-2" />
+                    {isDeletingProducts ? 'Removing…' : `Remove selected${selectedProducts.length ? ` (${selectedProducts.length})` : ''}`}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Category Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -280,13 +410,32 @@ const GalleryPage = () => {
 
                         return (
                           <motion.article key={item.id} initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.35, delay: index*0.04 }}
-                            onClick={() => navigate(`/product/${item.id}`, { state: { ids: products.map((product) => product.id), fromTab: activeTab } })}
+                            onClick={() => {
+                              if (isManagingProducts) {
+                                toggleProductSelection(item.id);
+                                return;
+                              }
+                              navigate(`/product/${item.id}`, { state: { ids: products.map((product) => product.id), fromTab: activeTab } });
+                            }}
                             className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-lg border border-[#E7DED3] bg-[#FAF8F1]/95 shadow-[0_8px_24px_rgba(36,16,31,0.06)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-1 hover:border-[#88538C]/60 hover:shadow-[0_14px_28px_rgba(36,16,31,0.12)]">
                             <div className="relative">
                               {showBadge && (
                                 <span className="absolute left-0 top-4 z-20 bg-artisan-primary px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white shadow-md">Best seller</span>
                               )}
                               <div className="relative h-56 overflow-hidden bg-[#E7DED3]/45 sm:h-52 md:h-56 lg:h-60">
+                                {isManagingProducts && (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      toggleProductSelection(item.id);
+                                    }}
+                                    aria-label={`${selectedProductIds.includes(item.id) ? 'Deselect' : 'Select'} ${item.name || 'product'}`}
+                                    className={`absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-lg text-white shadow-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-artisan-primary ${selectedProductIds.includes(item.id) ? 'bg-artisan-primary' : 'bg-[#01243A]/80 hover:bg-[#01243A]'}`}
+                                  >
+                                    {selectedProductIds.includes(item.id) ? <CheckSquare size={17} /> : <Square size={17} />}
+                                  </button>
+                                )}
                                 {currentImage ? (
                                   <img src={currentImage} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 ) : (

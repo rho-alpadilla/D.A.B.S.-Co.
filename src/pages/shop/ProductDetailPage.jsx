@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { getAvailableStock, isPurchasable } from '@/lib/stock';
 import StickyProductPurchaseSummary from '@/components/shop/StickyProductPurchaseSummary';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -38,7 +39,7 @@ const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.email.includes('admin');
+  const { isAdmin, isProductManager } = useUserRole();
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
@@ -372,7 +373,7 @@ const ProductDetailPage = () => {
   useEffect(() => {
     const purchaseActions = purchaseActionsRef.current;
 
-    if (!product || isAdmin || editing || !purchaseActions) {
+    if (!product || isProductManager || editing || !purchaseActions) {
       setShowStickyPurchase(false);
       return undefined;
     }
@@ -386,7 +387,7 @@ const ProductDetailPage = () => {
 
     observer.observe(purchaseActions);
     return () => observer.disconnect();
-  }, [product?.id, isAdmin, editing]);
+  }, [product?.id, isProductManager, editing]);
 
   if (loading) {
     return (
@@ -447,7 +448,7 @@ const ProductDetailPage = () => {
             <Link to="/gallery" className="inline-flex items-center gap-2 rounded-full bg-white/65 px-4 py-2 font-semibold text-[#5C2D91] shadow-sm backdrop-blur-sm transition-colors hover:text-[#4A2578] hover:underline">
               <ArrowLeft size={20} /> Back to Gallery
             </Link>
-            {isAdmin && !editing && (
+            {isProductManager && !editing && (
               <Button onClick={() => setEditing(true)} variant="outline" className="border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]">
                 <Edit className="mr-2" /> Edit Product
               </Button>
@@ -599,7 +600,7 @@ const ProductDetailPage = () => {
                   <div className="flex items-center gap-2 pt-1 text-sm">
                     <span className="font-medium text-[#667482]">Availability</span>
                     <span className="font-semibold">
-                      {isAdmin ? getAdminStockStatus() : getBuyerStockStatus()}
+                    {isProductManager ? getAdminStockStatus() : getBuyerStockStatus()}
                     </span>
                   </div>
                 </>
@@ -611,7 +612,7 @@ const ProductDetailPage = () => {
                 </span>
               </div>
 
-              {!isAdmin && !editing && (
+              {!isProductManager && !editing && (
                 <div ref={purchaseActionsRef} className="flex flex-col gap-3 sm:flex-row">
                   {isPurchasable(product) && (
                     <Button size="lg" onClick={() => addToCart(product)} className="flex-1 rounded-xl bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]">
@@ -629,7 +630,7 @@ const ProductDetailPage = () => {
                 </div>
               )}
 
-              {isAdmin && editing && (
+              {isProductManager && editing && (
                 <div className="flex gap-4">
                   <Button size="lg" onClick={saveEdits} className="bg-green-600 hover:bg-green-700">
                     <Save className="mr-2" /> Save Changes
@@ -646,7 +647,7 @@ const ProductDetailPage = () => {
             </div>
           </article>
 
-          {!isAdmin && !editing && showStickyPurchase && (
+          {!isProductManager && !editing && showStickyPurchase && (
             <StickyProductPurchaseSummary
               product={product}
               imageUrl={currentImage}
