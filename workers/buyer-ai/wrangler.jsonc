@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dabs-buyer-ai",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-04",
+  "vars": {
+    "FIREBASE_PROJECT_ID": "dabs-co"
+  }
+}

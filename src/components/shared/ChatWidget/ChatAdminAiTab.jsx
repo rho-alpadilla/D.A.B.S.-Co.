@@ -85,7 +85,6 @@ const ChatAdminAiTab = (props) => {
     getProductName,
     getProductPrice,
     getProductStock,
-    getUserAiReply,
     handleNewChatAttachmentPick,
     handleSuggestedFaqClick,
     handleSupportAttachmentPick,

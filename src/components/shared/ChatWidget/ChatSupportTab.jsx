@@ -86,7 +86,6 @@ const ChatSupportTab = (props) => {
     getProductName,
     getProductPrice,
     getProductStock,
-    getUserAiReply,
     handleNewChatAttachmentPick,
     handleSuggestedFaqClick,
     handleSupportAttachmentPick,

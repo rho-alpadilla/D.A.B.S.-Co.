@@ -85,7 +85,6 @@ const ChatAskTab = (props) => {
     getProductName,
     getProductPrice,
     getProductStock,
-    getUserAiReply,
     handleNewChatAttachmentPick,
     handleSuggestedFaqClick,
     handleSupportAttachmentPick,
@@ -179,18 +178,6 @@ const ChatAskTab = (props) => {
                                 : 'Continue to Chat with AI'}
                             </Button>
                           </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          {suggestedFaqs.map((question) => (
-                            <button
-                              key={`top-${question}`}
-                              onClick={() => handleSuggestedFaqClick(question)}
-                              className="text-sm rounded-full border border-gray-200 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 transition"
-                            >
-                              {question}
-                            </button>
-                          ))}
                         </div>
 
                         {faqMessages.map((msg, i) => (

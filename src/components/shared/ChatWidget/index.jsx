@@ -37,6 +37,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { faqs, findBestFaqMatch } from '@/data/faqs';
 import { createNotification } from '@/lib/notifications';
+import { buildBuyerAiCatalog, requestBuyerAiReply } from '@/lib/ai/buyerAi';
 import ChatAskTab from './ChatAskTab';
 import ChatSupportTab from './ChatSupportTab';
 import ChatAdminAiTab from './ChatAdminAiTab';
@@ -61,6 +62,22 @@ const ADMIN_AI_WELCOME_MESSAGE = {
 
 const COMPACT_SUPPORT_MESSAGE_LIMIT = 50;
 const ADMIN_AI_ORDER_WINDOW_LIMIT = 100;
+
+const getBuyerAiErrorMessage = (code) => {
+  if (code === 'AI_NOT_CONFIGURED') {
+    return 'AI chat is being prepared. You can still use Factual Questions or Support Chat.';
+  }
+
+  if (code === 'AI_RATE_LIMITED') {
+    return 'AI is busy right now. Please try again shortly, or use Factual Questions.';
+  }
+
+  if (code === 'UNAUTHORIZED') {
+    return 'Your sign-in session has expired. Please sign in again to continue with AI chat.';
+  }
+
+  return 'AI is temporarily unavailable. Please try again, or use Factual Questions.';
+};
 
 const getRandomFaqQuestions = (faqPool, count = 4, exclude = []) => {
   const excluded = new Set(exclude);
@@ -123,6 +140,7 @@ const ChatWidget = () => {
 
   const [adminProducts, setAdminProducts] = useState([]);
   const [adminOrders, setAdminOrders] = useState([]);
+  const [buyerAiProducts, setBuyerAiProducts] = useState([]);
 
   const supportScrollRef = useRef(null);
   const bottomRef = useRef(null);
@@ -174,6 +192,7 @@ const ChatWidget = () => {
     setAiMessages([USER_AI_WELCOME_MESSAGE]);
     setAiInput('');
     setAiLoading(false);
+    setBuyerAiProducts([]);
 
     setAdminMessages([ADMIN_AI_WELCOME_MESSAGE]);
     setAdminInput('');
@@ -455,6 +474,25 @@ const ChatWidget = () => {
     };
   }, [activeTab, isOpen, isAdminLike]);
 
+  useEffect(() => {
+    if (!isOpen || isAdminLike || activeTab !== 'ask' || askMode !== 'ai') {
+      return undefined;
+    }
+
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'pricelists'), limit(40)),
+      (snapshot) => {
+        setBuyerAiProducts(snapshot.docs.map((product) => ({ id: product.id, ...product.data() })));
+      },
+      (error) => {
+        console.error('Buyer AI catalog could not be loaded', error?.code || 'unknown_error');
+        setBuyerAiProducts([]);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [activeTab, askMode, isAdminLike, isOpen]);
+
   const getAdminAssistantAnswer = (question) => {
     const q = normalizeText(question);
 
@@ -627,34 +665,6 @@ const ChatWidget = () => {
     }
 
     return `I can help with products, orders, stock, best sellers, revenue, completed orders, pending orders, shipping counts, and new arrivals. Try asking something like “How many pending orders do we have?” or “What are our best sellers?”`;
-  };
-
-  const getUserAiReply = (question) => {
-    const q = normalizeText(question);
-
-    if (!q) return 'Please type a message first.';
-
-    const faqMatch = findBestFaqMatch(question);
-    if (faqMatch) {
-      return `${faqMatch.question}\n\n${faqMatch.answer}`;
-    }
-
-    if (
-      q.includes('support') ||
-      q.includes('follow up') ||
-      q.includes('order concern') ||
-      q.includes('payment concern') ||
-      q.includes('custom concern') ||
-      q.includes('problem with order')
-    ) {
-      return 'For account-specific, order-specific, or payment concerns, please use the Support Chat tab so our team can assist you properly.';
-    }
-
-    if (q.includes('hello') || q.includes('hi') || q.includes('hey')) {
-      return 'Hello! You can ask me about our products, pricing, shipping, timelines, and other general store-related questions.';
-    }
-
-    return 'I can help with general store questions and approved FAQ information. For factual questions, you can also use Ask Questions. For order-specific concerns, please use Support Chat.';
   };
 
   const filteredConversations = useMemo(() => {
@@ -1039,7 +1049,7 @@ const ChatWidget = () => {
   };
 
   const sendAiMessage = async () => {
-    if (!aiInput.trim() || aiLoading) return;
+    if (!aiInput.trim() || aiLoading || !user) return;
 
     const text = aiInput.trim();
     const userMsg = { role: 'user', content: text };
@@ -1049,7 +1059,13 @@ const ChatWidget = () => {
     setAiLoading(true);
 
     try {
-      const answer = getUserAiReply(text);
+      const accessToken = await user.getIdToken();
+      const answer = await requestBuyerAiReply({
+        accessToken,
+        question: text,
+        messages: aiMessages,
+        products: buildBuyerAiCatalog(buyerAiProducts),
+      });
 
       setAiMessages((prev) => [
         ...prev,
@@ -1058,13 +1074,13 @@ const ChatWidget = () => {
           content: answer,
         },
       ]);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error('Buyer AI request failed', error?.code || 'unknown_error');
       setAiMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'I could not respond right now. Please try again.',
+          content: getBuyerAiErrorMessage(error?.code),
         },
       ]);
     } finally {
@@ -1281,6 +1297,7 @@ const ChatWidget = () => {
     buyerNewChatOpen,
     buyerSending,
     buyerSubject,
+    buyerAiProducts,
     conversations,
     dateLabel,
     extractNumericValue,
@@ -1304,7 +1321,6 @@ const ChatWidget = () => {
     getProductName,
     getProductPrice,
     getProductStock,
-    getUserAiReply,
     handleNewChatAttachmentPick,
     handleSuggestedFaqClick,
     handleSupportAttachmentPick,
