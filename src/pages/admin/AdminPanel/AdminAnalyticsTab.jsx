@@ -132,11 +132,11 @@ const AdminAnalyticsTab = ({
     : 'all recorded completed orders';
 
   return (
-    <div className="space-y-5">
-      <section className="flex flex-col gap-4 rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-5">
+      <section className="order-0 flex flex-col gap-4 rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Descriptive analytics</p>
-          <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">What happened</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Analytics report</p>
+          <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Business overview</h2>
           <p className="mt-1 text-sm text-artisan-text-muted">Showing {scopeLabel}.</p>
         </div>
 
@@ -159,8 +159,14 @@ const AdminAnalyticsTab = ({
         <p className="text-sm text-artisan-text-muted" role="status" aria-live="polite">{exportMessage}</p>
       </section>
 
+      <div className="order-1 pt-2">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Descriptive analytics</p>
+        <h3 className="mt-1 font-nunito text-2xl font-bold text-artisan-text">What happened</h3>
+        <p className="mt-1 text-sm text-artisan-text-muted">Revenue, orders, products, and data quality for the selected scope.</p>
+      </div>
+
       {qualityIssueCount > 0 && (
-        <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+        <div className="order-1 flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
           <AlertCircle className="mt-0.5 shrink-0" size={18} />
           <p>
             {dataQuality.affectedOrderCount} completed order{dataQuality.affectedOrderCount === 1 ? '' : 's'} need analytics data review.
@@ -173,7 +179,7 @@ const AdminAnalyticsTab = ({
       )}
 
       {qualityIssueCount > 0 && (
-        <section className="rounded-[1.5rem] border border-amber-200 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
+        <section className="order-1 rounded-[1.5rem] border border-amber-200 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h3 className="font-nunito text-2xl font-bold text-artisan-text">Data quality queue</h3>
@@ -220,14 +226,14 @@ const AdminAnalyticsTab = ({
         </section>
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="order-1 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard icon={DollarSign} label="Completed revenue" value={formatPrice(totalRevenue)} tone="text-artisan-primary" />
         <MetricCard icon={ShoppingCart} label="Completed orders" value={completedOrderCount} tone="text-sky-600" />
         <MetricCard icon={TrendingUp} label="Average order value" value={formatPrice(averageOrderValue)} tone="text-amber-600" />
         <MetricCard icon={Award} label="Best seller units" value={bestSellerUnits} tone="text-rose-600" />
       </section>
 
-      <section className="rounded-[1.5rem] border border-artisan-primary/15 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
+      <section className="order-2 rounded-[1.5rem] border border-artisan-primary/15 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Diagnostic analytics</p>
@@ -276,7 +282,7 @@ const AdminAnalyticsTab = ({
         )}
       </section>
 
-      <section className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
+      <section className="order-1 rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
         <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 className="font-nunito text-2xl font-bold text-artisan-text">Revenue over time</h3>
@@ -292,7 +298,7 @@ const AdminAnalyticsTab = ({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+      <section className="order-1 grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
           <h3 className="flex items-center gap-2 font-nunito text-2xl font-bold text-artisan-text"><BarChart3 className="text-artisan-primary" size={24} /> Order status mix</h3>
           <p className="mt-1 text-sm text-artisan-text-muted">All order statuses in the selected date scope.</p>
@@ -317,7 +323,7 @@ const AdminAnalyticsTab = ({
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <section className="order-1 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
           <h3 className="mb-4 flex items-center gap-2 font-nunito text-2xl font-bold text-artisan-text"><Award className="text-amber-500" size={24} /> Top sellers</h3>
           <ProductList products={topProducts} formatPrice={formatPrice} type="top" />
@@ -328,7 +334,7 @@ const AdminAnalyticsTab = ({
         </div>
       </section>
 
-      <section className="rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
+      <section className="order-1 rounded-[1.5rem] border border-white/60 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10">
         <h3 className="mb-4 font-nunito text-2xl font-bold text-artisan-text">Revenue by product</h3>
         <div className="h-56 sm:h-64">
           {hasProductRevenueData ? (
@@ -339,10 +345,10 @@ const AdminAnalyticsTab = ({
         </div>
       </section>
 
-      <section className="rounded-[1.5rem] border border-artisan-primary/20 bg-artisan-primary-wash/45 p-5 text-artisan-text shadow-lg shadow-[#2D0E5A]/10">
+      <section className="order-3 rounded-[1.5rem] border border-artisan-primary/20 bg-artisan-primary-wash/45 p-5 text-artisan-text shadow-lg shadow-[#2D0E5A]/10">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Predictive and prescriptive analytics</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Predictive analytics</p>
             <h3 className="mt-1 flex items-center gap-2 font-nunito text-2xl font-bold"><TrendingUp className="text-artisan-primary" size={24} /> What might happen next?</h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-artisan-text-muted">A no-cost, on-device projection based on completed-order revenue only. It is a planning estimate, not a guarantee or an automated decision.</p>
           </div>
@@ -381,7 +387,8 @@ const AdminAnalyticsTab = ({
         )}
 
         <div className="mt-5 border-t border-artisan-primary/15 pt-5">
-          <h4 className="font-nunito text-xl font-bold">What should we do next?</h4>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Prescriptive analytics</p>
+          <h4 className="mt-1 font-nunito text-xl font-bold">What should we do next?</h4>
           <p className="mt-1 text-sm text-artisan-text-muted">Suggested actions require admin judgement; nothing is automatically changed by this panel.</p>
           <ul className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
             {prescriptiveRecommendations.map((recommendation) => (

@@ -134,9 +134,6 @@ const LoginPage = () => {
                       onChange={handleChange}
                     />
                   </div>
-                  <p className="text-xs italic text-artisan-text-muted">
-                    Hint: Use &apos;admin@dabs.co&apos; for Admin Panel
-                  </p>
                 </div>
 
                 <div className="space-y-2">
