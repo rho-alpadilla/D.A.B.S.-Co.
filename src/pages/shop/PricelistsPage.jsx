@@ -328,7 +328,7 @@ const PricelistsPage = () => {
                 className="mx-auto max-w-5xl"
               >
                 <div className="rounded-2xl border border-white/45 bg-white/95 px-3 py-2 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md">
-                  <div className="flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar justify-start md:justify-center">
+                  <div className="flex flex-wrap justify-center gap-2 md:flex-nowrap md:justify-center">
                     {quickNavItems.map((item) => {
                       const isActive = activeSection === item.id;
                       return (
@@ -338,7 +338,7 @@ const PricelistsPage = () => {
                           whileHover={{ y: -1 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => scrollToSection(item.id)}
-                          className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ${
+                          className={`min-h-11 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ${
                             isActive
                               ? 'bg-[#5C2D91] text-white shadow'
                               : 'bg-white/85 text-[#3B2947] hover:bg-[#F0E6F7] hover:text-[#5C2D91]'

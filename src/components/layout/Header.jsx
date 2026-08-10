@@ -988,7 +988,7 @@ const Header = () => {
               'background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, border-radius 0.3s ease',
           }}
         >
-        <nav className="container mx-auto relative flex items-center justify-between px-3 py-2 sm:px-4 lg:px-5">
+        <nav className="container mx-auto relative flex min-h-14 items-center justify-between px-3 py-2 sm:px-4 lg:px-5">
 
           {/* ── LOGO ── CircularText ring + centered PNG logo ── */}
           <Link to={homePath} className="hdr-logo-mark">
@@ -1401,12 +1401,15 @@ const Header = () => {
 
           {/* ── MOBILE RIGHT CONTROLS ── */}
           <div
-            className="md:hidden flex items-center gap-3"
+            className="flex items-center gap-1 md:hidden"
             style={{ color: iconColor, transition: 'color 0.35s ease', zIndex: 2 }}
           >
             {/* Mobile notification bell */}
             {user && (
               <button
+                type="button"
+                aria-label="Open notifications"
+                aria-expanded={isNotifOpen}
                 onClick={() => {
                   setIsNotifOpen((v) => !v);
                   setIsCurrencyOpen(false);
@@ -1414,7 +1417,7 @@ const Header = () => {
                   setIsHighlightsOpen(false);
                   setIsMenuOpen(false);
                 }}
-                className="relative rounded-full p-1"
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-artisan-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
                 style={{ color: iconColor }}
               >
                 <Bell size={22} strokeWidth={1.75} />
@@ -1431,7 +1434,11 @@ const Header = () => {
 
             {/* Mobile cart */}
             {!isAdmin && (
-              <Link to="/cart" className="relative rounded-full p-1">
+              <Link
+                to="/cart"
+                aria-label={`Open cart${cartCount ? `, ${cartCount} item${cartCount === 1 ? '' : 's'}` : ''}`}
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-artisan-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
+              >
                 <ShoppingCart size={22} strokeWidth={1.75} />
                 {cartCount > 0 && (
                   <span
@@ -1446,7 +1453,11 @@ const Header = () => {
 
             {/* Hamburger */}
             <button
+              type="button"
               id="mobile-menu-btn"
+              aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={isMenuOpen}
+              aria-controls="mobile-navigation-menu"
               onClick={() => {
                 setIsMenuOpen((v) => !v);
                 setIsHighlightsOpen(false);
@@ -1454,6 +1465,7 @@ const Header = () => {
                 setIsUserMenuOpen(false);
                 setIsNotifOpen(false);
               }}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-artisan-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
             >
               <motion.div animate={{ rotate: isMenuOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
                 {isMenuOpen ? (
@@ -1523,7 +1535,7 @@ const Header = () => {
               transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
               className="md:hidden overflow-hidden"
             >
-              <div className="hdr-mobile px-4 pb-5 pt-3 space-y-1">
+              <div id="mobile-navigation-menu" className="hdr-mobile px-4 pb-5 pt-3 space-y-1">
 
                 {/* Currency selector */}
                 <div className="px-3 pt-2 pb-3 mb-1">

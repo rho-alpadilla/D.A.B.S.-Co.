@@ -112,11 +112,18 @@
   html {
     min-width: 320px;
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
     min-width: 320px;
     min-height: 100%;
+    overflow-x: clip;
+  }
+
+  #root {
+    min-width: 0;
+    overflow-x: clip;
   }
 
   ::selection {
@@ -142,6 +149,14 @@
 
   :disabled {
     cursor: not-allowed;
+  }
+
+  @media (max-width: 767px) {
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      min-height: 44px;
+    }
   }
 }
 

@@ -371,10 +371,10 @@ const GalleryPage = () => {
             {/* Category Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="mb-8 border-b border-artisan-primary/15 md:mb-10">
-                <TabsList variant="underline" className="flex h-auto w-full justify-start gap-5 overflow-x-auto bg-transparent p-0 shadow-none md:justify-center">
+                <TabsList variant="underline" className="grid h-auto w-full grid-cols-2 gap-x-5 bg-transparent p-0 shadow-none sm:flex sm:justify-center sm:gap-5">
                   {categories.map((cat) => (
                     <TabsTrigger variant="underline" key={cat.id} value={cat.id}
-                      className="shrink-0 px-0 py-3 text-sm font-semibold md:text-[15px]">
+                      className="w-full shrink-0 px-0 py-3 text-sm font-semibold sm:w-auto md:text-[15px]">
                       {cat.label}
                     </TabsTrigger>
                   ))}
