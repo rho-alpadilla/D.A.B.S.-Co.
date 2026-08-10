@@ -85,6 +85,8 @@ const Header = () => {
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHighlightsOpen, setIsHighlightsOpen] = useState(false);
+  const [isMobileHighlightsOpen, setIsMobileHighlightsOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,6 +110,7 @@ const Header = () => {
   const navigate = useNavigate();
   const rafRef = useRef(null);
   const headerRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
   const authData = useAuth();
   const user = authData?.user || null;
@@ -177,11 +180,16 @@ const Header = () => {
       setIsCurrencyOpen(false);
       setIsUserMenuOpen(false);
       setIsHighlightsOpen(false);
+      setIsMobileHighlightsOpen(false);
+      setIsLogoutConfirmOpen(false);
       setIsNotifOpen(false);
     };
 
     const handlePointerDown = (event) => {
-      if (!headerRef.current?.contains(event.target)) {
+      const isInsideHeader = headerRef.current?.contains(event.target);
+      const isInsideMobileMenu = mobileMenuRef.current?.contains(event.target);
+
+      if (!isInsideHeader && !isInsideMobileMenu) {
         closeHeaderOverlays();
       }
     };
@@ -205,6 +213,8 @@ const Header = () => {
     setIsCurrencyOpen(false);
     setIsUserMenuOpen(false);
     setIsHighlightsOpen(false);
+    setIsMobileHighlightsOpen(false);
+    setIsLogoutConfirmOpen(false);
     setIsNotifOpen(false);
   }, [location.pathname]);
 
@@ -556,6 +566,8 @@ const Header = () => {
     setIsUserMenuOpen(false);
     setIsMenuOpen(false);
     setIsHighlightsOpen(false);
+    setIsMobileHighlightsOpen(false);
+    setIsLogoutConfirmOpen(false);
     setIsNotifOpen(false);
     navigate('/');
   };
@@ -566,6 +578,7 @@ const Header = () => {
     setIsCurrencyOpen(false);
     setIsUserMenuOpen(false);
     setIsNotifOpen(false);
+    setIsMobileHighlightsOpen(false);
 
     if (location.pathname === '/highlights') {
       window.history.replaceState(null, '', '/highlights');
@@ -581,6 +594,7 @@ const Header = () => {
     setIsCurrencyOpen(false);
     setIsUserMenuOpen(false);
     setIsNotifOpen(false);
+    setIsMobileHighlightsOpen(false);
 
     const smoothScrollToSection = () => {
       const el = document.getElementById(section);
@@ -1009,7 +1023,7 @@ const Header = () => {
           </Link>
 
           {/* ── DESKTOP NAV LINKS ── */}
-          <div className="hidden md:flex hdr-nav-center">
+          <div className="hidden lg:flex hdr-nav-center">
             {desktopLinks.map((item) => {
               if (item.type === 'dropdown') {
                 return (
@@ -1084,7 +1098,7 @@ const Header = () => {
           </div>
 
           {/* ── DESKTOP RIGHT CONTROLS ── */}
-          <div className="hidden md:flex items-center gap-2.5" style={{ zIndex: 2 }}>
+          <div className="hidden lg:flex items-center gap-2.5" style={{ zIndex: 2 }}>
 
             {/* Currency switcher */}
             <div className="relative">
@@ -1401,7 +1415,7 @@ const Header = () => {
 
           {/* ── MOBILE RIGHT CONTROLS ── */}
           <div
-            className="flex items-center gap-1 md:hidden"
+            className="flex items-center gap-1 lg:hidden"
             style={{ color: iconColor, transition: 'color 0.35s ease', zIndex: 2 }}
           >
             {/* Mobile notification bell */}
@@ -1461,6 +1475,8 @@ const Header = () => {
               onClick={() => {
                 setIsMenuOpen((v) => !v);
                 setIsHighlightsOpen(false);
+                setIsMobileHighlightsOpen(false);
+                setIsLogoutConfirmOpen(false);
                 setIsCurrencyOpen(false);
                 setIsUserMenuOpen(false);
                 setIsNotifOpen(false);
@@ -1486,7 +1502,7 @@ const Header = () => {
               animate={{ opacity: 1, y: 0, height: 'auto' }}
               exit={{ opacity: 0, y: -8, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="md:hidden overflow-hidden"
+              className="lg:hidden overflow-hidden"
             >
               <div className="hdr-mobile px-4 pb-4 pt-2">
                 <div className="hdr-dropdown w-full">
@@ -1529,11 +1545,12 @@ const Header = () => {
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
+              ref={mobileMenuRef}
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-              className="absolute inset-x-0 top-full z-[60] h-[calc(100dvh-3.5rem)] overflow-hidden md:hidden"
+              className="absolute inset-x-0 top-full z-[60] h-[calc(100dvh-3.5rem)] overflow-hidden lg:hidden"
             >
               <nav
                 id="mobile-navigation-menu"
@@ -1577,42 +1594,70 @@ const Header = () => {
                   )}
                 </Link>
 
-                {/* Highlights top-level */}
-                <button
-                  onClick={goToHighlightsHome}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition"
-                  style={{
-                    background: isHighlightsPage
-                      ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)'
-                      : 'transparent',
-                    color: isHighlightsPage ? '#fff' : '#4A2560',
-                  }}
-                >
-                  Highlights
-                  {isHighlightsPage && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-artisan-primary-pale" />
-                  )}
-                </button>
-
-                {/* Highlights sub-items */}
-                <div className="mx-1 rounded-xl bg-artisan-primary-wash/50 border border-artisan-primary-wash p-2">
-                  <p className="px-3 py-2 text-xs font-semibold uppercase tracking-widest text-artisan-primary">
-                    Highlights
-                  </p>
-                  {[
-                    { id: 'spotlight', label: "Artist's Spotlight" },
-                    { id: 'favorites', label: "Collector's Favorites" },
-                    { id: 'recent', label: 'Recent Works' },
-                    { id: 'commission', label: 'Commission' },
-                  ].map((sect) => (
-                    <button
-                      key={sect.id}
-                      onClick={() => goToHighlight(sect.id)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-artisan-text-mid hover:bg-white hover:text-artisan-primary transition"
+                {/* Highlights page link + expandable section links */}
+                <div>
+                  <div
+                    className="flex items-center rounded-xl transition"
+                    style={{
+                      background: isHighlightsPage
+                        ? 'linear-gradient(135deg,#5C2D91,#7B3FA0)'
+                        : 'transparent',
+                      color: isHighlightsPage ? '#fff' : '#4A2560',
+                    }}
+                  >
+                    <Link
+                      to="/highlights"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex min-h-11 flex-1 items-center px-4 py-3 text-sm font-medium"
                     >
-                      {sect.label}
+                      Highlights
+                      {isHighlightsPage && (
+                        <span className="ml-2 h-1.5 w-1.5 rounded-full bg-artisan-primary-pale" />
+                      )}
+                    </Link>
+                    <button
+                      type="button"
+                      aria-label={isMobileHighlightsOpen ? 'Collapse Highlights links' : 'Expand Highlights links'}
+                      aria-expanded={isMobileHighlightsOpen}
+                      onClick={() => setIsMobileHighlightsOpen((value) => !value)}
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary"
+                    >
+                      <ChevronDown
+                        size={18}
+                        className={`transition-transform duration-200 ${isMobileHighlightsOpen ? 'rotate-180' : ''}`}
+                      />
                     </button>
-                  ))}
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {isMobileHighlightsOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.18, ease: ARTISAN_EASE_OUT }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mx-1 mt-1 border-l-2 border-artisan-primary/25 pl-2 py-1">
+                          {[
+                            { id: 'spotlight', label: "Artist's Spotlight" },
+                            { id: 'favorites', label: "Collector's Favorites" },
+                            { id: 'recent', label: 'Recent Works' },
+                            { id: 'commission', label: 'Commission' },
+                          ].map((sect) => (
+                            <button
+                              key={sect.id}
+                              type="button"
+                              onClick={() => goToHighlight(sect.id)}
+                              className="flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left text-sm text-artisan-text-mid transition hover:bg-artisan-primary-wash hover:text-artisan-primary"
+                            >
+                              {sect.label}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Gallery */}
@@ -1726,12 +1771,35 @@ const Header = () => {
                       <User size={15} /> Profile
                     </Link>
 
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 font-medium hover:bg-red-50 rounded-xl transition text-left"
-                    >
-                      <LogOut size={15} /> Logout
-                    </button>
+                    {isLogoutConfirmOpen ? (
+                      <div className="rounded-xl border border-red-200 bg-red-50/70 p-3">
+                        <p className="text-sm font-semibold text-red-700">Sign out of this account?</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsLogoutConfirmOpen(false)}
+                            className="min-h-11 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-artisan-text-mid transition hover:bg-red-50"
+                          >
+                            Stay signed in
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="min-h-11 rounded-lg bg-red-600 px-3 text-sm font-semibold text-white transition hover:bg-red-700"
+                          >
+                            Sign out
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsLogoutConfirmOpen(true)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 font-medium hover:bg-red-50 rounded-xl transition text-left"
+                      >
+                        <LogOut size={15} /> Logout
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="flex gap-2 pt-3 px-2">
