@@ -1529,13 +1529,17 @@ const Header = () => {
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-              className="md:hidden overflow-hidden"
+              className="absolute inset-x-0 top-full z-[60] h-[calc(100dvh-3.5rem)] overflow-hidden md:hidden"
             >
-              <div id="mobile-navigation-menu" className="hdr-mobile px-4 pb-5 pt-3 space-y-1">
+              <nav
+                id="mobile-navigation-menu"
+                aria-label="Mobile navigation"
+                className="hdr-mobile h-full touch-pan-y overflow-y-auto overscroll-contain px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 space-y-1"
+              >
 
                 {/* Currency selector */}
                 <div className="px-3 pt-2 pb-3 mb-1">
@@ -1750,7 +1754,7 @@ const Header = () => {
                     </Link>
                   </div>
                 )}
-              </div>
+              </nav>
             </motion.div>
           )}
         </AnimatePresence>
