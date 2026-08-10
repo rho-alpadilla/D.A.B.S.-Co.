@@ -324,12 +324,10 @@ const GalleryPage = () => {
             </div>
 
             {isAdmin && isManagingProducts && (
-              <div className="sticky top-3 z-30 mb-6 flex flex-col gap-3 border border-artisan-primary/20 bg-white/95 p-3 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <section className="sticky top-3 z-30 mb-6 flex flex-col gap-3 border-y border-artisan-primary/20 bg-white/95 p-3 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:p-4" aria-label="Manage products">
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex h-10 items-center gap-2 rounded-lg border border-artisan-primary/20 bg-white px-3">
-                    <label htmlFor="manage-products-category" className="text-xs font-bold uppercase tracking-wide text-artisan-text-muted">
-                      Category
-                    </label>
+                  <div className="flex h-10 items-center gap-2 border border-artisan-primary/20 bg-white px-3">
+                    <label htmlFor="manage-products-category" className="text-xs font-bold uppercase tracking-wide text-artisan-text-muted">Category</label>
                     <select
                       id="manage-products-category"
                       value={activeTab}
@@ -339,9 +337,7 @@ const GalleryPage = () => {
                       }}
                       className="bg-transparent text-sm font-medium text-artisan-text outline-none"
                     >
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>{category.label}</option>
-                      ))}
+                      {categories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
                     </select>
                   </div>
                   <button
@@ -351,9 +347,9 @@ const GalleryPage = () => {
                     aria-label={areAllVisibleProductsSelected ? 'Deselect filtered products on this page' : 'Select filtered products on this page'}
                   >
                     {areAllVisibleProductsSelected ? <CheckSquare size={19} className="text-artisan-primary" /> : <Square size={19} className="text-artisan-text-muted" />}
-                    {areAllVisibleProductsSelected ? 'Deselect filtered products' : 'Select filtered products'}
+                    {areAllVisibleProductsSelected ? 'Deselect visible' : 'Select visible'}
                   </button>
-                  <span className="text-sm text-artisan-text-muted">{selectedProducts.length} selected on this page</span>
+                  <span className="text-sm text-artisan-text-muted">{selectedProducts.length} selected</span>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button type="button" variant="outline" onClick={() => navigate('/add-product')} className="h-10">
@@ -369,7 +365,7 @@ const GalleryPage = () => {
                     {isDeletingProducts ? 'Removing…' : `Remove selected${selectedProducts.length ? ` (${selectedProducts.length})` : ''}`}
                   </Button>
                 </div>
-              </div>
+              </section>
             )}
 
             {/* Category Tabs */}

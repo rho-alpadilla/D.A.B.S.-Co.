@@ -3,39 +3,134 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { collection, onSnapshot, orderBy, query, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Star, Palette } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Palette, Search, Star, X } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { useUserRole } from '@/hooks/useUserRole';
+import { fetchSearchCatalog } from '@/lib/catalog/productCatalog';
+import { EMPTY_HIGHLIGHTS_DATA, subscribeToHighlights } from '@/lib/highlights/highlightsService';
+import {
+  addToArtistSpotlight,
+  moveArtistSpotlight,
+  removeFromArtistSpotlight,
+} from '@/lib/highlights/highlightsManagement';
 
 const HighlightsPage = () => {
-  const { user } = useAuth();
-  const isAdmin = user?.email?.includes('admin');
+  const { isProductManager } = useUserRole();
   const { formatPrice } = useCurrency();
+  const { toast } = useToast();
 
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [topSellers, setTopSellers] = useState([]);
-  const [newArrivals, setNewArrivals] = useState([]);
+  const [highlights, setHighlights] = useState(EMPTY_HIGHLIGHTS_DATA);
+  const [highlightsLoading, setHighlightsLoading] = useState(true);
+  const [highlightErrors, setHighlightErrors] = useState({});
+  const [isManagingSpotlight, setIsManagingSpotlight] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [spotlightActionId, setSpotlightActionId] = useState('');
 
   useEffect(() => {
-    const qFeatured = query(collection(db, 'pricelists'), orderBy('createdAt', 'desc'), limit(6));
-    const qTopSellers = query(collection(db, 'pricelists'), orderBy('totalSold', 'desc'), limit(8));
-    const qNewArrivals = query(collection(db, 'pricelists'), orderBy('createdAt', 'desc'), limit(8));
-
-    const unsubFeatured = onSnapshot(qFeatured, (snap) => {
-      setFeaturedProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
-    const unsubTopSellers = onSnapshot(qTopSellers, (snap) => {
-      setTopSellers(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => (p.totalSold || 0) > 0));
-    });
-    const unsubNewArrivals = onSnapshot(qNewArrivals, (snap) => {
-      setNewArrivals(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const unsubscribe = subscribeToHighlights({
+      onChange: ({ data, isLoading, errors }) => {
+        setHighlights(data);
+        setHighlightsLoading(isLoading);
+        setHighlightErrors(errors);
+      },
     });
 
-    return () => { unsubFeatured(); unsubTopSellers(); unsubNewArrivals(); };
+    return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!isProductManager || !isManagingSpotlight) return undefined;
+
+    let isMounted = true;
+    setCatalogLoading(true);
+    fetchSearchCatalog()
+      .then((products) => {
+        if (isMounted) setCatalogProducts(products);
+      })
+      .catch((error) => {
+        console.error('Unable to load products for Artist’s Spotlight', error);
+        if (isMounted) {
+          toast({
+            title: 'Products could not be loaded',
+            description: 'Please refresh and try again.',
+            variant: 'destructive',
+          });
+        }
+      })
+      .finally(() => {
+        if (isMounted) setCatalogLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isManagingSpotlight, isProductManager, toast]);
+
+  const normalizedCatalogSearch = catalogSearch.trim().toLowerCase();
+  const matchingCatalogProducts = catalogProducts
+    .filter((product) => (
+      !normalizedCatalogSearch || [product.name, product.category, product.description]
+        .some((value) => String(value || '').toLowerCase().includes(normalizedCatalogSearch))
+    ))
+    .slice(0, 12);
+
+  const getPrimaryImageUrl = (product) => (
+    product.imageUrls?.find((imageUrl) => typeof imageUrl === 'string' && imageUrl.trim()) || product.imageUrl
+  );
+
+  const handleArtistSpotlightMembership = async (product) => {
+    if (spotlightActionId) return;
+
+    const actionId = `membership:${product.id}`;
+    const isSelected = highlights.artistSpotlight.some((item) => item.id === product.id);
+    setSpotlightActionId(actionId);
+    try {
+      if (isSelected) {
+        await removeFromArtistSpotlight({
+          productId: product.id,
+          currentHighlights: product.highlights,
+        });
+        toast({ title: 'Removed from Artist’s Spotlight', description: `${product.name || 'Product'} is no longer featured.` });
+      } else {
+        await addToArtistSpotlight({
+          productId: product.id,
+          currentHighlights: product.highlights,
+        });
+        toast({ title: 'Added to Artist’s Spotlight', description: `${product.name || 'Product'} is now featured.` });
+      }
+    } catch (error) {
+      console.error('Unable to update Artist’s Spotlight', error);
+      toast({
+        title: 'Artist’s Spotlight could not be updated',
+        description: error.message?.includes('full') ? error.message : 'Please refresh and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSpotlightActionId('');
+    }
+  };
+
+  const handleArtistSpotlightMove = async (product, direction) => {
+    if (spotlightActionId) return;
+
+    setSpotlightActionId(`move:${product.id}`);
+    try {
+      await moveArtistSpotlight({ productId: product.id, direction });
+    } catch (error) {
+      console.error('Unable to reorder Artist’s Spotlight', error);
+      toast({
+        title: 'Artist’s Spotlight order could not be updated',
+        description: 'Please refresh and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSpotlightActionId('');
+    }
+  };
 
   const renderStars = (rating) => {
     const r = Number(rating || 0);
@@ -48,16 +143,22 @@ const HighlightsPage = () => {
     );
   };
 
-  const EmptyState = ({ text }) => (
+  const EmptyState = ({ text, hasError = false }) => (
     <p className="col-span-full border-y border-artisan-primary/15 py-10 text-center text-artisan-text-mid md:py-12">
-      {text}
+      {hasError ? 'This section is unavailable right now. Please try again later.' : text}
     </p>
   );
 
+  const LoadingState = () => (
+    <div className="col-span-full grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading highlights">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div key={index} className="aspect-[4/5] animate-pulse rounded-2xl border border-artisan-primary/10 bg-artisan-primary-wash/50" />
+      ))}
+    </div>
+  );
+
   const ProductCard = ({ item }) => {
-    const primaryImageUrl = item.imageUrls?.find(
-      (imageUrl) => typeof imageUrl === 'string' && imageUrl.trim()
-    ) || item.imageUrl;
+    const primaryImageUrl = getPrimaryImageUrl(item);
 
     return (
     <Link to={`/product/${item.id}`} className="group block h-full">
@@ -102,9 +203,10 @@ const HighlightsPage = () => {
     );
   };
 
-  const SectionHeading = ({ id, title }) => (
-    <div id={id} className="mb-8 scroll-mt-28 border-t border-artisan-primary/20 pt-6 md:mb-10 md:pt-8">
+  const SectionHeading = ({ id, title, action }) => (
+    <div id={id} className="mb-8 flex scroll-mt-28 flex-col gap-4 border-t border-artisan-primary/20 pt-6 sm:flex-row sm:items-center sm:justify-between md:mb-10 md:pt-8">
       <h2 className="font-artisan-display text-4xl font-bold tracking-[-0.035em] text-artisan-primary md:text-5xl">{title}</h2>
+      {action}
     </div>
   );
 
@@ -130,9 +232,129 @@ const HighlightsPage = () => {
           {/* Artist's Spotlight */}
           <section className="py-12 md:py-16">
             <div className="container mx-auto max-w-7xl px-4">
-              <SectionHeading id="spotlight" title="Artist's Spotlight" />
+              <SectionHeading
+                id="spotlight"
+                title="Artist's Spotlight"
+                action={isProductManager ? (
+                  <Button
+                    type="button"
+                    variant={isManagingSpotlight ? 'outline' : 'default'}
+                    onClick={() => setIsManagingSpotlight((value) => !value)}
+                    className="h-11 w-full sm:w-auto"
+                    aria-expanded={isManagingSpotlight}
+                  >
+                    {isManagingSpotlight ? <X size={17} className="mr-2" /> : <Palette size={17} className="mr-2" />}
+                    {isManagingSpotlight ? 'Done curating' : 'Manage Artist’s Spotlight'}
+                  </Button>
+                ) : null}
+              />
+
+              {isProductManager && isManagingSpotlight && (
+                <aside className="mb-8 border-y border-artisan-primary/20 bg-white/95 p-4 shadow-[0_16px_35px_rgba(36,16,31,0.08)] sm:p-6" aria-label="Artist’s Spotlight management">
+                  <div className="flex flex-col gap-3 border-b border-artisan-primary/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-artisan-text">Artist’s Spotlight</p>
+                      <p className="mt-1 text-sm text-artisan-text-muted">Choose up to four products and arrange their public order.</p>
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums text-artisan-primary">{highlights.artistSpotlight.length} of 4 selected</span>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    {highlights.artistSpotlight.length > 0 ? highlights.artistSpotlight.map((product, index) => {
+                      const productImage = getPrimaryImageUrl(product);
+                      const isUpdating = spotlightActionId.endsWith(`:${product.id}`);
+
+                      return (
+                        <article key={product.id} className="flex items-center gap-3 border border-artisan-primary/15 bg-[#FAF8F1] p-3">
+                          <div className="h-14 w-14 shrink-0 overflow-hidden bg-artisan-primary-wash/40">
+                            {productImage ? <img src={productImage} alt="" className="h-full w-full object-cover" /> : <Palette className="m-4 text-artisan-primary" size={24} />}
+                          </div>
+                          <p className="min-w-0 flex-1 truncate font-semibold text-artisan-text">{product.name || 'Untitled product'}</p>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleArtistSpotlightMove(product, 'earlier')}
+                              disabled={Boolean(spotlightActionId) || index === 0}
+                              aria-label={`Move ${product.name || 'product'} earlier`}
+                              className="grid h-9 w-9 place-items-center border border-artisan-primary/20 text-artisan-primary transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary disabled:cursor-not-allowed disabled:opacity-35"
+                            >
+                              <ArrowUp size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleArtistSpotlightMove(product, 'later')}
+                              disabled={Boolean(spotlightActionId) || index === highlights.artistSpotlight.length - 1}
+                              aria-label={`Move ${product.name || 'product'} later`}
+                              className="grid h-9 w-9 place-items-center border border-artisan-primary/20 text-artisan-primary transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary disabled:cursor-not-allowed disabled:opacity-35"
+                            >
+                              <ArrowDown size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleArtistSpotlightMembership(product)}
+                              disabled={Boolean(spotlightActionId)}
+                              aria-label={`Remove ${product.name || 'product'} from Artist’s Spotlight`}
+                              className="grid h-9 w-9 place-items-center border border-artisan-primary/20 text-artisan-primary transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary disabled:cursor-not-allowed disabled:opacity-35"
+                            >
+                              {isUpdating ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-artisan-primary border-t-transparent" /> : <X size={16} />}
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    }) : (
+                      <p className="border border-dashed border-artisan-primary/20 p-5 text-sm text-artisan-text-muted md:col-span-2">No product is selected yet.</p>
+                    )}
+                  </div>
+
+                  <div className="mt-6 border-t border-artisan-primary/10 pt-5">
+                    <label htmlFor="spotlight-product-search" className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">Find a product</label>
+                    <div className="relative mt-2 max-w-xl">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-artisan-text-muted" size={17} />
+                      <input
+                        id="spotlight-product-search"
+                        value={catalogSearch}
+                        onChange={(event) => setCatalogSearch(event.target.value)}
+                        placeholder="Search products to add…"
+                        className="h-11 w-full border border-artisan-primary/20 bg-white pl-10 pr-4 text-sm text-artisan-text outline-none transition focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15"
+                      />
+                    </div>
+
+                    {catalogLoading ? (
+                      <p className="mt-5 text-sm text-artisan-text-muted">Loading products…</p>
+                    ) : matchingCatalogProducts.length > 0 ? (
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {matchingCatalogProducts.map((product) => {
+                          const isSelected = highlights.artistSpotlight.some((item) => item.id === product.id);
+                          const productImage = getPrimaryImageUrl(product);
+                          const isUpdating = spotlightActionId.endsWith(`:${product.id}`);
+                          const cannotAdd = !isSelected && highlights.artistSpotlight.length >= 4;
+
+                          return (
+                            <article key={product.id} className="flex min-w-0 items-center gap-3 border border-artisan-primary/10 bg-white p-3">
+                              <div className="h-12 w-12 shrink-0 overflow-hidden bg-artisan-primary-wash/40">
+                                {productImage ? <img src={productImage} alt="" className="h-full w-full object-cover" /> : <Palette className="m-3 text-artisan-primary" size={22} />}
+                              </div>
+                              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-artisan-text">{product.name || 'Untitled product'}</p>
+                              <button
+                                type="button"
+                                onClick={() => handleArtistSpotlightMembership(product)}
+                                disabled={Boolean(spotlightActionId) || cannotAdd}
+                                className={`min-h-9 shrink-0 border px-3 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary disabled:cursor-not-allowed disabled:opacity-50 ${isSelected ? 'border-artisan-primary bg-artisan-primary text-white' : 'border-artisan-primary/30 text-artisan-primary hover:bg-artisan-primary/5'}`}
+                              >
+                                {isUpdating ? 'Saving…' : isSelected ? 'Remove' : 'Add'}
+                              </button>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-5 text-sm text-artisan-text-muted">No products match that search.</p>
+                    )}
+                  </div>
+                </aside>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {featuredProducts.length > 0 ? featuredProducts.slice(0,4).map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState text="No featured work yet." />}
+                {highlightsLoading ? <LoadingState /> : highlights.artistSpotlight.length > 0 ? highlights.artistSpotlight.map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState hasError={highlightErrors.artistSpotlight} text="No artist spotlight has been selected yet." />}
               </div>
             </div>
           </section>
@@ -142,7 +364,7 @@ const HighlightsPage = () => {
             <div className="container mx-auto max-w-7xl px-4">
               <SectionHeading id="favorites" title="Collector's Favorites" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {topSellers.length > 0 ? topSellers.slice(0,4).map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState text="No collector favorites yet." />}
+                {highlightsLoading ? <LoadingState /> : highlights.collectorFavorites.length > 0 ? highlights.collectorFavorites.map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState hasError={highlightErrors.collectorFavorites} text="No collector favorites yet." />}
               </div>
             </div>
           </section>
@@ -152,13 +374,13 @@ const HighlightsPage = () => {
             <div className="container mx-auto max-w-7xl px-4">
               <SectionHeading id="recent" title="Recent Works" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {newArrivals.length > 0 ? newArrivals.slice(0,4).map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState text="No recent work yet." />}
+                {highlightsLoading ? <LoadingState /> : highlights.recentWorks.length > 0 ? highlights.recentWorks.map((item) => <ProductCard key={item.id} item={item} />) : <EmptyState hasError={highlightErrors.recentWorks} text="No recent work yet." />}
               </div>
             </div>
           </section>
 
           {/* Commission CTA (buyers only) */}
-          {!isAdmin && (
+          {!isProductManager && (
             <section id="commission" className="scroll-mt-28 py-12 md:py-16">
               <div className="container mx-auto max-w-7xl border-t border-artisan-primary/20 px-4 pt-8 md:pt-10">
                 <div className="grid items-end gap-8 md:grid-cols-[minmax(0,1fr)_auto] md:gap-12">

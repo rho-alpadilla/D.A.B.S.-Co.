@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Plus,
@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useNavigate } from 'react-router-dom';
+
+const getProductImage = (product) => product.imageUrls?.[0] || product.imageUrl || null;
 
 const PricelistsPage = () => {
   const { user } = useAuth();
@@ -104,6 +106,9 @@ const PricelistsPage = () => {
   const [pricing, setPricing] = useState(defaultPricing);
   const [editing, setEditing] = useState({ section: null, index: null, field: null });
   const [tempValue, setTempValue] = useState('');
+  const [recentWorks, setRecentWorks] = useState([]);
+  const [recentWorksLoading, setRecentWorksLoading] = useState(true);
+  const [recentWorksError, setRecentWorksError] = useState(false);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'pricelists'), (snap) => {
@@ -114,6 +119,34 @@ const PricelistsPage = () => {
       }
     });
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const recentWorksQuery = query(
+      collection(db, 'pricelists'),
+      orderBy('createdAt', 'desc'),
+      limit(6),
+    );
+
+    const unsubscribe = onSnapshot(
+      recentWorksQuery,
+      (snapshot) => {
+        setRecentWorks(
+          snapshot.docs
+            .map((document) => ({ id: document.id, ...document.data() }))
+            .filter((product) => getProductImage(product)),
+        );
+        setRecentWorksLoading(false);
+        setRecentWorksError(false);
+      },
+      () => {
+        setRecentWorks([]);
+        setRecentWorksLoading(false);
+        setRecentWorksError(true);
+      },
+    );
+
+    return unsubscribe;
   }, []);
 
   const startEdit = (section, index, field, value) => {
@@ -658,13 +691,42 @@ const PricelistsPage = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 lg:w-[320px]">
-                  <div className="h-24 rounded-2xl bg-gradient-to-br from-[#118C8C]/25 to-[#118C8C]/5 border border-[#118C8C]/10" />
-                  <div className="h-24 rounded-2xl bg-gradient-to-br from-[#F2BB16]/25 to-[#F2BB16]/5 border border-[#F2BB16]/10" />
-                  <div className="h-24 rounded-2xl bg-gradient-to-br from-pink-200/40 to-white border border-pink-100" />
-                  <div className="h-24 rounded-2xl bg-gradient-to-br from-purple-200/40 to-white border border-purple-100" />
-                  <div className="h-24 rounded-2xl bg-gradient-to-br from-emerald-200/40 to-white border border-emerald-100" />
-                  <div className="h-24 rounded-2xl bg-gradient-to-br from-sky-200/40 to-white border border-sky-100" />
+                <div
+                  aria-label="Recent works"
+                  className="grid grid-cols-3 gap-3 lg:w-[320px]"
+                >
+                  {recentWorksLoading ? (
+                    Array.from({ length: 6 }, (_, index) => (
+                      <div
+                        key={index}
+                        aria-hidden="true"
+                        className="h-24 animate-pulse rounded-2xl border border-artisan-primary/10 bg-artisan-primary-wash/60"
+                      />
+                    ))
+                  ) : recentWorks.length > 0 ? (
+                    recentWorks.map((work) => (
+                      <button
+                        key={work.id}
+                        type="button"
+                        onClick={() => navigate(`/product/${work.id}`)}
+                        className="group relative h-24 overflow-hidden rounded-2xl border border-artisan-primary/15 bg-artisan-primary-wash text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-artisan-primary/45 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-artisan-primary"
+                        aria-label={`View ${work.name || 'recent work'}`}
+                      >
+                        <img
+                          src={getProductImage(work)}
+                          alt=""
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))
+                  ) : (
+                    <p className="col-span-3 rounded-2xl border border-artisan-primary/15 bg-artisan-primary-wash/40 px-4 py-6 text-center text-sm text-artisan-text-muted">
+                      {recentWorksError
+                        ? 'Recent works are unavailable right now.'
+                        : 'Recent works will appear here as they are added.'}
+                    </p>
+                  )}
                 </div>
               </div>
 

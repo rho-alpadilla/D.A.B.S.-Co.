@@ -18,6 +18,39 @@ service cloud.firestore {
       return isSignedIn() && userDoc().data.role == 'sub-admin';
     }
 
+    function isProductManager() {
+      return isAdmin() || isSubAdmin();
+    }
+
+    // Highlights are editorial product metadata. Existing products that were
+    // created before this feature remain valid until the page is migrated in
+    // Phase 2. New or updated Highlight data must follow this fixed shape.
+    function hasValidProductHighlights(data) {
+      return !('highlights' in data) || (
+        data.highlights is map &&
+        data.highlights.keys().hasAll([
+          'artistSpotlight',
+          'artistSpotlightOrder',
+          'hideFromRecentWorks'
+        ]) &&
+        data.highlights.keys().hasOnly([
+          'artistSpotlight',
+          'artistSpotlightOrder',
+          'hideFromRecentWorks'
+        ]) &&
+        data.highlights.artistSpotlight is bool &&
+        data.highlights.hideFromRecentWorks is bool &&
+        (
+          (!data.highlights.artistSpotlight &&
+            data.highlights.artistSpotlightOrder == null) ||
+          (data.highlights.artistSpotlight &&
+            data.highlights.artistSpotlightOrder is int &&
+            data.highlights.artistSpotlightOrder >= 1 &&
+            data.highlights.artistSpotlightOrder <= 4)
+        )
+      );
+    }
+
     function isActiveAccount() {
       return isSignedIn() && (
         !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
@@ -505,7 +538,8 @@ service cloud.firestore {
 
     match /pricelists/{productId} {
       allow read: if true;
-      allow create, update: if isAdmin() || isSubAdmin();
+      allow create, update: if isProductManager() &&
+        hasValidProductHighlights(request.resource.data);
       allow delete: if isAdmin();
     }
 

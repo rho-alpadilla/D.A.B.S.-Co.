@@ -8,6 +8,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Upload, Save, X, ArrowLeft, Trash2, ImagePlus, PackageCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { createDefaultProductHighlights } from '@/lib/highlights/productHighlights';
 
 const CATEGORIES = [
   "Hand-painted needlepoint canvas",
@@ -31,7 +32,8 @@ const AddProductPage = () => {
     category: "",
     imageUrls: [], // ← Changed to array for multiple images
     inStock: true,
-    stockQuantity: 0
+    stockQuantity: 0,
+    highlights: createDefaultProductHighlights(),
   });
 
   const [uploading, setUploading] = useState(false);
