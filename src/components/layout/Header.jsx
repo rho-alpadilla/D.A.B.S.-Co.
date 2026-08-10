@@ -66,6 +66,7 @@ import {
 } from 'firebase/firestore';
 import CircularText from '@/components/effects/CircularText';
 import { ClearSearchButton } from '@/components/ui/clear-search-button';
+import { ResizableNavbarShell } from '@/components/ui/resizable-navbar';
 import dabsLogo from '@/assets/dabs-logo-square.png';
 import {
   backfillAdminAlertHistory,
@@ -114,6 +115,7 @@ const Header = () => {
   const { cartCount } = useCart();
   const { currency, setCurrency, CURRENCIES } = useCurrency();
   const shouldReduceMotion = useReducedMotion();
+  const isNavbarCompact = scrollPct > 0.08;
 
   const desktopPopoverMotion = shouldReduceMotion
     ? {
@@ -756,9 +758,24 @@ const Header = () => {
       <style>{`
         /* ── Artisan Canvas Header Styles ───────────────────────────────── */
         .hdr {
+          position: relative;
+          width: 100%;
+        }
+
+        .resizable-navbar-shell {
           position: sticky;
           top: 0;
           z-index: 50;
+          margin-inline: auto;
+          will-change: width, transform;
+        }
+
+        @media (max-width: 1023px) {
+          .resizable-navbar-shell {
+            width: 100% !important;
+            transform: none !important;
+          }
+
         }
 
         /* Centered nav links (desktop) */
@@ -815,7 +832,7 @@ const Header = () => {
           display: flex;
           align-items: center;
           gap: 0.45rem;
-          padding: 0.58rem 1rem;
+          padding: 0.46rem 0.85rem;
           border-radius: 999px;
           border: 1px solid;
           cursor: pointer;
@@ -851,7 +868,7 @@ const Header = () => {
           font-family: var(--font-ui);
           font-size: 0.875rem;
           font-weight: 700;
-          min-height: 2.75rem;
+          min-height: 2.5rem;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -935,15 +952,15 @@ const Header = () => {
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          width: 56px;
-          height: 56px;
+          width: 44px;
+          height: 44px;
         }
 
         /* Logo image inside the circular ring */
         .hdr-logo-img {
           position: absolute;
-          width: 32px;
-          height: 32px;
+          width: 25px;
+          height: 25px;
           object-fit: contain;
           border-radius: 50%;
           /* multiply blend makes the white background transparent on the glass nav */
@@ -953,20 +970,25 @@ const Header = () => {
         }
       `}</style>
 
-      <header
-        ref={headerRef}
-        className="hdr"
-        style={{
-          background: hdrBg,
-          backdropFilter: hdrBlur,
-          WebkitBackdropFilter: hdrBlur,
-          borderBottom: `1px solid ${hdrBorderColor}`,
-          boxShadow: hdrShadow,
-          transition:
-            'background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease',
-        }}
+      <ResizableNavbarShell
+        compact={isNavbarCompact}
+        reduceMotion={shouldReduceMotion}
       >
-        <nav className="container mx-auto relative flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <header
+          ref={headerRef}
+          className="hdr"
+          style={{
+            background: hdrBg,
+            backdropFilter: hdrBlur,
+            WebkitBackdropFilter: hdrBlur,
+            borderBottom: `1px solid ${hdrBorderColor}`,
+            borderRadius: isNavbarCompact ? '1.75rem' : 0,
+            boxShadow: hdrShadow,
+            transition:
+              'background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, border-radius 0.3s ease',
+          }}
+        >
+        <nav className="container mx-auto relative flex items-center justify-between px-3 py-2 sm:px-4 lg:px-5">
 
           {/* ── LOGO ── CircularText ring + centered PNG logo ── */}
           <Link to={homePath} className="hdr-logo-mark">
@@ -974,8 +996,8 @@ const Header = () => {
               text="DABS.Co.•"
               onHover="speedUp"
               spinDuration={20}
-              size={56}
-              fontSize="0.48rem"
+              size={44}
+              fontSize="0.4rem"
               className="!text-artisan-primary"
             />
             {/* PNG logo centered inside the spinning ring */}
@@ -1720,7 +1742,8 @@ const Header = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      </header>
+        </header>
+      </ResizableNavbarShell>
     </>
   );
 };
