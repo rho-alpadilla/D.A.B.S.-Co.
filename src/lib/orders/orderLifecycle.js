@@ -64,6 +64,7 @@ const requireReviewedInvalidOrder = (order, actorUid) => {
 
   const protectedStatuses = new Set([
     'paid',
+    'accepted',
     'payment_confirmed',
     'processing',
     'shipping',

@@ -1,11 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  isAwaitingReview,
-  isDeclinedOrder,
-  isPostReviewWorkflow,
-} from './orderStatus';
-import {
   Package,
   ShoppingCart,
   TrendingUp,
@@ -32,6 +27,7 @@ import {
   Phone,
   Wallet
 } from "lucide-react";
+import { hasOpenStatusCorrectionRequest } from './orderStatus';
 
 // Receives every field the Admin controller (AdminPanel/index.jsx) computes,
 // spread from its 'adminState' object. Trim this list to only what this tab
@@ -62,11 +58,7 @@ const AdminOverviewTab = (props) => {
     formatPrice,
     formatShortDate,
     formatShortTime,
-    formatStatusOptionLabel,
     getStatusBadge,
-    handleCancellation,
-    handleDeclineOrder,
-    handleReviewOrder,
     isAdmin,
     isSubAdmin,
     loadingUsers,
@@ -111,7 +103,6 @@ const AdminOverviewTab = (props) => {
     totalAllOrders,
     totalIncome,
     totalOrdersCompleted,
-    updateOrderStatus,
     user,
     userSearch,
     users,
@@ -234,11 +225,23 @@ const AdminOverviewTab = (props) => {
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="inline-flex items-center rounded-full bg-artisan-primary-wash px-3 py-1 text-xs font-bold text-artisan-primary">
-                                        #{order.id.slice(0, 8)}
-                                      </span>
-                                      {getStatusBadge(order.status)}
-                                    </div>
+                                       <span className="inline-flex items-center rounded-full bg-artisan-primary-wash px-3 py-1 text-xs font-bold text-artisan-primary">
+                                         #{order.id.slice(0, 8)}
+                                       </span>
+                                       {getStatusBadge(order.status)}
+                                       {hasOpenStatusCorrectionRequest(order) && (
+                                         <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-xs font-bold text-amber-950">
+                                           <AlertCircle size={14} aria-hidden="true" />
+                                           Needs special attention
+                                         </span>
+                                       )}
+                                     </div>
+
+                                     {hasOpenStatusCorrectionRequest(order) && (
+                                       <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                                         Sub-admin request: {order.statusCorrectionRequest.message}
+                                       </p>
+                                     )}
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                                       <div className="flex items-start gap-3">
@@ -317,90 +320,17 @@ const AdminOverviewTab = (props) => {
                               </div>
 
                               <div className="lg:w-[220px] shrink-0">
-                                <div className="flex flex-col gap-2">
-                                  {isAwaitingReview(order.status) ? (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleReviewOrder(order, true)}
-                                        className="w-full"
-                                      >
-                                        Review
-                                      </Button>
-
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleDeclineOrder(order)}
-                                        className="w-full rounded-xl border-red-300 text-red-600 hover:bg-red-50"
-                                      >
-                                        Decline
-                                      </Button>
-                                    </>
-                                  ) : isPostReviewWorkflow(order.status) ? (
-                                    <>
-                                      {isAdmin ? (
-                                        <select
-                                          value={order.status || "on_review"}
-                                          onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                          className="w-full rounded-xl border border-artisan-border bg-white px-3 py-2 text-sm text-artisan-text outline-none focus:ring-2 focus:ring-artisan-primary/15"
-                                        >
-                                          <option value="on_review">On Review</option>
-                                          <option value="payment_confirmed">Payment Confirmed</option>
-                                          <option value="processing">Processing</option>
-                                          <option value="shipping">Shipping</option>
-                                          <option value="completed">Completed</option>
-                                          <option value="cancelled">Cancelled</option>
-                                        </select>
-                                      ) : (
-                                        subAdminAllowedStatuses.includes(order.status || "on_review") ? (
-                                          <select
-                                            value={order.status || "on_review"}
-                                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                                            className="w-full rounded-xl border border-artisan-border bg-white px-3 py-2 text-sm text-artisan-text outline-none focus:ring-2 focus:ring-artisan-primary/15"
-                                          >
-                                            <option value="on_review">On Review</option>
-                                            <option value="payment_confirmed">Payment Confirmed</option>
-                                            <option value="processing">Processing</option>
-                                            <option value="shipping">Shipping</option>
-                                          </select>
-                                        ) : (
-                                          <div className="w-full rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/45 px-3 py-2 text-sm text-artisan-text-muted">
-                                            Status locked for sub-admin
-                                          </div>
-                                        )
-                                      )}
-
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setTab("orders");
-                                          setSelectedOrder(order);
-                                        }}
-                                        className="w-full rounded-xl"
-                                      >
-                                        Open Full Order
-                                      </Button>
-                                    </>
-                                  ) : isDeclinedOrder(order.status) ? (
-                                    <div className="w-full px-3 py-2 border border-red-200 rounded-xl text-sm bg-red-50 text-red-600 font-medium text-center">
-                                      Order declined
-                                    </div>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setTab("orders");
-                                        setSelectedOrder(order);
-                                      }}
-                                      className="w-full rounded-xl"
-                                    >
-                                      Open Full Order
-                                    </Button>
-                                  )}
-                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setTab("orders");
+                                    setSelectedOrder(order);
+                                  }}
+                                  className="w-full rounded-xl"
+                                >
+                                  Open Full Order
+                                </Button>
                               </div>
                             </div>
                           </div>

@@ -4,6 +4,7 @@ import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import { downloadOrdersExcel, filterOrdersForExport } from '@/lib/exports/adminExports';
 import { ARCHIVABLE_ORDER_STATUSES } from '@/lib/orders/orderLifecycle';
 import {
+  hasOpenStatusCorrectionRequest,
   isAwaitingReview,
   isPostReviewWorkflow,
 } from './orderStatus';
@@ -462,7 +463,17 @@ const AdminOrdersTab = (props) => {
                             </ul>
                           </td>
                           <td className="p-4 font-bold text-artisan-primary">{formatPrice(order.total || 0)}</td>
-                          <td className="p-4">{getStatusBadge(order.status)}</td>
+                          <td className="p-4">
+                            <div className="space-y-2">
+                              {getStatusBadge(order.status)}
+                              {hasOpenStatusCorrectionRequest(order) && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-950">
+                                  <AlertCircle size={13} aria-hidden="true" />
+                                  Needs special attention
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="p-4">
                             <div
                               className="hidden"
@@ -591,7 +602,7 @@ const AdminOrdersTab = (props) => {
                             <p className="font-bold text-artisan-text">Order #{order.id.slice(0, 8)}</p>
                             <p className="mt-1 text-sm text-artisan-text-muted">{order.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
                             {canSelectOrder && (
                               <input
                                 type="checkbox"
@@ -603,8 +614,20 @@ const AdminOrdersTab = (props) => {
                               />
                             )}
                             {getStatusBadge(order.status)}
+                            {hasOpenStatusCorrectionRequest(order) && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-950">
+                                <AlertCircle size={13} aria-hidden="true" />
+                                Needs special attention
+                              </span>
+                            )}
                           </div>
                         </div>
+
+                        {hasOpenStatusCorrectionRequest(order) && (
+                          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                            Sub-admin request: {order.statusCorrectionRequest.message}
+                          </p>
+                        )}
 
                         <div className="mt-4 border-y border-artisan-primary/10 py-4">
                           <p className="text-xs font-bold uppercase tracking-[0.14em] text-artisan-text-faint">Customer</p>

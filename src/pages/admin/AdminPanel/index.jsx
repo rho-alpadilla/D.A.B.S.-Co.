@@ -14,6 +14,9 @@ import {
   doc,
   updateDoc,
   getDoc,
+  getDocs,
+  query,
+  where,
   increment,
   serverTimestamp
 } from 'firebase/firestore';
@@ -58,12 +61,15 @@ import {
   Phone,
   Wallet
 } from "lucide-react";
-import { createNotification } from '@/lib/notifications';
+import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
 import AdminOverviewTab from './AdminOverviewTab';
 import AdminOrdersTab from './AdminOrdersTab';
 import AdminUsersTab from './AdminUsersTab';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
 import {
+  getCorrectionStatusOptions,
+  getNextWorkflowStatusOptions,
+  hasOpenStatusCorrectionRequest,
   isAwaitingReview,
   isDeclinedOrder,
   isPostReviewWorkflow,
@@ -91,6 +97,8 @@ import {
 import OrderLifecycleDialog from '@/components/admin/OrderLifecycleDialog';
 import BulkOrderRecycleDialog from '@/components/admin/BulkOrderRecycleDialog';
 import BulkPermanentOrderDeleteDialog from '@/components/admin/BulkPermanentOrderDeleteDialog';
+import StatusCorrectionRequestDialog from '@/components/admin/StatusCorrectionRequestDialog';
+import ResolveStatusCorrectionDialog from '@/components/admin/ResolveStatusCorrectionDialog';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
@@ -105,6 +113,7 @@ const AdminPanel = () => {
 
   const subAdminAllowedStatuses = [
     "on_review",
+    "accepted",
     "payment_confirmed",
     "processing",
     "shipping"
@@ -126,6 +135,10 @@ const AdminPanel = () => {
   const [bulkRecycleDialog, setBulkRecycleDialog] = useState(null);
   const [bulkPermanentDeleteDialog, setBulkPermanentDeleteDialog] = useState(null);
   const [isLifecycleSubmitting, setIsLifecycleSubmitting] = useState(false);
+  const [statusCorrectionOrder, setStatusCorrectionOrder] = useState(null);
+  const [isStatusCorrectionSubmitting, setIsStatusCorrectionSubmitting] = useState(false);
+  const [statusCorrectionResolutionOrder, setStatusCorrectionResolutionOrder] = useState(null);
+  const [isStatusCorrectionResolving, setIsStatusCorrectionResolving] = useState(false);
 
   const [userSearch, setUserSearch] = useState('');
   useEffect(() => {
@@ -175,6 +188,7 @@ const AdminPanel = () => {
     const statusTitles = {
       pending_review: "Order Awaiting Review",
       on_review: "Order On Review",
+      accepted: "Order Accepted",
       declined: "Order Declined",
       payment_confirmed: "Payment Confirmed",
       processing: "Order Processing",
@@ -239,12 +253,24 @@ const AdminPanel = () => {
   const handleReviewOrder = async (order, openDrawer = false) => {
     if (!order) return;
 
+    if (hasOpenStatusCorrectionRequest(order)) {
+      alert('This order needs special attention. A main admin must resolve the correction request before its status can change.');
+      return;
+    }
+
     try {
-      await updateDoc(doc(db, "orders", order.id), {
+      const reviewUpdate = {
         status: "on_review",
-        reviewedAt: new Date(),
         updatedAt: new Date()
-      });
+      };
+
+      // Firestore permits the review timestamp for the main admin only. The
+      // sub-admin may still move the order into review without a failed write.
+      if (isAdmin) {
+        reviewUpdate.reviewedAt = new Date();
+      }
+
+      await updateDoc(doc(db, "orders", order.id), reviewUpdate);
 
       await notifyBuyerStatusChange(order, "on_review");
 
@@ -262,6 +288,11 @@ const AdminPanel = () => {
 
   const handleDeclineOrder = async (order, closeDrawer = false) => {
     if (!order) return;
+
+    if (!isAdmin) {
+      alert("Only the main admin can decline an order.");
+      return;
+    }
 
     const confirmed = window.confirm(`Decline order #${order.id.slice(0, 8)}?`);
     if (!confirmed) return;
@@ -484,6 +515,11 @@ const AdminPanel = () => {
       : orderOrId;
     if (!order) return;
 
+    if (hasOpenStatusCorrectionRequest(order)) {
+      alert('This order needs special attention. A main admin must resolve the correction request before its status can change.');
+      return;
+    }
+
     const currentStatus = order.status || "pending";
 
     if (isSubAdmin && !subAdminAllowedStatuses.includes(newStatus)) {
@@ -544,6 +580,155 @@ const AdminPanel = () => {
     }
   };
 
+  const handleAcceptOrder = async (order) => {
+    if (!order || order.status !== "on_review") return;
+
+    await updateOrderStatus(order, "accepted");
+  };
+
+  const submitStatusCorrectionRequest = async (message) => {
+    if (!isSubAdmin || !user?.uid || !statusCorrectionOrder?.id) {
+      alert('Only a sub-admin can request a status correction.');
+      return;
+    }
+
+    const trimmedMessage = message.trim();
+    if (trimmedMessage.length < 10) {
+      alert('Please provide a short explanation for the main admin.');
+      return;
+    }
+
+    const currentOrder = orders.find((order) => order.id === statusCorrectionOrder.id);
+    if (!currentOrder) {
+      alert('This order is no longer available. Refresh and try again.');
+      setStatusCorrectionOrder(null);
+      return;
+    }
+
+    if (hasOpenStatusCorrectionRequest(currentOrder)) {
+      alert('A correction request is already waiting for the main admin.');
+      setStatusCorrectionOrder(null);
+      return;
+    }
+
+    setIsStatusCorrectionSubmitting(true);
+    try {
+      await updateDoc(doc(db, 'orders', currentOrder.id), {
+        statusCorrectionRequest: {
+          status: 'open',
+          message: trimmedMessage,
+          requestedBy: user.uid,
+          requestedByEmail: user.email || '',
+          requestedAt: serverTimestamp(),
+        },
+        updatedAt: serverTimestamp(),
+      });
+
+      const mainAdminSnapshot = await getDocs(
+        query(collection(db, 'users'), where('role', '==', 'admin')),
+      );
+      const mainAdminUids = mainAdminSnapshot.docs.map((entry) => entry.id).filter(Boolean);
+
+      if (!mainAdminUids.length) {
+        throw new Error('No main-admin account is available to receive this request.');
+      }
+
+      const readableStatus = String(currentOrder.status || 'unknown').replace(/_/g, ' ');
+      await createNotificationsForUsers({
+        uids: mainAdminUids,
+        type: 'order_correction',
+        title: 'Order status correction requested',
+        body: `Sub-admin ${user.email || user.uid} requested a correction for order #${currentOrder.id.slice(0, 8)} (currently ${readableStatus}): ${trimmedMessage}`,
+        link: '/admin-panel',
+        orderId: currentOrder.id,
+        subject: 'status_correction',
+      });
+
+      alert('Your request now appears as Needs special attention for the main admin. The order status was not changed.');
+      setStatusCorrectionOrder(null);
+    } catch (error) {
+      console.error('Unable to request order status correction:', error);
+      alert(error?.message || 'The correction request could not be sent. Please try again.');
+    } finally {
+      setIsStatusCorrectionSubmitting(false);
+    }
+  };
+
+  const resolveStatusCorrectionRequest = async ({ nextStatus, customerMessage }) => {
+    if (!isAdmin || !user?.uid || !statusCorrectionResolutionOrder?.id) {
+      alert('Only the main admin can resolve a correction request.');
+      return;
+    }
+
+    const message = customerMessage.trim();
+    const currentOrder = orders.find((order) => order.id === statusCorrectionResolutionOrder.id);
+    const allowedStatuses = getCorrectionStatusOptions(currentOrder?.status);
+
+    if (!currentOrder || !hasOpenStatusCorrectionRequest(currentOrder)) {
+      alert('This correction request is no longer available. Refresh and try again.');
+      setStatusCorrectionResolutionOrder(null);
+      return;
+    }
+
+    if (!allowedStatuses.includes(nextStatus) || message.length < 10) {
+      alert('Choose a valid corrected status and enter a customer message of at least 10 characters.');
+      return;
+    }
+
+    setIsStatusCorrectionResolving(true);
+    try {
+      await updateDoc(doc(db, 'orders', currentOrder.id), {
+        status: nextStatus,
+        statusCorrectionRequest: {
+          ...currentOrder.statusCorrectionRequest,
+          status: 'resolved',
+          resolvedBy: user.uid,
+          resolvedAt: serverTimestamp(),
+          customerMessage: message,
+        },
+        updatedAt: serverTimestamp(),
+      });
+
+      const shortOrderId = currentOrder.id.slice(0, 8);
+      const readableStatus = formatStatusOptionLabel(nextStatus);
+      const notifications = [];
+
+      if (currentOrder.buyerId) {
+        notifications.push(createNotification({
+          uid: currentOrder.buyerId,
+          type: 'order_status_correction',
+          title: `Update for order #${shortOrderId}`,
+          body: message,
+          link: '/pending-orders',
+          orderId: currentOrder.id,
+          subject: 'order_status_correction',
+        }));
+      }
+
+      const requestingSubAdminUid = currentOrder.statusCorrectionRequest.requestedBy;
+      if (requestingSubAdminUid) {
+        notifications.push(createNotification({
+          uid: requestingSubAdminUid,
+          type: 'order_correction_resolved',
+          title: 'Order correction resolved',
+          body: `Order #${shortOrderId} was updated to ${readableStatus}. Customer message: ${message}`,
+          link: '/admin-panel',
+          orderId: currentOrder.id,
+          subject: 'status_correction_resolved',
+        }));
+      }
+
+      await Promise.all(notifications);
+      alert('Correction resolved. The customer and requesting sub-admin were notified where an account is available.');
+      setStatusCorrectionResolutionOrder(null);
+    } catch (error) {
+      console.error('Unable to resolve order status correction:', error);
+      alert(error?.message || 'The correction request could not be resolved. Please try again.');
+    } finally {
+      setIsStatusCorrectionResolving(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     const map = {
       pending: {
@@ -561,6 +746,11 @@ const AdminPanel = () => {
         color: "bg-blue-100 text-blue-700",
         icon: <Eye size={16} />
       },
+      accepted: {
+        text: "Accepted",
+        color: "bg-violet-100 text-violet-700",
+        icon: <CheckCircle size={16} />
+      },
       payment_confirmed: {
         text: "Payment Confirmed",
         color: "bg-emerald-100 text-emerald-700",
@@ -572,7 +762,7 @@ const AdminPanel = () => {
         icon: <Package size={16} />
       },
       shipping: {
-        text: "Shipping",
+        text: "Shipped",
         color: "bg-cyan-100 text-cyan-700",
         icon: <Truck size={16} />
       },
@@ -622,9 +812,10 @@ const AdminPanel = () => {
       all: "All statuses",
       awaiting_review: "Awaiting Review",
       on_review: "On Review",
+      accepted: "Accepted",
       payment_confirmed: "Payment Confirmed",
       processing: "Processing",
-      shipping: "Shipping",
+      shipping: "Shipped",
       completed: "Completed",
       declined: "Declined",
       cancelled: "Cancelled",
@@ -822,7 +1013,9 @@ const AdminPanel = () => {
     return s > 0 && s <= 5;
   }).length;
 
-  const recentOrders = orders.slice(0, 5);
+  const recentOrders = [...orders]
+    .sort((firstOrder, secondOrder) => Number(hasOpenStatusCorrectionRequest(secondOrder)) - Number(hasOpenStatusCorrectionRequest(firstOrder)))
+    .slice(0, 5);
   const totalAllOrders = orders.length;
   const pct = (n) => totalAllOrders > 0 ? Math.round((n / totalAllOrders) * 100) : 0;
 
@@ -859,7 +1052,7 @@ const AdminPanel = () => {
         buyerEmail.includes(term) ||
         itemsText.includes(term)
       );
-    });
+    }).sort((firstOrder, secondOrder) => Number(hasOpenStatusCorrectionRequest(secondOrder)) - Number(hasOpenStatusCorrectionRequest(firstOrder)));
   }, [orders, orderSearch, orderStatusFilter, orderView]);
 
   const archivedOrderCount = orders.filter((order) => order.archive?.isArchived === true).length;
@@ -868,6 +1061,7 @@ const AdminPanel = () => {
     'all',
     'awaiting_review',
     'on_review',
+    'accepted',
     'payment_confirmed',
     'processing',
     'shipping',
@@ -930,6 +1124,7 @@ const AdminPanel = () => {
     formatShortTime,
     formatStatusOptionLabel,
     getStatusBadge,
+    handleAcceptOrder,
     handleCancellation,
     handleDeclineOrder,
     handleDeleteDataQualityOrder,
@@ -1298,55 +1493,82 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-6">
-                  <h4 className="mb-5 font-nunito text-2xl font-bold text-artisan-text">Admin Actions</h4>
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <h4 className="font-nunito text-2xl font-bold text-artisan-text">Admin Actions</h4>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {getStatusBadge(selectedOrderLive.status)}
+                      <span className="rounded-lg border border-artisan-primary/10 bg-artisan-primary-wash/45 px-3 py-1.5 text-xs font-semibold text-artisan-text-mid">
+                        Payment: {formatPaymentMethod(selectedOrderLive.paymentMethod)}
+                      </span>
+                    </div>
+                  </div>
 
                   <div className="flex flex-wrap gap-3">
-                    {isAwaitingReview(selectedOrderLive.status) ? (
+                    {hasOpenStatusCorrectionRequest(selectedOrderLive) ? (
+                      <div className="w-full rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 sm:w-auto sm:min-w-[24rem]">
+                        <p className="font-bold">Needs special attention</p>
+                        <p className="mt-1">{selectedOrderLive.statusCorrectionRequest.message}</p>
+                        {isAdmin ? (
+                          <Button
+                            className="mt-3 w-full sm:w-auto"
+                            onClick={() => setStatusCorrectionResolutionOrder(selectedOrderLive)}
+                          >
+                            Address correction request
+                          </Button>
+                        ) : (
+                          <p className="mt-2 font-semibold">Waiting for the main admin to resolve this request.</p>
+                        )}
+                      </div>
+                    ) : isAwaitingReview(selectedOrderLive.status) ? (
+                      <Button
+                        onClick={() => handleReviewOrder(selectedOrderLive, false)}
+                        className="w-full sm:w-auto"
+                      >
+                        Start review
+                      </Button>
+                    ) : selectedOrderLive.status === "on_review" ? (
                       <>
                         <Button
-                          onClick={() => handleReviewOrder(selectedOrderLive, false)}
+                          onClick={() => handleAcceptOrder(selectedOrderLive)}
                           className="w-full sm:w-auto"
                         >
-                          Review Order
+                          Accept order
                         </Button>
-
-                        <Button
-                          variant="outline"
-                          onClick={() => handleDeclineOrder(selectedOrderLive, true)}
-                          className="w-full border-red-300 text-red-600 hover:bg-red-50 sm:w-auto"
-                        >
-                          Decline
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="outline"
+                            onClick={() => handleDeclineOrder(selectedOrderLive, true)}
+                            className="w-full border-red-300 text-red-600 hover:bg-red-50 sm:w-auto"
+                          >
+                            Decline
+                          </Button>
+                        )}
                       </>
                     ) : isPostReviewWorkflow(selectedOrderLive.status) ? (
-                      isAdmin ? (
+                      getNextWorkflowStatusOptions(selectedOrderLive.status, { isAdmin }).length > 1 ? (
                         <select
-                          value={selectedOrderLive.status || "on_review"}
+                          value={selectedOrderLive.status}
                           onChange={(e) => updateOrderStatus(selectedOrderLive.id, e.target.value)}
                           className="w-full rounded-xl border border-artisan-border bg-white px-4 py-2 text-sm text-artisan-text outline-none focus:ring-2 focus:ring-artisan-primary/15 sm:w-auto"
                         >
-                          <option value="on_review">On Review</option>
-                          <option value="payment_confirmed">Payment Confirmed</option>
-                          <option value="processing">Processing</option>
-                          <option value="shipping">Shipping</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
+                          {getNextWorkflowStatusOptions(selectedOrderLive.status, { isAdmin }).map((status) => (
+                            <option key={status} value={status}>{formatStatusOptionLabel(status)}</option>
+                          ))}
                         </select>
                       ) : (
-                        subAdminAllowedStatuses.includes(selectedOrderLive.status || "on_review") ? (
+                        getNextWorkflowStatusOptions(selectedOrderLive.status, { isAdmin: false }).length > 1 ? (
                           <select
-                            value={selectedOrderLive.status || "on_review"}
+                            value={selectedOrderLive.status}
                             onChange={(e) => updateOrderStatus(selectedOrderLive.id, e.target.value)}
                             className="w-full rounded-xl border border-artisan-border bg-white px-4 py-2 text-sm text-artisan-text outline-none focus:ring-2 focus:ring-artisan-primary/15 sm:w-auto"
                           >
-                            <option value="on_review">On Review</option>
-                            <option value="payment_confirmed">Payment Confirmed</option>
-                            <option value="processing">Processing</option>
-                            <option value="shipping">Shipping</option>
+                            {getNextWorkflowStatusOptions(selectedOrderLive.status, { isAdmin: false }).map((status) => (
+                              <option key={status} value={status}>{formatStatusOptionLabel(status)}</option>
+                            ))}
                           </select>
                         ) : (
                           <div className="w-full rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/45 px-4 py-2 text-sm text-artisan-text-muted sm:w-auto">
-                            Status locked for sub-admin
+                            {isSubAdmin ? 'Status locked for sub-admin' : 'No further status updates'}
                           </div>
                         )
                       )
@@ -1355,6 +1577,16 @@ const AdminPanel = () => {
                         This order has been declined.
                       </div>
                     ) : null}
+
+                    {isSubAdmin && !hasOpenStatusCorrectionRequest(selectedOrderLive) && !selectedOrderLive.archive?.isArchived && ['accepted', 'payment_confirmed', 'processing', 'shipping'].includes(selectedOrderLive.status) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setStatusCorrectionOrder(selectedOrderLive)}
+                        className="w-full sm:w-auto"
+                      >
+                        Request status correction
+                      </Button>
+                    )}
 
                     {isAdmin && selectedOrderLive.status === "Cancellation Requested" && (
                       <Button
@@ -1432,6 +1664,24 @@ const AdminPanel = () => {
           isSubmitting={isLifecycleSubmitting}
           onClose={() => !isLifecycleSubmitting && setBulkPermanentDeleteDialog(null)}
           onConfirm={handleBulkPermanentDeleteConfirm}
+        />
+      )}
+      {statusCorrectionOrder && (
+        <StatusCorrectionRequestDialog
+          order={statusCorrectionOrder}
+          isSubmitting={isStatusCorrectionSubmitting}
+          onClose={() => !isStatusCorrectionSubmitting && setStatusCorrectionOrder(null)}
+          onSubmit={submitStatusCorrectionRequest}
+        />
+      )}
+      {statusCorrectionResolutionOrder && (
+        <ResolveStatusCorrectionDialog
+          order={statusCorrectionResolutionOrder}
+          statusOptions={getCorrectionStatusOptions(statusCorrectionResolutionOrder.status)}
+          formatStatusOptionLabel={formatStatusOptionLabel}
+          isSubmitting={isStatusCorrectionResolving}
+          onClose={() => !isStatusCorrectionResolving && setStatusCorrectionResolutionOrder(null)}
+          onSubmit={resolveStatusCorrectionRequest}
         />
       )}
     </>

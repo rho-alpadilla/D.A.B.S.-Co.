@@ -96,8 +96,14 @@ service cloud.firestore {
 
     // Main admins may continue the existing status workflows, but cannot
     // directly edit financial, buyer, inventory, or future archive fields.
+    function hasOpenStatusCorrectionRequest() {
+      return ('statusCorrectionRequest' in resource.data) &&
+        resource.data.statusCorrectionRequest.status == 'open';
+    }
+
     function updatesAdminOrderWorkflow() {
       return isAdmin() &&
+        !hasOpenStatusCorrectionRequest() &&
         completedTransitionHasAnalyticsFields() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
@@ -238,6 +244,7 @@ service cloud.firestore {
       return !hasAnalyticsOrderFields(resource.data) &&
         !(resource.data.status in [
           'paid',
+          'accepted',
           'payment_confirmed',
           'processing',
           'shipping',
@@ -384,6 +391,7 @@ service cloud.firestore {
         !hasAnalyticsOrderFields(orderBefore) &&
         !(orderBefore.status in [
           'paid',
+          'accepted',
           'payment_confirmed',
           'processing',
           'shipping',
@@ -464,6 +472,7 @@ service cloud.firestore {
           'pending',
           'pending_review',
           'on_review',
+          'accepted',
           'Paid / Processing'
         ] &&
         request.resource.data.status == 'Cancellation Requested' &&
@@ -474,6 +483,132 @@ service cloud.firestore {
           'cancellationRequestedAt',
           'cancellationRequestedBy'
         ]);
+    }
+
+    function createsStatusCorrectionRequest() {
+      let correction = request.resource.data.statusCorrectionRequest;
+      return isSubAdmin() &&
+        !hasOpenStatusCorrectionRequest() &&
+        resource.data.status in ['accepted', 'payment_confirmed', 'processing', 'shipping'] &&
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['statusCorrectionRequest', 'updatedAt']) &&
+        correction.keys().hasAll([
+          'status',
+          'message',
+          'requestedBy',
+          'requestedByEmail',
+          'requestedAt'
+        ]) &&
+        correction.keys().hasOnly([
+          'status',
+          'message',
+          'requestedBy',
+          'requestedByEmail',
+          'requestedAt'
+        ]) &&
+        correction.status == 'open' &&
+        isAuditReason(correction.message) &&
+        correction.requestedBy == request.auth.uid &&
+        correction.requestedByEmail is string &&
+        correction.requestedByEmail.size() <= 320 &&
+        correction.requestedAt == request.time;
+    }
+
+    function isCorrectionResolutionStatus() {
+      return (resource.data.status == 'accepted' &&
+          request.resource.data.status == 'accepted') ||
+        (resource.data.status == 'payment_confirmed' &&
+          request.resource.data.status in ['accepted', 'payment_confirmed']) ||
+        (resource.data.status == 'processing' &&
+          request.resource.data.status in ['accepted', 'payment_confirmed', 'processing']) ||
+        (resource.data.status == 'shipping' &&
+          request.resource.data.status in ['accepted', 'payment_confirmed', 'processing', 'shipping']);
+    }
+
+    function resolvesStatusCorrectionRequest() {
+      let existingCorrection = resource.data.statusCorrectionRequest;
+      let correction = request.resource.data.statusCorrectionRequest;
+      return isAdmin() &&
+        hasOpenStatusCorrectionRequest() &&
+        isCorrectionResolutionStatus() &&
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['status', 'statusCorrectionRequest', 'updatedAt']) &&
+        correction.keys().hasAll([
+          'status',
+          'message',
+          'requestedBy',
+          'requestedByEmail',
+          'requestedAt',
+          'resolvedBy',
+          'resolvedAt',
+          'customerMessage'
+        ]) &&
+        correction.keys().hasOnly([
+          'status',
+          'message',
+          'requestedBy',
+          'requestedByEmail',
+          'requestedAt',
+          'resolvedBy',
+          'resolvedAt',
+          'customerMessage'
+        ]) &&
+        correction.status == 'resolved' &&
+        correction.message == existingCorrection.message &&
+        correction.requestedBy == existingCorrection.requestedBy &&
+        correction.requestedByEmail == existingCorrection.requestedByEmail &&
+        correction.requestedAt == existingCorrection.requestedAt &&
+        correction.resolvedBy == request.auth.uid &&
+        correction.resolvedAt == request.time &&
+        isAuditReason(correction.customerMessage);
+    }
+
+    // Sub-admins may advance an order one controlled step at a time. A
+    // correction must be requested from the main admin instead of allowing a
+    // sub-admin to silently move an order backward.
+    function advancesOrderWorkflowAsSubAdmin() {
+      return isSubAdmin() &&
+        !hasOpenStatusCorrectionRequest() &&
+        request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(['status', 'updatedAt']) &&
+        (
+          (resource.data.status in ['pending', 'pending_review', 'awaiting', 'awaiting_review', 'paid'] &&
+            request.resource.data.status == 'on_review') ||
+          (resource.data.status == 'on_review' &&
+            request.resource.data.status == 'accepted') ||
+          (resource.data.status == 'accepted' &&
+            request.resource.data.status == 'payment_confirmed') ||
+          (resource.data.status == 'payment_confirmed' &&
+            request.resource.data.status == 'processing') ||
+          (resource.data.status == 'processing' &&
+            request.resource.data.status == 'shipping')
+        );
+    }
+
+    function isStatusCorrectionNotificationForAdmin(userId) {
+      return isSubAdmin() &&
+        get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin' &&
+        request.resource.data.keys().hasOnly([
+          'type',
+          'title',
+          'body',
+          'link',
+          'orderId',
+          'subject',
+          'read',
+          'createdAt'
+        ]) &&
+        request.resource.data.type == 'order_correction' &&
+        request.resource.data.title == 'Order status correction requested' &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() >= 10 &&
+        request.resource.data.body.size() <= 1200 &&
+        request.resource.data.link == '/admin-panel' &&
+        request.resource.data.orderId is string &&
+        request.resource.data.orderId.size() > 0 &&
+        request.resource.data.subject == 'status_correction' &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
     }
 
     match /users/{userId} {
@@ -530,8 +665,14 @@ service cloud.firestore {
       }
 
       match /notifications/{notificationId} {
-        allow read, write: if isActiveAccount() && (
+        allow read, update, delete: if isActiveAccount() && (
           request.auth.uid == userId || isAdmin()
+        );
+
+        allow create: if isActiveAccount() && (
+          request.auth.uid == userId ||
+          isAdmin() ||
+          isStatusCorrectionNotificationForAdmin(userId)
         );
       }
     }
@@ -566,22 +707,14 @@ service cloud.firestore {
       );
 
       allow update: if updatesAdminOrderWorkflow() ||
+        createsStatusCorrectionRequest() ||
+        resolvesStatusCorrectionRequest() ||
         recordsDataQualityReview() ||
         archivesOrder(orderId) ||
         restoresOrder(orderId) ||
         buyerUpdatesPaymentReference() ||
         buyerRequestsCancellation() ||
-        (
-          isSubAdmin() &&
-          request.resource.data.diff(resource.data).changedKeys()
-            .hasOnly(['status', 'updatedAt']) &&
-          request.resource.data.status in [
-            'on_review',
-            'payment_confirmed',
-            'processing',
-            'shipping'
-          ]
-        );
+        advancesOrderWorkflowAsSubAdmin();
 
       allow delete: if deletesReviewedInvalidOrder(orderId) ||
         deletesArchivedOrder(orderId) ||

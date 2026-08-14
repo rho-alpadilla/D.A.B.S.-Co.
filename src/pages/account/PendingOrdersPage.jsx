@@ -35,6 +35,7 @@ const ACTIVE_ORDER_STATUSES = [
   'pending',
   'pending_review',
   'on_review',
+  'accepted',
   'payment_confirmed',
   'Paid / Processing',
   'processing',
@@ -49,10 +50,11 @@ const STATUS_DETAILS = {
   pending: { label: 'Awaiting review', className: 'bg-amber-100 text-amber-800', icon: Clock3 },
   pending_review: { label: 'Awaiting review', className: 'bg-amber-100 text-amber-800', icon: Clock3 },
   on_review: { label: 'On review', className: 'bg-sky-100 text-sky-800', icon: Eye },
+  accepted: { label: 'Accepted', className: 'bg-violet-100 text-violet-800', icon: CheckCircle2 },
   payment_confirmed: { label: 'Payment confirmed', className: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
   'Paid / Processing': { label: 'Paid / processing', className: 'bg-sky-100 text-sky-800', icon: CheckCircle2 },
   processing: { label: 'Processing', className: 'bg-sky-100 text-sky-800', icon: Package },
-  shipping: { label: 'Shipping', className: 'bg-cyan-100 text-cyan-800', icon: Truck },
+  shipping: { label: 'Shipped', className: 'bg-cyan-100 text-cyan-800', icon: Truck },
   completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
   declined: { label: 'Declined', className: 'bg-rose-100 text-rose-800', icon: X },
   cancelled: { label: 'Cancelled', className: 'bg-stone-200 text-stone-700', icon: XCircle },
@@ -175,7 +177,7 @@ const PendingOrdersPage = () => {
   };
 
   const canCancel = (order) => (
-    ['pending', 'pending_review', 'on_review', 'Paid / Processing'].includes(order.status)
+    ['pending', 'pending_review', 'on_review', 'accepted', 'Paid / Processing'].includes(order.status)
     && !order.cancellationRequestedAt
   );
 

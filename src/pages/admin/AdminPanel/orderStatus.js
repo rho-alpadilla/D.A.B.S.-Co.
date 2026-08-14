@@ -4,6 +4,7 @@ export const REVIEW_ENTRY_STATUSES = ['pending', 'pending_review', 'awaiting', '
 
 export const POST_REVIEW_WORKFLOW_STATUSES = [
   'on_review',
+  'accepted',
   'payment_confirmed',
   'processing',
   'shipping',
@@ -41,3 +42,43 @@ export const isPostReviewWorkflow = (status) =>
   POST_REVIEW_WORKFLOW_STATUSES.includes(normalizeOrderStatus(status));
 
 export const isDeclinedOrder = (status) => normalizeOrderStatus(status) === 'declined';
+
+export const hasOpenStatusCorrectionRequest = (order) =>
+  order?.statusCorrectionRequest?.status === 'open';
+
+const ADMIN_NEXT_STATUS_OPTIONS = {
+  accepted: ['accepted', 'payment_confirmed', 'cancelled'],
+  payment_confirmed: ['accepted', 'payment_confirmed', 'processing', 'cancelled'],
+  processing: ['accepted', 'payment_confirmed', 'processing', 'shipping', 'cancelled'],
+  shipping: ['accepted', 'payment_confirmed', 'processing', 'shipping', 'completed', 'cancelled'],
+};
+
+const SUB_ADMIN_NEXT_STATUS_OPTIONS = {
+  accepted: ['accepted', 'payment_confirmed'],
+  payment_confirmed: ['payment_confirmed', 'processing'],
+  processing: ['processing', 'shipping'],
+};
+
+// "On review" is intentionally omitted. It is an approval checkpoint with
+// dedicated Accept / Decline actions, not a selectable production status.
+export const getNextWorkflowStatusOptions = (status, { isAdmin = false } = {}) => {
+  const normalizedStatus = normalizeOrderStatus(status);
+  const options = isAdmin
+    ? ADMIN_NEXT_STATUS_OPTIONS[normalizedStatus]
+    : SUB_ADMIN_NEXT_STATUS_OPTIONS[normalizedStatus];
+
+  return options || [];
+};
+
+export const getCorrectionStatusOptions = (status) => {
+  const normalizedStatus = normalizeOrderStatus(status);
+
+  const options = {
+    accepted: ['accepted'],
+    payment_confirmed: ['accepted', 'payment_confirmed'],
+    processing: ['accepted', 'payment_confirmed', 'processing'],
+    shipping: ['accepted', 'payment_confirmed', 'processing', 'shipping'],
+  };
+
+  return options[normalizedStatus] || [];
+};
