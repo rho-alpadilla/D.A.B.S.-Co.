@@ -129,7 +129,7 @@ const LoginPage = () => {
                       type="email"
                       required
                       className="w-full rounded-2xl border border-[#DCCBE7] bg-[#FFFCFA] py-3 pl-11 pr-4 text-[#2A1739] transition-[border-color,box-shadow] duration-200 focus:border-[#5C2D91] focus:outline-none focus:ring-4 focus:ring-[#5C2D91]/15"
-                      placeholder="admin@dabs.co"
+                      placeholder="Enter email address"
                       value={formData.email}
                       onChange={handleChange}
                     />
