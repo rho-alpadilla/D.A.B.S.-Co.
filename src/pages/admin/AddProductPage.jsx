@@ -9,13 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Upload, Save, X, ArrowLeft, Trash2, ImagePlus, PackageCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { createDefaultProductHighlights } from '@/lib/highlights/productHighlights';
-
-const CATEGORIES = [
-  "Hand-painted needlepoint canvas",
-  "Crocheted products",
-  "Sample portraitures",
-  "Painting on Canvas"
-];
+import { PRODUCT_CATEGORIES, isDisplayProduct } from '@/lib/products/productTypes';
 
 const FIELD_LABEL_CLASS = 'mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted';
 const FIELD_INPUT_CLASS = 'w-full rounded-lg border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition-[border-color,box-shadow] duration-200 ease-out placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
@@ -39,6 +33,7 @@ const AddProductPage = () => {
   const [uploading, setUploading] = useState(false);
   const [previews, setPreviews] = useState([]); // array of preview URLs
   const fileInputRef = useRef(null);
+  const isDisplayCategory = isDisplayProduct(form);
 
   if (roleLoading) {
     return (
@@ -109,16 +104,17 @@ const AddProductPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.imageUrls.length || !form.category || !form.name || !form.price) {
-      toast({ title: "Error", description: "All fields required (including at least one image)", variant: "destructive" });
+    if (!form.imageUrls.length || !form.category || !form.name || (!isDisplayCategory && !form.price)) {
+      toast({ title: "Error", description: isDisplayCategory ? "Add a name, category, and at least one image." : "All fields required (including at least one image)", variant: "destructive" });
       return;
     }
 
     try {
       await addDoc(collection(db, "pricelists"), {
         ...form,
-        price: Number(form.price),
-        stockQuantity: Number(form.stockQuantity) || 0,
+        price: isDisplayCategory ? null : Number(form.price),
+        inStock: isDisplayCategory ? false : form.inStock,
+        stockQuantity: isDisplayCategory ? 0 : Number(form.stockQuantity) || 0,
         totalSold: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -171,7 +167,7 @@ const AddProductPage = () => {
                     />
                   </div>
 
-                  <div>
+                  {!isDisplayCategory && <div>
                     <label className={FIELD_LABEL_CLASS} htmlFor="product-price">Price (PHP)</label>
                     <input
                       id="product-price"
@@ -183,7 +179,7 @@ const AddProductPage = () => {
                       step="0.01"
                       required
                     />
-                  </div>
+                  </div>}
                 </div>
 
                 <div className="mt-6">
@@ -202,13 +198,24 @@ const AddProductPage = () => {
                   <select
                     id="product-category"
                     value={form.category}
-                    onChange={e => setForm({ ...form, category: e.target.value })}
+                    onChange={e => {
+                      const category = e.target.value;
+                      const isDisplay = isDisplayProduct({ category });
+                      setForm({
+                        ...form,
+                        category,
+                        price: isDisplay ? '' : form.price,
+                        inStock: isDisplay ? false : form.inStock,
+                        stockQuantity: isDisplay ? 0 : form.stockQuantity,
+                      });
+                    }}
                     className={FIELD_INPUT_CLASS}
                     required
                   >
                     <option value="">Select Category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    {PRODUCT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
+                  {isDisplayCategory && <p className="mt-2 text-sm leading-6 text-artisan-text-muted">Display pieces appear in the gallery for viewing only. They do not have a price, stock, or purchase option.</p>}
                 </div>
 
                 <div className="mt-8 flex flex-col-reverse justify-end gap-3 border-t border-artisan-primary/10 pt-6 sm:flex-row">
@@ -288,7 +295,7 @@ const AddProductPage = () => {
                   </div>
                 )}
 
-                <div className="mt-8 border-t border-artisan-primary/10 pt-6">
+                {!isDisplayCategory && <div className="mt-8 border-t border-artisan-primary/10 pt-6">
                   <div className="mb-5 flex items-center gap-2 text-artisan-primary">
                     <PackageCheck size={20} />
                     <p className="text-xs font-bold uppercase tracking-[0.16em]">Availability</p>
@@ -315,7 +322,7 @@ const AddProductPage = () => {
                       min="0"
                     />
                   </div>
-                </div>
+                </div>}
                 </aside>
               </form>
             </div>

@@ -14,6 +14,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/components/ui/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
 import { getAvailableStock, getStockLabel } from '@/lib/stock';
+import { DISPLAY_CATEGORY, isDisplayProduct } from '@/lib/products/productTypes';
 import {
   CATALOG_PAGE_SIZE,
   fetchCatalogPage,
@@ -48,7 +49,7 @@ const GalleryPage = () => {
   const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [isDeletingProducts, setIsDeletingProducts] = useState(false);
   const hasSearchQuery = Boolean(searchQuery.trim());
-  const usesClientCatalog = hasSearchQuery || sortOrder === 'topSellers';
+  const usesClientCatalog = hasSearchQuery || ['topSellers', 'lowToHigh', 'highToLow'].includes(sortOrder);
 
   const sourceKey = `${activeTab}:${sortOrder}`;
 
@@ -234,6 +235,7 @@ const GalleryPage = () => {
   };
 
   const getStockText = (product) => {
+    if (isDisplayProduct(product)) return <span className="font-semibold text-artisan-primary">Display only</span>;
     const availableStock = getAvailableStock(product);
 
     if (availableStock === 0) return <span className="font-semibold text-[#9F1239]">{getStockLabel(product)}</span>;
@@ -253,6 +255,7 @@ const GalleryPage = () => {
     { id: 'Crocheted products', label: 'Crochet' },
     { id: 'Sample portraitures', label: 'Portraiture' },
     { id: 'Painting on Canvas', label: 'Canvas Paintings' },
+    { id: DISPLAY_CATEGORY, label: 'Display Pieces' },
   ];
 
   return (
@@ -400,6 +403,7 @@ const GalleryPage = () => {
                       {products.map((item, index) => {
                         const isTopSeller = item.totalSold > 0 && sortOrder === 'topSellers';
                         const showBadge = isTopSeller || item.totalSold >= 5;
+                        const isDisplayOnly = isDisplayProduct(item);
                         const allImages = item.imageUrls?.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : [];
                         const currentIndex = imageIndices[item.id] || 0;
                         const currentImage = allImages[currentIndex] || null;
@@ -458,7 +462,7 @@ const GalleryPage = () => {
                             <div className="flex flex-1 flex-col p-5">
                               <div className="flex items-start justify-between gap-3 mb-2">
                                 <h3 className="min-h-[3.5rem] font-artisan-display text-lg font-semibold leading-snug text-[#01243A] line-clamp-2 md:text-xl">{item.name}</h3>
-                                <span className="shrink-0 text-lg font-bold tabular-nums text-artisan-primary md:text-xl">{formatPrice(item.price)}</span>
+                                <span className="shrink-0 text-right text-sm font-bold uppercase tracking-wide text-artisan-primary md:text-base">{isDisplayOnly ? 'Display only' : formatPrice(item.price)}</span>
                               </div>
                               <p className="mb-3 min-h-5 text-sm text-artisan-text-muted line-clamp-1">{item.category || 'Handmade Product'}</p>
                               <div className="mb-3 flex min-h-10 items-center justify-between gap-3">

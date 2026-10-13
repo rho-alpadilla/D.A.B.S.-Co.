@@ -24,6 +24,7 @@ import {
   getStockValidationMessage,
 } from '@/lib/stock';
 import { getProductImageUrl } from '@/lib/catalog/productImages';
+import { isDisplayProduct } from '@/lib/products/productTypes';
 
 const CartContext = createContext(null);
 
@@ -230,6 +231,13 @@ export const CartProvider = ({ children }) => {
         }
 
         const product = { id: productSnapshot.id, ...productSnapshot.data() };
+        if (isDisplayProduct(product)) {
+          return {
+            issue: `${product.name || item.name || 'This piece'} is for viewing only and cannot be checked out.`,
+            item: null,
+          };
+        }
+
         const availableStock = getAvailableStock(product);
         const requestedQuantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
 
@@ -284,6 +292,15 @@ export const CartProvider = ({ children }) => {
 
   // Add item to cart
   const addToCart = (product, quantity = 1) => {
+    if (isDisplayProduct(product)) {
+      toast({
+        title: 'Display piece',
+        description: 'This piece is for viewing only and cannot be added to the cart.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
     const availableStock = getAvailableStock(product);
     const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
     const existingItem = cartItems.find((item) => item.id === product?.id);
@@ -356,6 +373,15 @@ export const CartProvider = ({ children }) => {
     const item = cartItems.find((cartItem) => cartItem.id === id);
 
     if (!item) return false;
+
+    if (isDisplayProduct(item)) {
+      toast({
+        title: 'Display piece',
+        description: 'This piece is for viewing only and cannot be added to the cart.',
+        variant: 'destructive',
+      });
+      return false;
+    }
 
     const availableStock = getAvailableStock(item);
     const requestedQuantity = Math.max(1, Math.floor(Number(qty) || 1));

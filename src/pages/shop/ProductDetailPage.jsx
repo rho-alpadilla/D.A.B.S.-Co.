@@ -19,13 +19,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { getAvailableStock, isPurchasable } from '@/lib/stock';
 import StickyProductPurchaseSummary from '@/components/shop/StickyProductPurchaseSummary';
 import { useUserRole } from '@/hooks/useUserRole';
-
-const CATEGORIES = [
-  "Hand-painted needlepoint canvas",
-  "Crocheted products",
-  "Sample portraitures",
-  "Painting on Canvas"
-];
+import { PRODUCT_CATEGORIES, isDisplayProduct } from '@/lib/products/productTypes';
 const REVIEWS_PER_PAGE = 5;
 
 const getItemsPerPage = () => {
@@ -302,15 +296,21 @@ const ProductDetailPage = () => {
   };
 
   const saveEdits = async () => {
+    const isDisplayOnly = isDisplayProduct(form);
+    if (!form.name?.trim() || !form.description?.trim() || !form.category || (!isDisplayOnly && !form.price)) {
+      toast({ title: 'Missing information', description: isDisplayOnly ? 'Display pieces need a name, description, and category.' : 'Add a name, description, category, and price before saving.', variant: 'destructive' });
+      return;
+    }
+
     try {
       await updateDoc(doc(db, "pricelists", id), {
         name: form.name.trim(),
-        price: Number(form.price),
+        price: isDisplayOnly ? null : Number(form.price),
         description: form.description.trim(),
         category: form.category,
         imageUrls: form.imageUrls || [], // Save as array
-        inStock: form.inStock,
-        stockQuantity: Number(form.stockQuantity) || 0,
+        inStock: isDisplayOnly ? false : form.inStock,
+        stockQuantity: isDisplayOnly ? 0 : Number(form.stockQuantity) || 0,
         updatedAt: new Date()
       });
       setEditing(false);
@@ -418,6 +418,8 @@ const ProductDetailPage = () => {
       : [];
 
   const currentImage = allImages[mainImageIndex] || null;
+  const isDisplayOnly = isDisplayProduct(product);
+  const isEditingDisplay = isDisplayProduct(form);
 
   const nextImage = () => {
     setMainImageIndex(prev => (prev + 1) % allImages.length);
@@ -555,17 +557,21 @@ const ProductDetailPage = () => {
                 <>
                   <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="border-b-2 border-[#DCCBE7] text-4xl font-bold text-[#5C2D91] outline-none focus:border-[#5C2D91] md:text-5xl" required />
                   <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="text-lg text-gray-700 border rounded-lg p-4 h-40" required />
-                  <div className="space-y-2">
+                  {!isEditingDisplay && <div className="space-y-2">
                     <label className="text-xl font-bold text-[#5C2D91]">Price in PHP (₱)</label>
-                    <input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full border-b-4 border-[#C992D8] bg-transparent text-5xl font-bold text-[#7B3FA0] outline-none focus:border-[#5C2D91]" placeholder="12000" required />
+                    <input type="number" value={form.price ?? ''} onChange={e => setForm({ ...form, price: e.target.value })} className="w-full border-b-4 border-[#C992D8] bg-transparent text-5xl font-bold text-[#7B3FA0] outline-none focus:border-[#5C2D91]" placeholder="12000" required />
                     <p className="text-lg text-gray-600">Current: {formatPrice(product.price)}</p>
-                  </div>
-                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="px-4 py-3 border rounded-lg text-lg">
+                  </div>}
+                  <select value={form.category} onChange={e => {
+                    const category = e.target.value;
+                    const isDisplay = isDisplayProduct({ category });
+                    setForm({ ...form, category, price: isDisplay ? '' : form.price, inStock: isDisplay ? false : form.inStock, stockQuantity: isDisplay ? 0 : form.stockQuantity });
+                  }} className="px-4 py-3 border rounded-lg text-lg">
                     <option value="">Select Category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    {PRODUCT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
 
-                  <div className="space-y-6 pt-6 border-t">
+                  {isEditingDisplay ? <p className="rounded-xl bg-[#F0E6F7] p-4 text-base text-[#5C2D91]">Display pieces are visible in the gallery but cannot be priced, stocked, or purchased.</p> : <div className="space-y-6 pt-6 border-t">
                     <label className="flex items-center gap-4 text-lg">
                       <input type="checkbox" checked={form.inStock} onChange={e => setForm({ ...form, inStock: e.target.checked })} className="h-6 w-6 rounded text-[#5C2D91] focus:ring-[#5C2D91]" />
                       <span className="font-medium">In Stock</span>
@@ -574,7 +580,7 @@ const ProductDetailPage = () => {
                       <label className="block text-lg font-medium mb-2">Stock Quantity</label>
                       <input type="number" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: e.target.value })} className="w-full rounded-xl border-2 border-[#DCCBE7] px-5 py-4 text-xl focus:border-[#5C2D91]" placeholder="0" min="0" />
                     </div>
-                  </div>
+                  </div>}
                 </>
               ) : (
                 <>
@@ -597,22 +603,22 @@ const ProductDetailPage = () => {
                     {product.description}
                   </p>
 
-                  <div className="flex items-center gap-2 pt-1 text-sm">
+                  {isDisplayOnly ? <p className="rounded-xl bg-[#F0E6F7] px-4 py-3 text-base font-semibold text-[#5C2D91]">Display piece — shown for viewing only and not available for purchase.</p> : <div className="flex items-center gap-2 pt-1 text-sm">
                     <span className="font-medium text-[#667482]">Availability</span>
                     <span className="font-semibold">
                     {isProductManager ? getAdminStockStatus() : getBuyerStockStatus()}
                     </span>
-                  </div>
+                  </div>}
                 </>
               )}
 
-              <div className="border-y border-[#E7DED3] py-5">
+              {!isDisplayOnly && <div className="border-y border-[#E7DED3] py-5">
                 <span className="text-4xl font-bold tabular-nums text-artisan-primary sm:text-5xl">
                   {formatPrice(product.price)}
                 </span>
-              </div>
+              </div>}
 
-              {!isProductManager && !editing && (
+              {!isProductManager && !editing && !isDisplayOnly && (
                 <div ref={purchaseActionsRef} className="flex flex-col gap-3 sm:flex-row">
                   {isPurchasable(product) && (
                     <Button size="lg" onClick={() => addToCart(product)} className="flex-1 rounded-xl bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]">
@@ -647,7 +653,7 @@ const ProductDetailPage = () => {
             </div>
           </article>
 
-          {!isProductManager && !editing && showStickyPurchase && (
+          {!isProductManager && !editing && !isDisplayOnly && showStickyPurchase && (
             <StickyProductPurchaseSummary
               product={product}
               imageUrl={currentImage}
@@ -806,7 +812,7 @@ const ProductDetailPage = () => {
                               {renderStars(Math.round(item.averageRating || 0))}
                             </div>
                             <p className="self-end text-2xl font-bold tabular-nums text-artisan-primary">
-                              {formatPrice(item.price)}
+                              {isDisplayProduct(item) ? 'Display only' : formatPrice(item.price)}
                             </p>
                           </div>
                         </article>

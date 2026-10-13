@@ -9,6 +9,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isDisplayProduct } from '@/lib/products/productTypes';
 
 // Keep a full gallery view practical while avoiding unnecessary page controls
 // for small catalogs. Pagination appears only after the twentieth result.
@@ -50,11 +51,20 @@ export const normalizeCatalogProduct = (snapshot) => {
 
 export const sortCatalogProducts = (products, sortOrder) => {
   const sortedProducts = [...products];
+  const comparePrices = (first, second, direction) => {
+    const firstIsDisplay = isDisplayProduct(first);
+    const secondIsDisplay = isDisplayProduct(second);
+    if (firstIsDisplay !== secondIsDisplay) return firstIsDisplay ? 1 : -1;
+    if (firstIsDisplay) return 0;
+    return direction === 'ascending'
+      ? Number(first.price) - Number(second.price)
+      : Number(second.price) - Number(first.price);
+  };
 
   if (sortOrder === 'newest') return sortedProducts.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
   if (sortOrder === 'oldest') return sortedProducts.sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
-  if (sortOrder === 'lowToHigh') return sortedProducts.sort((a, b) => a.price - b.price);
-  if (sortOrder === 'highToLow') return sortedProducts.sort((a, b) => b.price - a.price);
+  if (sortOrder === 'lowToHigh') return sortedProducts.sort((a, b) => comparePrices(a, b, 'ascending'));
+  if (sortOrder === 'highToLow') return sortedProducts.sort((a, b) => comparePrices(a, b, 'descending'));
   if (sortOrder === 'topSellers') return sortedProducts.sort((a, b) => (b.totalSold || 0) - (a.totalSold || 0));
 
   return sortedProducts;

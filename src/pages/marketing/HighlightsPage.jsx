@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 import { ArrowDown, ArrowRight, ArrowUp, Palette, Search, Star, X } from 'lucide-react';
+import { isDisplayProduct } from '@/lib/products/productTypes';
 import { useToast } from '@/components/ui/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
 import { fetchSearchCatalog } from '@/lib/catalog/productCatalog';
@@ -159,6 +160,7 @@ const HighlightsPage = () => {
 
   const ProductCard = ({ item }) => {
     const primaryImageUrl = getPrimaryImageUrl(item);
+    const isDisplayOnly = isDisplayProduct(item);
 
     return (
     <Link to={`/product/${item.id}`} className="group block h-full">
@@ -192,7 +194,7 @@ const HighlightsPage = () => {
           </div>
 
           <div className="mt-auto flex items-center justify-between">
-            <span className="text-2xl font-bold text-artisan-primary">{formatPrice(item.price)}</span>
+            <span className="text-sm font-bold uppercase tracking-wide text-artisan-primary">{isDisplayOnly ? 'Display only' : formatPrice(item.price)}</span>
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-artisan-primary to-artisan-primary-mid flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
               <ArrowRight size={20} className="text-white" />
             </div>

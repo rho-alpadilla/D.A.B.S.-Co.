@@ -1,3 +1,5 @@
+import { isDisplayProduct } from '@/lib/products/productTypes';
+
 const toWholeNumber = (value, fallback = 0) => {
   const parsed = Number(value);
 
@@ -9,7 +11,7 @@ const toWholeNumber = (value, fallback = 0) => {
 };
 
 export const getAvailableStock = (product) => {
-  if (!product || product.inStock === false) {
+  if (!product || product.inStock === false || isDisplayProduct(product)) {
     return 0;
   }
 
@@ -25,6 +27,10 @@ export const clampQuantityToStock = (product, quantity) => {
 };
 
 export const getStockLabel = (product) => {
+  if (isDisplayProduct(product)) {
+    return 'Display only';
+  }
+
   const availableStock = getAvailableStock(product);
 
   if (availableStock === 0) {
