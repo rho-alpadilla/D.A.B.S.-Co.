@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/lib/firebase';
 import { db } from '@/lib/firebase';
-import { collection, doc, limit, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Plus,
@@ -18,15 +17,16 @@ import {
   Brush,
   Info,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useNavigate } from 'react-router-dom';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const getProductImage = (product) => product.imageUrls?.[0] || product.imageUrl || null;
 
 const PricelistsPage = () => {
-  const { user } = useAuth();
-  const isAdmin = user?.email?.includes('admin');
+  const { isAdmin } = useUserRole();
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
 
@@ -109,6 +109,10 @@ const PricelistsPage = () => {
   const [recentWorks, setRecentWorks] = useState([]);
   const [recentWorksLoading, setRecentWorksLoading] = useState(true);
   const [recentWorksError, setRecentWorksError] = useState(false);
+  const [isEditingCrochet, setIsEditingCrochet] = useState(false);
+  const [crochetDraft, setCrochetDraft] = useState([]);
+  const [crochetEditorError, setCrochetEditorError] = useState('');
+  const [isSavingCrochet, setIsSavingCrochet] = useState(false);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'pricelists'), (snap) => {
@@ -173,6 +177,80 @@ const PricelistsPage = () => {
   const cancelEdit = () => {
     setEditing({ section: null, index: null, field: null });
     setTempValue('');
+  };
+
+  const startCrochetListEdit = () => {
+    setCrochetDraft(structuredClone(pricing.crochet || []));
+    setCrochetEditorError('');
+    setEditing({ section: null, index: null, field: null });
+    setIsEditingCrochet(true);
+  };
+
+  const cancelCrochetListEdit = () => {
+    setCrochetDraft([]);
+    setCrochetEditorError('');
+    setIsEditingCrochet(false);
+  };
+
+  const updateCrochetDraft = (index, field, value) => {
+    setCrochetDraft((items) => items.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, [field]: value } : item
+    )));
+  };
+
+  const addCrochetItem = () => {
+    setCrochetDraft((items) => [...items, { item: '', price: '', details: '' }]);
+  };
+
+  const removeCrochetItem = (index) => {
+    const itemName = crochetDraft[index]?.item || 'this pricing entry';
+    if (!window.confirm(`Remove ${itemName} from Crocheted Products? This will take effect after you save.`)) return;
+
+    setCrochetDraft((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const saveCrochetList = async (event) => {
+    event.preventDefault();
+
+    const normalizedItems = crochetDraft.map((item) => ({
+      item: String(item.item || '').trim(),
+      price: Number(item.price),
+      details: String(item.details || '').trim(),
+    }));
+
+    if (!normalizedItems.length) {
+      setCrochetEditorError('Add at least one Crochet entry before saving.');
+      return;
+    }
+
+    const invalidItem = normalizedItems.find((item) => (
+      !item.item || item.item.length > 80 ||
+      !Number.isFinite(item.price) || item.price < 0 ||
+      item.details.length > 280
+    ));
+
+    if (invalidItem) {
+      setCrochetEditorError('Each entry needs a name, a non-negative price, and a description of 280 characters or fewer.');
+      return;
+    }
+
+    setIsSavingCrochet(true);
+    setCrochetEditorError('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'pricelists'), {
+        data: { crochet: normalizedItems },
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setPricing((currentPricing) => ({ ...currentPricing, crochet: normalizedItems }));
+      setIsEditingCrochet(false);
+      setCrochetDraft([]);
+    } catch (error) {
+      console.error('Unable to save crocheted product pricing', error);
+      setCrochetEditorError('The Crochet list could not be saved. Please try again.');
+    } finally {
+      setIsSavingCrochet(false);
+    }
   };
 
   const savePricing = async () => {
@@ -257,15 +335,18 @@ const PricelistsPage = () => {
     );
   };
 
-  const SectionHeader = ({ icon: Icon, title, subtitle }) => (
-    <div className="flex items-start gap-4 mb-6">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-artisan-primary/20 bg-white/75 text-artisan-primary backdrop-blur-sm">
-        <Icon size={22} />
+  const SectionHeader = ({ icon: Icon, title, subtitle, action = null }) => (
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-artisan-primary/20 bg-white/75 text-artisan-primary backdrop-blur-sm">
+          <Icon size={22} />
+        </div>
+        <div>
+          <h2 className="font-artisan-display text-3xl font-bold text-artisan-primary">{title}</h2>
+          <p className="mt-1 text-artisan-text-mid">{subtitle}</p>
+        </div>
       </div>
-      <div>
-        <h2 className="font-artisan-display text-3xl font-bold text-artisan-primary">{title}</h2>
-        <p className="mt-1 text-artisan-text-mid">{subtitle}</p>
-      </div>
+      {action}
     </div>
   );
 
@@ -506,25 +587,131 @@ const PricelistsPage = () => {
                 icon={Scissors}
                 title="Crocheted Products"
                 subtitle="Handmade crochet pieces for gifts, wearables, and custom requests."
+                action={isAdmin ? (
+                  <Button
+                    type="button"
+                    variant={isEditingCrochet ? 'outline' : 'default'}
+                    onClick={isEditingCrochet ? cancelCrochetListEdit : startCrochetListEdit}
+                    disabled={isSavingCrochet}
+                    className="w-full shrink-0 sm:w-auto"
+                  >
+                    {isEditingCrochet ? <X size={17} className="mr-2" /> : <Pencil size={17} className="mr-2" />}
+                    {isEditingCrochet ? 'Cancel editing' : 'Edit Crochet list'}
+                  </Button>
+                ) : null}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {pricing.crochet.map((item, i) => (
-                  <motion.div
-                    key={i}
-                    whileHover={{ y: -5, scale: 1.01 }}
-                    className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <h3 className="font-artisan-display text-xl font-semibold text-[#5C2D91]">{item.item}</h3>
+              {isEditingCrochet ? (
+                <form onSubmit={saveCrochetList} className="space-y-5">
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                    {crochetDraft.map((item, index) => (
+                      <article
+                        key={`${item.item}-${index}`}
+                        className="rounded-2xl border border-[#800000]/20 bg-white p-5 shadow-sm"
+                      >
+                        <div className="mb-5 flex items-center justify-between gap-3">
+                          <p className="text-sm font-semibold text-[#800000]">Crochet item {index + 1}</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => removeCrochetItem(index)}
+                            disabled={isSavingCrochet}
+                            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          >
+                            <Trash2 size={16} />
+                            <span className="sr-only">Remove {item.item || `Crochet item ${index + 1}`}</span>
+                          </Button>
+                        </div>
+
+                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-name-${index}`}>
+                          Item name
+                        </label>
+                        <input
+                          id={`crochet-name-${index}`}
+                          value={item.item}
+                          onChange={(event) => updateCrochetDraft(index, 'item', event.target.value)}
+                          maxLength={80}
+                          required
+                          className="mb-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
+                        />
+
+                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-price-${index}`}>
+                          Starting price (PHP)
+                        </label>
+                        <input
+                          id={`crochet-price-${index}`}
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={item.price}
+                          onChange={(event) => updateCrochetDraft(index, 'price', event.target.value)}
+                          required
+                          className="mb-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
+                        />
+
+                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-details-${index}`}>
+                          Description
+                        </label>
+                        <textarea
+                          id={`crochet-details-${index}`}
+                          value={item.details}
+                          onChange={(event) => updateCrochetDraft(index, 'details', event.target.value)}
+                          maxLength={280}
+                          rows={4}
+                          className="w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
+                        />
+                      </article>
+                    ))}
+                  </div>
+
+                  {crochetDraft.length === 0 && (
+                    <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+                      No Crochet entries yet. Add an item to begin.
+                    </p>
+                  )}
+
+                  {crochetEditorError && (
+                    <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {crochetEditorError}
+                    </p>
+                  )}
+
+                  <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                    <Button type="button" variant="outline" onClick={addCrochetItem} disabled={isSavingCrochet}>
+                      <Plus size={17} className="mr-2" />
+                      Add Crochet item
+                    </Button>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <Button type="button" variant="outline" onClick={cancelCrochetListEdit} disabled={isSavingCrochet}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isSavingCrochet}>
+                        <Save size={17} className="mr-2" />
+                        {isSavingCrochet ? 'Saving…' : 'Save Crochet list'}
+                      </Button>
                     </div>
-                    <div className="text-2xl font-bold text-[#F2BB16] mb-3">
-                      <EditablePrice section="crochet" index={i} field="price" value={item.price} />
-                    </div>
-                    <p className="text-gray-600 leading-relaxed">{item.details}</p>
-                  </motion.div>
-                ))}
-              </div>
+                  </div>
+                </form>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pricing.crochet.map((item, i) => (
+                    <motion.div
+                      key={i}
+                      whileHover={{ y: -5, scale: 1.01 }}
+                      className="rounded-2xl border border-white/45 bg-white/95 p-6 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <h3 className="font-artisan-display text-xl font-semibold text-[#5C2D91]">{item.item}</h3>
+                      </div>
+                      <div className="text-2xl font-bold text-[#F2BB16] mb-3">
+                        <EditablePrice section="crochet" index={i} field="price" value={item.price} />
+                      </div>
+                      <p className="text-gray-600 leading-relaxed">{item.details}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </motion.section>
 
             <motion.section
