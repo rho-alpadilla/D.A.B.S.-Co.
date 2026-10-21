@@ -36,6 +36,7 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
 import { getAvailableStock } from '@/lib/stock';
 import { getProductImageUrl } from '@/lib/catalog/productImages';
+import { DEFAULT_PICKUP_SETTINGS, normalizePickupSettings } from '@/lib/storefrontSettings';
 // ALL COUNTRIES (copied from ProfilePage)
 const ALL_COUNTRIES = [
   { name: 'Philippines', code: 'PH', flag: 'https://flagcdn.com/ph.svg', callingCode: '+63' },
@@ -86,6 +87,7 @@ const CheckoutPage = () => {
   ));
   const [deliveryMethod, setDeliveryMethod] = useState('courier');
   const [paymentMethod, setPaymentMethod] = useState('bank');
+  const [pickupSettings, setPickupSettings] = useState(DEFAULT_PICKUP_SETTINGS);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -187,6 +189,10 @@ const CheckoutPage = () => {
     return () => unsubscribe();
   }, [user?.uid]);
 
+  useEffect(() => onSnapshot(doc(db, 'settings', 'storefront'), (snapshot) => {
+    setPickupSettings(normalizePickupSettings(snapshot.data()?.pickupSettings));
+  }), []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -287,6 +293,7 @@ const CheckoutPage = () => {
   grandTotal,
   deliveryMethod,
   paymentMethod,
+  pickupSettings: deliveryMethod === 'pickup' ? pickupSettings : null,
   shippingInfo: {
     ...formData,
     country: formData.countryObj.name,
@@ -680,7 +687,9 @@ const CheckoutPage = () => {
                       />
                       <div>
                         <p className="font-medium text-artisan-text">Local pickup</p>
-                        <p className="text-sm text-artisan-text-muted">Quezon City. Schedule via chat.</p>
+                        <p className="text-sm text-artisan-text-muted">
+                          {pickupSettings.location}. {pickupSettings.instructions}
+                        </p>
                       </div>
                     </label>
                   </div>

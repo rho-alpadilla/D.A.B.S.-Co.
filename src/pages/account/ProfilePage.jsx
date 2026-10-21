@@ -4,12 +4,12 @@ import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
-import { doc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { deleteUser, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { ClearSearchButton } from '@/components/ui/clear-search-button';
-import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown } from 'lucide-react';
+import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown, Edit } from 'lucide-react';
 import AccountDangerZone from '@/components/account/AccountDangerZone';
 import {
   getAccountLifecycleErrorMessage,
@@ -17,6 +17,8 @@ import {
   reauthenticateAccount,
   removeEligibleAccountData,
 } from '@/lib/accountLifecycle';
+import { useUserRole } from '@/hooks/useUserRole';
+import { DEFAULT_PICKUP_SETTINGS, normalizePickupSettings } from '@/lib/storefrontSettings';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -43,6 +45,7 @@ const FIELD_VALUE_CLASS = 'min-h-12 rounded-xl border border-artisan-primary/10 
 
 const ProfilePage = () => {
   const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState({
@@ -73,6 +76,11 @@ const ProfilePage = () => {
   const [hasApprovedPurchase, setHasApprovedPurchase] = useState(null);
   const [accountEligibilityError, setAccountEligibilityError] = useState('');
   const [isAccountActionSubmitting, setIsAccountActionSubmitting] = useState(false);
+  const [pickupSettings, setPickupSettings] = useState(DEFAULT_PICKUP_SETTINGS);
+  const [pickupDraft, setPickupDraft] = useState(DEFAULT_PICKUP_SETTINGS);
+  const [isEditingPickupSettings, setIsEditingPickupSettings] = useState(false);
+  const [isSavingPickupSettings, setIsSavingPickupSettings] = useState(false);
+  const [pickupSettingsError, setPickupSettingsError] = useState('');
 
   const [countries] = useState(ALL_COUNTRIES);
 
@@ -138,6 +146,14 @@ const ProfilePage = () => {
 
     return () => unsub();
   }, [user]);
+
+  useEffect(() => {
+    if (!isAdmin) return undefined;
+
+    return onSnapshot(doc(db, 'settings', 'storefront'), (snapshot) => {
+      setPickupSettings(normalizePickupSettings(snapshot.data()?.pickupSettings));
+    });
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!user?.email) {
@@ -225,6 +241,52 @@ const ProfilePage = () => {
       alert("Profile updated!");
     } catch (err) {
       alert("Failed to save profile");
+    }
+  };
+
+  const startPickupSettingsEdit = () => {
+    setPickupDraft(pickupSettings);
+    setPickupSettingsError('');
+    setIsEditingPickupSettings(true);
+  };
+
+  const cancelPickupSettingsEdit = () => {
+    setPickupDraft(pickupSettings);
+    setPickupSettingsError('');
+    setIsEditingPickupSettings(false);
+  };
+
+  const savePickupSettings = async () => {
+    const nextPickupSettings = {
+      location: pickupDraft.location.trim(),
+      instructions: pickupDraft.instructions.trim(),
+    };
+
+    if (!nextPickupSettings.location || nextPickupSettings.location.length > 120) {
+      setPickupSettingsError('Enter a pickup location of 120 characters or fewer.');
+      return;
+    }
+
+    if (nextPickupSettings.instructions.length > 240) {
+      setPickupSettingsError('Pickup instructions must be 240 characters or fewer.');
+      return;
+    }
+
+    setIsSavingPickupSettings(true);
+    setPickupSettingsError('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'storefront'), {
+        pickupSettings: nextPickupSettings,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setPickupSettings(nextPickupSettings);
+      setIsEditingPickupSettings(false);
+    } catch (error) {
+      console.error('Unable to save local pickup settings', error);
+      setPickupSettingsError('The pickup settings could not be saved. Please try again.');
+    } finally {
+      setIsSavingPickupSettings(false);
     }
   };
 
@@ -595,6 +657,83 @@ const ProfilePage = () => {
                   </div>
                 </div>
               </section>
+
+              {isAdmin && (
+                <section className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-7 md:p-8">
+                  <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-artisan-primary text-white shadow-artisan-sm">
+                        <MapPin size={21} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Store setting</p>
+                        <h2 className="font-nunito text-3xl font-bold text-artisan-text">Local pickup</h2>
+                        <p className="mt-1 text-sm text-artisan-text-muted">Shown to customers during checkout.</p>
+                      </div>
+                    </div>
+                    {!isEditingPickupSettings && (
+                      <Button type="button" variant="outline" onClick={startPickupSettingsEdit}>
+                        <Edit className="mr-2" size={17} /> Edit pickup location
+                      </Button>
+                    )}
+                  </div>
+
+                  {isEditingPickupSettings ? (
+                    <div className="space-y-5">
+                      <div>
+                        <label className={FIELD_LABEL_CLASS} htmlFor="pickup-location">Pickup location</label>
+                        <input
+                          id="pickup-location"
+                          type="text"
+                          value={pickupDraft.location}
+                          onChange={(event) => setPickupDraft((current) => ({ ...current, location: event.target.value }))}
+                          maxLength={120}
+                          required
+                          className={FIELD_INPUT_CLASS}
+                          placeholder="Quezon City"
+                        />
+                      </div>
+                      <div>
+                        <label className={FIELD_LABEL_CLASS} htmlFor="pickup-instructions">Customer instructions</label>
+                        <textarea
+                          id="pickup-instructions"
+                          value={pickupDraft.instructions}
+                          onChange={(event) => setPickupDraft((current) => ({ ...current, instructions: event.target.value }))}
+                          maxLength={240}
+                          rows={3}
+                          className={`${FIELD_INPUT_CLASS} resize-y`}
+                          placeholder="Schedule via chat."
+                        />
+                      </div>
+                      {pickupSettingsError && (
+                        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {pickupSettingsError}
+                        </p>
+                      )}
+                      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <Button type="button" variant="outline" onClick={cancelPickupSettingsEdit} disabled={isSavingPickupSettings}>
+                          Cancel
+                        </Button>
+                        <Button type="button" onClick={savePickupSettings} disabled={isSavingPickupSettings}>
+                          <Save className="mr-2" size={18} />
+                          {isSavingPickupSettings ? 'Saving…' : 'Save pickup settings'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/35 px-4 py-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">Pickup location</p>
+                        <p className="mt-1 text-lg font-semibold text-artisan-text">{pickupSettings.location}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">Customer instructions</p>
+                        <p className="mt-1 text-artisan-text-mid">{pickupSettings.instructions}</p>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
 
               <AccountDangerZone
                 user={user}
