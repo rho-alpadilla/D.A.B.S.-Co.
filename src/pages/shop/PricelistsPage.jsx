@@ -25,6 +25,41 @@ import { useUserRole } from '@/hooks/useUserRole';
 
 const getProductImage = (product) => product.imageUrls?.[0] || product.imageUrl || null;
 
+const LIST_EDITOR_CONFIG = {
+  needlepoint: {
+    label: 'Needlepoint canvas',
+    addLabel: 'Add canvas option',
+    emptyItem: { size: '', mesh13: '', mesh18: '', complexity: '' },
+    fields: [
+      { key: 'size', label: 'Canvas size', maxLength: 80 },
+      { key: 'mesh13', label: '13-mesh price (PHP)', numeric: true },
+      { key: 'mesh18', label: '18-mesh price (PHP)', numeric: true },
+      { key: 'complexity', label: 'Complexity / notes', maxLength: 280, multiline: true },
+    ],
+  },
+  portraiture: {
+    label: 'Portrait option',
+    addLabel: 'Add portrait option',
+    emptyItem: { subjects: '', paper: '', canvas: '', framed: '' },
+    fields: [
+      { key: 'subjects', label: 'Number of subjects', maxLength: 80 },
+      { key: 'paper', label: 'Paper price (PHP)', numeric: true },
+      { key: 'canvas', label: 'Canvas price (PHP)', numeric: true },
+      { key: 'framed', label: 'Framed option price (PHP)', numeric: true },
+    ],
+  },
+  canvas: {
+    label: 'Canvas painting option',
+    addLabel: 'Add canvas option',
+    emptyItem: { size: '', price: '', details: '' },
+    fields: [
+      { key: 'size', label: 'Canvas size', maxLength: 80 },
+      { key: 'price', label: 'Starting price (PHP)', numeric: true },
+      { key: 'details', label: 'Description', maxLength: 280, multiline: true },
+    ],
+  },
+};
+
 const PricelistsPage = () => {
   const { isAdmin } = useUserRole();
   const { formatPrice } = useCurrency();
@@ -113,6 +148,10 @@ const PricelistsPage = () => {
   const [crochetDraft, setCrochetDraft] = useState([]);
   const [crochetEditorError, setCrochetEditorError] = useState('');
   const [isSavingCrochet, setIsSavingCrochet] = useState(false);
+  const [editingListSection, setEditingListSection] = useState(null);
+  const [listDraft, setListDraft] = useState([]);
+  const [listEditorError, setListEditorError] = useState('');
+  const [isSavingList, setIsSavingList] = useState(false);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'pricelists'), (snap) => {
@@ -253,6 +292,86 @@ const PricelistsPage = () => {
     }
   };
 
+  const startListEdit = (section) => {
+    setListDraft(structuredClone(pricing[section] || []));
+    setListEditorError('');
+    setEditing({ section: null, index: null, field: null });
+    setEditingListSection(section);
+  };
+
+  const cancelListEdit = () => {
+    setListDraft([]);
+    setListEditorError('');
+    setEditingListSection(null);
+  };
+
+  const updateListDraft = (index, field, value) => {
+    setListDraft((items) => items.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, [field]: value } : item
+    )));
+  };
+
+  const addListItem = () => {
+    const config = LIST_EDITOR_CONFIG[editingListSection];
+    setListDraft((items) => [...items, { ...config.emptyItem }]);
+  };
+
+  const removeListItem = (index) => {
+    const config = LIST_EDITOR_CONFIG[editingListSection];
+    const itemName = listDraft[index]?.[config.fields[0].key] || 'this pricing entry';
+    if (!window.confirm(`Remove ${itemName}? This will take effect after you save.`)) return;
+
+    setListDraft((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const saveList = async (event) => {
+    event.preventDefault();
+
+    const config = LIST_EDITOR_CONFIG[editingListSection];
+    if (!config) return;
+
+    const normalizedItems = listDraft.map((item) => Object.fromEntries(
+      config.fields.map((field) => [
+        field.key,
+        field.numeric ? Number(item[field.key]) : String(item[field.key] || '').trim(),
+      ]),
+    ));
+
+    if (!normalizedItems.length) {
+      setListEditorError(`Add at least one ${config.label.toLowerCase()} before saving.`);
+      return;
+    }
+
+    const invalidItem = normalizedItems.find((item) => config.fields.some((field) => {
+      const value = item[field.key];
+      if (field.numeric) return !Number.isFinite(value) || value < 0;
+      return !value || value.length > field.maxLength;
+    }));
+
+    if (invalidItem) {
+      setListEditorError('Complete every field with a valid name or description and a non-negative price.');
+      return;
+    }
+
+    setIsSavingList(true);
+    setListEditorError('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'pricelists'), {
+        data: { [editingListSection]: normalizedItems },
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setPricing((currentPricing) => ({ ...currentPricing, [editingListSection]: normalizedItems }));
+      setEditingListSection(null);
+      setListDraft([]);
+    } catch (error) {
+      console.error(`Unable to save ${editingListSection} pricing`, error);
+      setListEditorError('This price list could not be saved. Please try again.');
+    } finally {
+      setIsSavingList(false);
+    }
+  };
+
   const savePricing = async () => {
     try {
       await setDoc(doc(db, 'settings', 'pricelists'), { data: pricing }, { merge: true });
@@ -332,6 +451,99 @@ const PricelistsPage = () => {
           </button>
         )}
       </div>
+    );
+  };
+
+  const PriceListEditor = ({ section }) => {
+    const config = LIST_EDITOR_CONFIG[section];
+    if (!config) return null;
+
+    return (
+      <form onSubmit={saveList} className="space-y-5">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {listDraft.map((item, index) => (
+            <article
+              key={`${item[config.fields[0].key]}-${index}`}
+              className="rounded-2xl border border-[#800000]/20 bg-white p-5 shadow-sm"
+            >
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-[#800000]">{config.label} {index + 1}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => removeListItem(index)}
+                  disabled={isSavingList}
+                  className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                >
+                  <Trash2 size={16} />
+                  <span className="sr-only">Remove {item[config.fields[0].key] || `${config.label} ${index + 1}`}</span>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {config.fields.map((field) => (
+                  <div key={field.key} className={field.multiline ? 'sm:col-span-2' : ''}>
+                    <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`${section}-${field.key}-${index}`}>
+                      {field.label}
+                    </label>
+                    {field.multiline ? (
+                      <textarea
+                        id={`${section}-${field.key}-${index}`}
+                        value={item[field.key]}
+                        onChange={(event) => updateListDraft(index, field.key, event.target.value)}
+                        maxLength={field.maxLength}
+                        rows={3}
+                        className="w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
+                      />
+                    ) : (
+                      <input
+                        id={`${section}-${field.key}-${index}`}
+                        type={field.numeric ? 'number' : 'text'}
+                        min={field.numeric ? '0' : undefined}
+                        step={field.numeric ? '1' : undefined}
+                        value={item[field.key]}
+                        onChange={(event) => updateListDraft(index, field.key, event.target.value)}
+                        maxLength={field.maxLength}
+                        required
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+
+        {listDraft.length === 0 && (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+            No entries yet. Add an option to begin.
+          </p>
+        )}
+
+        {listEditorError && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {listEditorError}
+          </p>
+        )}
+
+        <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <Button type="button" variant="outline" onClick={addListItem} disabled={isSavingList}>
+            <Plus size={17} className="mr-2" />
+            {config.addLabel}
+          </Button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button type="button" variant="outline" onClick={cancelListEdit} disabled={isSavingList}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSavingList}>
+              <Save size={17} className="mr-2" />
+              {isSavingList ? 'Saving…' : 'Save price list'}
+            </Button>
+          </div>
+        </div>
+      </form>
     );
   };
 
@@ -497,8 +709,21 @@ const PricelistsPage = () => {
                 icon={Palette}
                 title="Hand-Painted Needlepoint Canvases"
                 subtitle="Choose by size, mesh count, and design detail."
+                action={isAdmin ? (
+                  <Button
+                    type="button"
+                    variant={editingListSection === 'needlepoint' ? 'outline' : 'default'}
+                    onClick={editingListSection === 'needlepoint' ? cancelListEdit : () => startListEdit('needlepoint')}
+                    disabled={isSavingList || (editingListSection && editingListSection !== 'needlepoint')}
+                    className="w-full shrink-0 sm:w-auto"
+                  >
+                    {editingListSection === 'needlepoint' ? <X size={17} className="mr-2" /> : <Pencil size={17} className="mr-2" />}
+                    {editingListSection === 'needlepoint' ? 'Cancel editing' : 'Edit Needlepoint list'}
+                  </Button>
+                ) : null}
               />
 
+              {editingListSection === 'needlepoint' ? <PriceListEditor section="needlepoint" /> : <>
               <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
                   <table className="artisan-data-table artisan-data-table--strong-header w-full">
@@ -572,6 +797,7 @@ const PricelistsPage = () => {
                   </div>
                 ))}
               </div>
+              </>}
             </motion.section>
 
             <motion.section
@@ -727,8 +953,21 @@ const PricelistsPage = () => {
                 icon={Frame}
                 title="Portraiture Pricing"
                 subtitle="Portrait options for paper, canvas, and framed commissions."
+                action={isAdmin ? (
+                  <Button
+                    type="button"
+                    variant={editingListSection === 'portraiture' ? 'outline' : 'default'}
+                    onClick={editingListSection === 'portraiture' ? cancelListEdit : () => startListEdit('portraiture')}
+                    disabled={isSavingList || (editingListSection && editingListSection !== 'portraiture')}
+                    className="w-full shrink-0 sm:w-auto"
+                  >
+                    {editingListSection === 'portraiture' ? <X size={17} className="mr-2" /> : <Pencil size={17} className="mr-2" />}
+                    {editingListSection === 'portraiture' ? 'Cancel editing' : 'Edit Portraiture list'}
+                  </Button>
+                ) : null}
               />
 
+              {editingListSection === 'portraiture' ? <PriceListEditor section="portraiture" /> : <>
               <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
                   <table className="artisan-data-table artisan-data-table--strong-header w-full">
@@ -816,6 +1055,7 @@ const PricelistsPage = () => {
                   </div>
                 ))}
               </div>
+              </>}
             </motion.section>
 
             <motion.section
@@ -831,9 +1071,21 @@ const PricelistsPage = () => {
                 icon={Brush}
                 title="Painting on Canvas"
                 subtitle="Canvas-based work for decorative, custom, and expressive pieces."
+                action={isAdmin ? (
+                  <Button
+                    type="button"
+                    variant={editingListSection === 'canvas' ? 'outline' : 'default'}
+                    onClick={editingListSection === 'canvas' ? cancelListEdit : () => startListEdit('canvas')}
+                    disabled={isSavingList || (editingListSection && editingListSection !== 'canvas')}
+                    className="w-full shrink-0 sm:w-auto"
+                  >
+                    {editingListSection === 'canvas' ? <X size={17} className="mr-2" /> : <Pencil size={17} className="mr-2" />}
+                    {editingListSection === 'canvas' ? 'Cancel editing' : 'Edit Canvas list'}
+                  </Button>
+                ) : null}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {editingListSection === 'canvas' ? <PriceListEditor section="canvas" /> : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {pricing.canvas.map((item, i) => (
                   <motion.div
                     key={i}
@@ -853,7 +1105,7 @@ const PricelistsPage = () => {
                     <p className="text-gray-600 leading-relaxed">{item.details}</p>
                   </motion.div>
                 ))}
-              </div>
+              </div>}
             </motion.section>
 
             <motion.section
