@@ -861,8 +861,8 @@ const AdminPanel = () => {
   } = descriptiveAnalytics;
 
   const revenueChartData = useMemo(
-    () => createProductRevenueChartData(descriptiveAnalytics.topProducts),
-    [descriptiveAnalytics.topProducts]
+    () => createProductRevenueChartData(descriptiveAnalytics.revenueProducts),
+    [descriptiveAnalytics.revenueProducts]
   );
 
   const revenueOverTimeData = useMemo(

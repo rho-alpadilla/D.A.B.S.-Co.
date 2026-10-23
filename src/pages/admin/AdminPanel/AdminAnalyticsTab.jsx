@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { downloadAnalyticsWordReport } from '@/lib/exports/adminExports';
+import { getAnalyticsTodayKey } from '@/lib/analytics/descriptiveAnalytics';
 
 const EmptyChartState = ({ icon: Icon, title, detail }) => (
   <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-artisan-primary/20 bg-artisan-primary-wash/25 px-6 text-center">
@@ -130,6 +131,9 @@ const AdminAnalyticsTab = ({
   const scopeLabel = dateRange.hasCustomRange
     ? `${customStartDate || 'the first available date'} to ${customEndDate || 'today'}`
     : 'all recorded completed orders';
+  const todayKey = getAnalyticsTodayKey();
+  const maxStartDate = customEndDate && customEndDate < todayKey ? customEndDate : todayKey;
+  const minEndDate = customStartDate && customStartDate <= todayKey ? customStartDate : undefined;
 
   return (
     <div className="flex flex-col gap-5">
@@ -143,11 +147,11 @@ const AdminAnalyticsTab = ({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end">
           <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">
             From
-            <input type="date" value={customStartDate} onChange={(event) => setCustomStartDate(event.target.value)} max={customEndDate || undefined} className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm normal-case tracking-normal text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15" />
+            <input type="date" value={customStartDate} onChange={(event) => setCustomStartDate(event.target.value)} max={maxStartDate} className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm normal-case tracking-normal text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15" />
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-artisan-text-muted">
             To
-            <input type="date" value={customEndDate} onChange={(event) => setCustomEndDate(event.target.value)} min={customStartDate || undefined} className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm normal-case tracking-normal text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15" />
+            <input type="date" value={customEndDate} onChange={(event) => setCustomEndDate(event.target.value)} min={minEndDate} max={todayKey} className="h-11 w-full rounded-xl border border-artisan-border bg-white px-4 text-sm normal-case tracking-normal text-artisan-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15" />
           </label>
           <Button type="button" variant="outline" onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }} className="h-11 w-full sm:w-auto" disabled={!customStartDate && !customEndDate}>
             Clear

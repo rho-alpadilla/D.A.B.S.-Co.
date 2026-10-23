@@ -26,6 +26,8 @@ const toLocalDateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+export const getAnalyticsTodayKey = (date = new Date()) => toLocalDateKey(date);
+
 const parseDateBoundary = (value, isEndOfDay = false) => {
   if (!value) return null;
   const parsed = new Date(`${value}T${isEndOfDay ? '23:59:59.999' : '00:00:00.000'}`);
@@ -86,8 +88,11 @@ export const buildDescriptiveAnalytics = ({
   startDate: startDateValue = '',
   endDate: endDateValue = '',
 }) => {
+  const todayKey = getAnalyticsTodayKey();
+  const normalizedEndDateValue =
+    endDateValue && endDateValue > todayKey ? todayKey : endDateValue;
   const startDate = parseDateBoundary(startDateValue);
-  const endDate = parseDateBoundary(endDateValue, true);
+  const endDate = parseDateBoundary(normalizedEndDateValue, true);
   const scopedOrders = orders.filter((order) => isWithinRange(order, startDate, endDate));
   const completedOrders = scopedOrders.filter((order) => order.status === COMPLETED_STATUS);
   const totalRevenue = completedOrders.reduce((total, order) => total + toNumber(order.total), 0);
@@ -144,6 +149,11 @@ export const buildDescriptiveAnalytics = ({
     second.totalSold - first.totalSold || second.revenue - first.revenue || first.name.localeCompare(second.name)
   );
   const soldProducts = productStats.filter((product) => product.totalSold > 0 || product.revenue > 0);
+  const revenueProducts = [...soldProducts]
+    .sort((first, second) =>
+      second.revenue - first.revenue || second.totalSold - first.totalSold || first.name.localeCompare(second.name)
+    )
+    .slice(0, 10);
   const leastSoldProducts = [...productStats]
     .sort((first, second) => first.totalSold - second.totalSold || first.revenue - second.revenue || first.name.localeCompare(second.name))
     .slice(0, 10);
@@ -157,7 +167,11 @@ export const buildDescriptiveAnalytics = ({
     .map(([label, count]) => ({ label, count }))
     .sort((first, second) => second.count - first.count || first.label.localeCompare(second.label));
 
-  const dailyRevenue = buildDateSeries(dailyRevenueMap, startDate, endDate);
+  const dailyRevenue = buildDateSeries(
+    dailyRevenueMap,
+    startDate,
+    endDate || parseDateBoundary(todayKey, true)
+  );
   const dataQualityReport = buildAnalyticsDataQualityReport(completedOrders);
 
   return {
@@ -169,6 +183,7 @@ export const buildDescriptiveAnalytics = ({
     bestSellerUnits: soldProducts[0]?.totalSold || 0,
     productStats,
     topProducts: soldProducts.slice(0, 10),
+    revenueProducts,
     leastSoldProducts,
     statusBreakdown,
     dailyRevenue,
@@ -181,7 +196,7 @@ export const buildDescriptiveAnalytics = ({
     },
     dateRange: {
       start: startDateValue,
-      end: endDateValue,
+      end: normalizedEndDateValue,
       hasCustomRange: Boolean(startDateValue || endDateValue),
     },
   };
@@ -414,7 +429,11 @@ const getConfidenceGuidance = ({ activeDayRatio, activeDays, historyDays, variat
   };
 };
 
-export const buildTrendForecast = ({ dailyRevenue = [], horizonDays = 30 }) => {
+export const buildTrendForecast = ({
+  dailyRevenue = [],
+  horizonDays = 30,
+  asOfDate = new Date(),
+}) => {
   const normalizedHorizonDays = Math.max(1, Math.min(90, Math.floor(toNumber(horizonDays)) || 30));
   const history = dailyRevenue
     .map((entry, index) => ({
@@ -453,8 +472,12 @@ export const buildTrendForecast = ({ dailyRevenue = [], horizonDays = 30 }) => {
   ), 0) / historyDays;
   const variationRatio = averageDailyRevenue ? meanAbsoluteError / averageDailyRevenue : 1;
   const scenarioSpread = meanAbsoluteError * normalizedHorizonDays;
-  const lastDate = new Date(`${history[history.length - 1].key}T00:00:00`);
-  const forecastStart = new Date(lastDate);
+  const today = new Date(
+    asOfDate.getFullYear(),
+    asOfDate.getMonth(),
+    asOfDate.getDate()
+  );
+  const forecastStart = new Date(today);
   forecastStart.setDate(forecastStart.getDate() + 1);
   const forecastEnd = new Date(forecastStart);
   forecastEnd.setDate(forecastEnd.getDate() + normalizedHorizonDays - 1);

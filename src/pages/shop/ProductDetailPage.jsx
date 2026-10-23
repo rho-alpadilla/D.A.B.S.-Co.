@@ -603,7 +603,7 @@ const ProductDetailPage = () => {
                     {product.description}
                   </p>
 
-                  {isDisplayOnly ? <p className="rounded-xl bg-[#F0E6F7] px-4 py-3 text-base font-semibold text-[#5C2D91]">Display piece — shown for viewing only and not available for purchase.</p> : <div className="flex items-center gap-2 pt-1 text-sm">
+                  {isDisplayOnly ? <p className="rounded-xl bg-[#F0E6F7] px-4 py-3 text-base font-semibold text-[#5C2D91]">Display piece — shown for viewing only and not available for purchase. Interested in a custom piece inspired by this work? Contact us to discuss it.</p> : <div className="flex items-center gap-2 pt-1 text-sm">
                     <span className="font-medium text-[#667482]">Availability</span>
                     <span className="font-semibold">
                     {isProductManager ? getAdminStockStatus() : getBuyerStockStatus()}
@@ -618,8 +618,18 @@ const ProductDetailPage = () => {
                 </span>
               </div>}
 
-              {!isProductManager && !editing && !isDisplayOnly && (
+              {!isProductManager && !editing && (
                 <div ref={purchaseActionsRef} className="flex flex-col gap-3 sm:flex-row">
+                  {isDisplayOnly ? (
+                    <Button
+                      size="lg"
+                      onClick={handleCustomOrder}
+                      className="w-full rounded-xl bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]"
+                    >
+                      <MessageCircle className="mr-2" size={18} />
+                      Contact for Custom Order
+                    </Button>
+                  ) : <>
                   {isPurchasable(product) && (
                     <Button size="lg" onClick={() => addToCart(product)} className="flex-1 rounded-xl bg-artisan-primary font-semibold text-white hover:bg-[#4A247B]">
                       Add to Cart
@@ -633,6 +643,7 @@ const ProductDetailPage = () => {
                   >
                     Contact for Custom Order
                   </Button>
+                  </>}
                 </div>
               )}
 
