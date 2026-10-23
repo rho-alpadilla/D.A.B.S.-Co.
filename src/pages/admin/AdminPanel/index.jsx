@@ -63,6 +63,7 @@ import {
 } from "lucide-react";
 import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
 import AdminOverviewTab from './AdminOverviewTab';
+import AdminWorkspaceHeader from './AdminWorkspaceHeader';
 import AdminOrdersTab from './AdminOrdersTab';
 import AdminUsersTab from './AdminUsersTab';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
@@ -99,6 +100,7 @@ import BulkOrderRecycleDialog from '@/components/admin/BulkOrderRecycleDialog';
 import BulkPermanentOrderDeleteDialog from '@/components/admin/BulkPermanentOrderDeleteDialog';
 import StatusCorrectionRequestDialog from '@/components/admin/StatusCorrectionRequestDialog';
 import ResolveStatusCorrectionDialog from '@/components/admin/ResolveStatusCorrectionDialog';
+import { isDisplayProduct } from '@/lib/products/productTypes';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
@@ -871,8 +873,11 @@ const AdminPanel = () => {
   );
 
   const forecast = useMemo(
-    () => buildTrendForecast({ dailyRevenue: descriptiveAnalytics.dailyRevenue }),
-    [descriptiveAnalytics.dailyRevenue]
+    () => buildTrendForecast({
+      dailyRevenue: descriptiveAnalytics.dailyRevenue,
+      horizonDays: rangeDays,
+    }),
+    [descriptiveAnalytics.dailyRevenue, rangeDays]
   );
 
   const prescriptiveRecommendations = useMemo(
@@ -886,17 +891,12 @@ const AdminPanel = () => {
 
   const makeSubAdmin = async (userId) => {
     if (!isAdmin) {
-      alert("Permission blocked. Only the main admin can manage Sub-admin accounts.");
-      return;
+      throw new Error("Only the main admin can manage Sub-admin accounts.");
     }
 
     if (userId === user?.uid) {
-      alert("You cannot change your own admin role here.");
-      return;
+      throw new Error("You cannot change your own admin role here.");
     }
-
-    const confirmed = window.confirm("Make this user a Sub-admin / Artisan?");
-    if (!confirmed) return;
 
     try {
       await updateDoc(doc(db, "users", userId), {
@@ -905,27 +905,20 @@ const AdminPanel = () => {
         promotedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-
-      alert("User is now a Sub-admin.");
     } catch (error) {
       console.error("Error making sub-admin:", error);
-      alert("Failed to make user a Sub-admin.");
+      throw new Error("The user could not be made a Sub-admin. Please try again.");
     }
   };
 
   const removeSubAdmin = async (userId) => {
     if (!isAdmin) {
-      alert("Permission blocked. Only the main admin can manage Sub-admin accounts.");
-      return;
+      throw new Error("Only the main admin can manage Sub-admin accounts.");
     }
 
     if (userId === user?.uid) {
-      alert("You cannot change your own admin role here.");
-      return;
+      throw new Error("You cannot change your own admin role here.");
     }
-
-    const confirmed = window.confirm("Remove this user's Sub-admin access?");
-    if (!confirmed) return;
 
     try {
       await updateDoc(doc(db, "users", userId), {
@@ -934,11 +927,9 @@ const AdminPanel = () => {
         removedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-
-      alert("Sub-admin access removed.");
     } catch (error) {
       console.error("Error removing sub-admin:", error);
-      alert("Failed to remove Sub-admin access.");
+      throw new Error("Sub-admin access could not be removed. Please try again.");
     }
   };
 
@@ -1007,10 +998,10 @@ const AdminPanel = () => {
   ).length; */
   const cancellationRequestedCount = orders.filter(o => o.status === 'Cancellation Requested').length;
 
-  const outOfStockCount = products.filter(p => (p.stockQuantity ?? 0) <= 0).length;
+  const outOfStockCount = products.filter(p => !isDisplayProduct(p) && (p.stockQuantity ?? 0) <= 0).length;
   const lowStockCount = products.filter(p => {
     const s = p.stockQuantity ?? 0;
-    return s > 0 && s <= 5;
+    return !isDisplayProduct(p) && s > 0 && s <= 5;
   }).length;
 
   const recentOrders = [...orders]
@@ -1185,55 +1176,27 @@ const AdminPanel = () => {
     <>
       <Helmet><title>Admin Panel - D.A.B.S. Co.</title></Helmet>
 
-      <div className="min-h-screen py-14 sm:py-20" style={{ background: 'var(--artisan-gradient-bg)' }}>
+      <div className="min-h-screen py-8 sm:py-12" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="container mx-auto max-w-7xl px-5 sm:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="relative mb-6 overflow-hidden rounded-[2rem] border border-white/35 bg-gradient-to-br from-[#2D0E5A] via-artisan-primary to-artisan-primary-mid p-7 text-white shadow-2xl shadow-[#2D0E5A]/25 sm:p-10"
-          >
-            <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-artisan-primary-pale/25 blur-3xl" />
-            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary-pale">
-                {isAdmin ? "ADMIN PANEL" : "SUB-ADMIN PANEL"}
-              </div>
-              <h1 className="mt-2 font-nunito text-4xl font-bold sm:text-5xl">Store Management</h1>
-              <p className="mt-3 max-w-2xl text-sm text-white/80 sm:text-base">Manage orders, customer activity, inventory, and store performance from one workspace.</p>
-            </div>
-            </div>
-          </motion.div>
-
-          <div className="mb-7 flex flex-col gap-4 rounded-[1.5rem] border border-amber-200/80 bg-white/95 p-5 text-artisan-text shadow-lg shadow-[#2D0E5A]/10 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-700">Orders requiring attention</p>
-              <h2 className="mt-1 font-nunito text-xl font-bold text-artisan-text">
-                Orders awaiting review: {awaitingReviewCount}
-              </h2>
-              <p className="mt-1 text-sm text-artisan-text-muted">
-                New orders must be reviewed first before normal admin actions appear.
-              </p>
-            </div>
-
-            <Button
-              onClick={() => {
-                setTab("orders");
-                setOrderStatusFilter("awaiting_review");
-              }}
-              className="h-12 w-full px-5 py-0 md:w-auto"
-            >
-              Review Orders
-            </Button>
-          </div>
+          <AdminWorkspaceHeader
+            isAdmin={isAdmin}
+            user={user}
+            awaitingReviewCount={awaitingReviewCount}
+            onReviewOrders={(hasPendingReviews) => {
+              setOrderSearch('');
+              setOrderView('active');
+              setOrderStatusFilter(hasPendingReviews ? 'awaiting_review' : 'all');
+              setTab('orders');
+            }}
+          />
 
           <Tabs value={tab} onValueChange={setTab}>
             <div className="sticky top-[4.5rem] z-30 mb-8 -mx-2 overflow-x-auto px-2">
-              <TabsList variant="segmented" aria-label="Admin workspace sections" className="!flex h-auto w-max min-w-max justify-start gap-2 rounded-xl border border-white/65 bg-white/90 p-2 shadow-lg shadow-[#2D0E5A]/15 backdrop-blur-md sm:w-full sm:min-w-0 sm:justify-center">
-                <TabsTrigger variant="segmented" value="dashboard" className="min-w-[8.5rem] flex-1">Dashboard</TabsTrigger>
-                <TabsTrigger variant="segmented" value="orders" className="min-w-[8.5rem] flex-1">Orders</TabsTrigger>
-                <TabsTrigger variant="segmented" value="users" className="min-w-[8.5rem] flex-1">Users</TabsTrigger>
-                <TabsTrigger variant="segmented" value="analytics" className="min-w-[8.5rem] flex-1">Analytics</TabsTrigger>
+              <TabsList variant="segmented" aria-label="Admin workspace sections" className="!flex h-auto w-max min-w-full justify-start gap-1 rounded-xl border border-artisan-primary/10 bg-white/95 p-1.5 shadow-sm backdrop-blur-md">
+                <TabsTrigger variant="segmented" value="dashboard" className="min-w-[7rem] flex-1">Dashboard</TabsTrigger>
+                <TabsTrigger variant="segmented" value="orders" className="min-w-[7rem] flex-1">Orders</TabsTrigger>
+                <TabsTrigger variant="segmented" value="users" className="min-w-[7rem] flex-1">Users</TabsTrigger>
+                <TabsTrigger variant="segmented" value="analytics" className="min-w-[7rem] flex-1">Analytics</TabsTrigger>
               </TabsList>
             </div>
 

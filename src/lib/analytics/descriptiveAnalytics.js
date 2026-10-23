@@ -93,6 +93,10 @@ export const buildDescriptiveAnalytics = ({
     endDateValue && endDateValue > todayKey ? todayKey : endDateValue;
   const startDate = parseDateBoundary(startDateValue);
   const endDate = parseDateBoundary(normalizedEndDateValue, true);
+  const hasCustomRange = Boolean(startDateValue || normalizedEndDateValue);
+  const undatedCompletedOrderCount = orders.filter((order) => (
+    order.status === COMPLETED_STATUS && !toAnalyticsDate(order.createdAt)
+  )).length;
   const scopedOrders = orders.filter((order) => isWithinRange(order, startDate, endDate));
   const completedOrders = scopedOrders.filter((order) => order.status === COMPLETED_STATUS);
   const totalRevenue = completedOrders.reduce((total, order) => total + toNumber(order.total), 0);
@@ -197,7 +201,8 @@ export const buildDescriptiveAnalytics = ({
     dateRange: {
       start: startDateValue,
       end: normalizedEndDateValue,
-      hasCustomRange: Boolean(startDateValue || endDateValue),
+      hasCustomRange,
+      excludedUndatedCompletedOrders: hasCustomRange ? undatedCompletedOrderCount : 0,
     },
   };
 };
@@ -390,7 +395,7 @@ export const buildDiagnosticAnalytics = ({
       averageOrderValue,
       exceptions,
     },
-    contributors: contributors.slice(0, 3),
+    contributors,
   };
 };
 
@@ -452,6 +457,7 @@ export const buildTrendForecast = ({
       horizonDays: normalizedHorizonDays,
       historyDays,
       activeDays,
+      coveragePercent: historyDays ? Math.round(activeDayRatio * 100) : 0,
       reason: 'A forecast needs at least 7 calendar days and 3 days with completed revenue in the selected scope.',
       method: 'Simple linear trend from daily completed-order revenue. It does not use external or paid data.',
     };
@@ -488,6 +494,7 @@ export const buildTrendForecast = ({
     horizonDays: normalizedHorizonDays,
     historyDays,
     activeDays,
+    coveragePercent: Math.round(activeDayRatio * 100),
     averageDailyRevenue,
     projectedDailyAverage,
     projectedRevenue,
@@ -500,6 +507,7 @@ export const buildTrendForecast = ({
       ? ((projectedDailyAverage - averageDailyRevenue) / averageDailyRevenue) * 100
       : 0,
     confidence: getConfidenceGuidance({ activeDayRatio, activeDays, historyDays, variationRatio }),
+    meanAbsoluteError,
     forecastRange: {
       startDate: toLocalDateKey(forecastStart),
       endDate: toLocalDateKey(forecastEnd),
@@ -516,17 +524,33 @@ export const buildPrescriptiveRecommendations = ({
   diagnosticAnalytics,
   forecast,
 }) => {
+  const recommendations = [];
+  const qualityIssueCount = descriptiveAnalytics.dataQuality?.affectedOrderCount || 0;
+
+  if (qualityIssueCount > 0) {
+    recommendations.push({
+      id: 'review-data-quality',
+      priority: 'Foundation',
+      title: 'Resolve the analytics data-quality queue',
+      description: 'Review the affected completed orders before using detailed product or date analysis for an important decision.',
+      evidence: `${qualityIssueCount} completed order${qualityIssueCount === 1 ? '' : 's'} currently need analytics data review.`,
+    });
+  }
+
   if (!forecast.isAvailable) {
-    return [{
+    recommendations.push({
       id: 'build-history',
       priority: 'Foundation',
       title: 'Build a usable revenue history',
       description: 'Continue recording completed orders with valid dates and item details. Revisit the forecast once the selected scope has enough completed-revenue days.',
-    }];
+      evidence: `${forecast.activeDays || 0} completed-revenue day${forecast.activeDays === 1 ? '' : 's'} across ${forecast.historyDays || 0} calendar day${forecast.historyDays === 1 ? '' : 's'} are available in this scope.`,
+    });
+
+    return recommendations;
   }
 
-  const recommendations = [];
   const bestSeller = descriptiveAnalytics.topProducts[0];
+  const absoluteTrendPercent = Math.abs(Math.round(forecast.trendPercent));
 
   if (forecast.trendDirection === 'upward') {
     recommendations.push({
@@ -536,6 +560,7 @@ export const buildPrescriptiveRecommendations = ({
       description: bestSeller
         ? `Review stock and fulfillment capacity for ${bestSeller.name}, then plan only reversible replenishment steps.`
         : 'Review stock and fulfillment capacity, then plan only reversible replenishment steps.',
+      evidence: `The projected daily average is ${absoluteTrendPercent}% above the historical daily average in the selected scope.`,
     });
   } else if (forecast.trendDirection === 'downward') {
     recommendations.push({
@@ -543,6 +568,7 @@ export const buildPrescriptiveRecommendations = ({
       priority: 'Review',
       title: 'Investigate the downward signal before acting',
       description: 'Review the diagnostic contributors, product availability, and customer feedback. Test one small, measurable change before committing to a larger promotion or inventory decision.',
+      evidence: `The projected daily average is ${absoluteTrendPercent}% below the historical daily average in the selected scope.`,
     });
   } else {
     recommendations.push({
@@ -550,6 +576,7 @@ export const buildPrescriptiveRecommendations = ({
       priority: 'Monitor',
       title: 'Keep the current plan under review',
       description: 'Demand appears broadly stable in the selected history. Recheck this forecast weekly and use actual completed orders to guide small adjustments.',
+      evidence: `The projected daily average is within ${absoluteTrendPercent}% of the historical daily average.`,
     });
   }
 
@@ -559,6 +586,7 @@ export const buildPrescriptiveRecommendations = ({
       priority: 'Caution',
       title: 'Keep decisions reversible',
       description: 'Confidence is limited by the available history or variation. Do not use this estimate alone for large stock, staffing, or spending commitments.',
+      evidence: `${forecast.confidence.level} confidence guidance with revenue recorded on ${forecast.activeDays} of ${forecast.historyDays} calendar days.`,
     });
   }
 
@@ -568,8 +596,9 @@ export const buildPrescriptiveRecommendations = ({
       priority: 'Review',
       title: 'Review recent order exceptions',
       description: 'Declined, cancelled, refund, or cancellation-requested orders increased in the comparison period. Review their reasons before assuming demand is the only factor.',
+      evidence: `${diagnosticAnalytics.metrics.exceptions.change} more order exception${diagnosticAnalytics.metrics.exceptions.change === 1 ? '' : 's'} than in the previous equal-length period.`,
     });
   }
 
-  return recommendations.slice(0, 3);
+  return recommendations.slice(0, 4);
 };

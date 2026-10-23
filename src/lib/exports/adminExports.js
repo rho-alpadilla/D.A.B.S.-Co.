@@ -445,7 +445,10 @@ export const downloadAnalyticsWordReport = async ({
           ]
           : [new Paragraph({ text: forecast?.reason || 'Forecast is not ready for the selected data.' })]),
         sectionHeading({ HeadingLevel, Paragraph }, 'Prescriptive: recommended next steps'),
-        ...(prescriptiveRecommendations.length ? prescriptiveRecommendations.map((item) => bullet({ Paragraph }, `${item.title}: ${item.description}`)) : [new Paragraph({ text: 'No recommendations are available for this scope.' })]),
+        ...(prescriptiveRecommendations.length ? prescriptiveRecommendations.map((item) => bullet(
+          { Paragraph },
+          `${item.title}: ${item.description}${item.evidence ? ` Evidence: ${item.evidence}` : ''}`
+        )) : [new Paragraph({ text: 'No recommendations are available for this scope.' })]),
         new Paragraph({ children: [new TextRun({ text: 'Privacy: this report excludes shipping addresses and customer contact details.', italics: true, color: '4B5563' })], spacing: { before: 260 } }),
       ],
     }],
