@@ -60,6 +60,109 @@ const LIST_EDITOR_CONFIG = {
   },
 };
 
+const PriceListEditor = ({
+  error,
+  isSaving,
+  items,
+  onAdd,
+  onCancel,
+  onRemove,
+  onSave,
+  onUpdate,
+  section,
+}) => {
+  const config = LIST_EDITOR_CONFIG[section];
+  if (!config) return null;
+
+  return (
+    <form onSubmit={onSave} className="space-y-5">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        {items.map((item, index) => (
+          <article
+            key={item._draftRowId}
+            className="rounded-2xl border border-[#800000]/20 bg-white p-5 shadow-sm"
+          >
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#800000]">{config.label} {index + 1}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => onRemove(index)}
+                disabled={isSaving}
+                className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+              >
+                <Trash2 size={16} />
+                <span className="sr-only">Remove {item[config.fields[0].key] || `${config.label} ${index + 1}`}</span>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {config.fields.map((field) => (
+                <div key={field.key} className={field.multiline ? 'sm:col-span-2' : ''}>
+                  <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`${section}-${field.key}-${item._draftRowId}`}>
+                    {field.label}
+                  </label>
+                  {field.multiline ? (
+                    <textarea
+                      id={`${section}-${field.key}-${item._draftRowId}`}
+                      value={item[field.key]}
+                      onChange={(event) => onUpdate(index, field.key, event.target.value)}
+                      maxLength={field.maxLength}
+                      rows={3}
+                      className="w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
+                    />
+                  ) : (
+                    <input
+                      id={`${section}-${field.key}-${item._draftRowId}`}
+                      type={field.numeric ? 'number' : 'text'}
+                      min={field.numeric ? '0' : undefined}
+                      step={field.numeric ? '1' : undefined}
+                      value={item[field.key]}
+                      onChange={(event) => onUpdate(index, field.key, event.target.value)}
+                      maxLength={field.maxLength}
+                      required
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {items.length === 0 && (
+        <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+          No entries yet. Add an option to begin.
+        </p>
+      )}
+
+      {error && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
+
+      <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <Button type="button" variant="outline" onClick={onAdd} disabled={isSaving}>
+          <Plus size={17} className="mr-2" />
+          {config.addLabel}
+        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSaving}>
+            <Save size={17} className="mr-2" />
+            {isSaving ? 'Saving…' : 'Save price list'}
+          </Button>
+        </div>
+      </div>
+    </form>
+  );
+};
+
 const PricelistsPage = () => {
   const { isAdmin } = useUserRole();
   const { formatPrice } = useCurrency();
@@ -152,6 +255,15 @@ const PricelistsPage = () => {
   const [listDraft, setListDraft] = useState([]);
   const [listEditorError, setListEditorError] = useState('');
   const [isSavingList, setIsSavingList] = useState(false);
+  const draftRowSequence = useRef(0);
+
+  const createDraftRow = useCallback((section, item) => {
+    draftRowSequence.current += 1;
+    return {
+      ...item,
+      _draftRowId: `${section}-${draftRowSequence.current}`,
+    };
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'pricelists'), (snap) => {
@@ -219,7 +331,9 @@ const PricelistsPage = () => {
   };
 
   const startCrochetListEdit = () => {
-    setCrochetDraft(structuredClone(pricing.crochet || []));
+    setCrochetDraft(
+      structuredClone(pricing.crochet || []).map((item) => createDraftRow('crochet', item)),
+    );
     setCrochetEditorError('');
     setEditing({ section: null, index: null, field: null });
     setIsEditingCrochet(true);
@@ -238,7 +352,10 @@ const PricelistsPage = () => {
   };
 
   const addCrochetItem = () => {
-    setCrochetDraft((items) => [...items, { item: '', price: '', details: '' }]);
+    setCrochetDraft((items) => [
+      ...items,
+      createDraftRow('crochet', { item: '', price: '', details: '' }),
+    ]);
   };
 
   const removeCrochetItem = (index) => {
@@ -293,7 +410,9 @@ const PricelistsPage = () => {
   };
 
   const startListEdit = (section) => {
-    setListDraft(structuredClone(pricing[section] || []));
+    setListDraft(
+      structuredClone(pricing[section] || []).map((item) => createDraftRow(section, item)),
+    );
     setListEditorError('');
     setEditing({ section: null, index: null, field: null });
     setEditingListSection(section);
@@ -313,7 +432,10 @@ const PricelistsPage = () => {
 
   const addListItem = () => {
     const config = LIST_EDITOR_CONFIG[editingListSection];
-    setListDraft((items) => [...items, { ...config.emptyItem }]);
+    setListDraft((items) => [
+      ...items,
+      createDraftRow(editingListSection, config.emptyItem),
+    ]);
   };
 
   const removeListItem = (index) => {
@@ -451,99 +573,6 @@ const PricelistsPage = () => {
           </button>
         )}
       </div>
-    );
-  };
-
-  const PriceListEditor = ({ section }) => {
-    const config = LIST_EDITOR_CONFIG[section];
-    if (!config) return null;
-
-    return (
-      <form onSubmit={saveList} className="space-y-5">
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {listDraft.map((item, index) => (
-            <article
-              key={`${item[config.fields[0].key]}-${index}`}
-              className="rounded-2xl border border-[#800000]/20 bg-white p-5 shadow-sm"
-            >
-              <div className="mb-5 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-[#800000]">{config.label} {index + 1}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeListItem(index)}
-                  disabled={isSavingList}
-                  className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                >
-                  <Trash2 size={16} />
-                  <span className="sr-only">Remove {item[config.fields[0].key] || `${config.label} ${index + 1}`}</span>
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {config.fields.map((field) => (
-                  <div key={field.key} className={field.multiline ? 'sm:col-span-2' : ''}>
-                    <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`${section}-${field.key}-${index}`}>
-                      {field.label}
-                    </label>
-                    {field.multiline ? (
-                      <textarea
-                        id={`${section}-${field.key}-${index}`}
-                        value={item[field.key]}
-                        onChange={(event) => updateListDraft(index, field.key, event.target.value)}
-                        maxLength={field.maxLength}
-                        rows={3}
-                        className="w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
-                      />
-                    ) : (
-                      <input
-                        id={`${section}-${field.key}-${index}`}
-                        type={field.numeric ? 'number' : 'text'}
-                        min={field.numeric ? '0' : undefined}
-                        step={field.numeric ? '1' : undefined}
-                        value={item[field.key]}
-                        onChange={(event) => updateListDraft(index, field.key, event.target.value)}
-                        maxLength={field.maxLength}
-                        required
-                        className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {listDraft.length === 0 && (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-            No entries yet. Add an option to begin.
-          </p>
-        )}
-
-        {listEditorError && (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {listEditorError}
-          </p>
-        )}
-
-        <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <Button type="button" variant="outline" onClick={addListItem} disabled={isSavingList}>
-            <Plus size={17} className="mr-2" />
-            {config.addLabel}
-          </Button>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="button" variant="outline" onClick={cancelListEdit} disabled={isSavingList}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSavingList}>
-              <Save size={17} className="mr-2" />
-              {isSavingList ? 'Saving…' : 'Save price list'}
-            </Button>
-          </div>
-        </div>
-      </form>
     );
   };
 
@@ -723,7 +752,19 @@ const PricelistsPage = () => {
                 ) : null}
               />
 
-              {editingListSection === 'needlepoint' ? <PriceListEditor section="needlepoint" /> : <>
+              {editingListSection === 'needlepoint' ? (
+                <PriceListEditor
+                  section="needlepoint"
+                  items={listDraft}
+                  error={listEditorError}
+                  isSaving={isSavingList}
+                  onAdd={addListItem}
+                  onCancel={cancelListEdit}
+                  onRemove={removeListItem}
+                  onSave={saveList}
+                  onUpdate={updateListDraft}
+                />
+              ) : <>
               <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
                   <table className="artisan-data-table artisan-data-table--strong-header w-full">
@@ -832,7 +873,7 @@ const PricelistsPage = () => {
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
                     {crochetDraft.map((item, index) => (
                       <article
-                        key={`${item.item}-${index}`}
+                        key={item._draftRowId}
                         className="rounded-2xl border border-[#800000]/20 bg-white p-5 shadow-sm"
                       >
                         <div className="mb-5 flex items-center justify-between gap-3">
@@ -850,11 +891,11 @@ const PricelistsPage = () => {
                           </Button>
                         </div>
 
-                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-name-${index}`}>
+                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-name-${item._draftRowId}`}>
                           Item name
                         </label>
                         <input
-                          id={`crochet-name-${index}`}
+                          id={`crochet-name-${item._draftRowId}`}
                           value={item.item}
                           onChange={(event) => updateCrochetDraft(index, 'item', event.target.value)}
                           maxLength={80}
@@ -862,11 +903,11 @@ const PricelistsPage = () => {
                           className="mb-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
                         />
 
-                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-price-${index}`}>
+                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-price-${item._draftRowId}`}>
                           Starting price (PHP)
                         </label>
                         <input
-                          id={`crochet-price-${index}`}
+                          id={`crochet-price-${item._draftRowId}`}
                           type="number"
                           min="0"
                           step="1"
@@ -876,11 +917,11 @@ const PricelistsPage = () => {
                           className="mb-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-[#800000] focus:ring-2 focus:ring-[#800000]/20"
                         />
 
-                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-details-${index}`}>
+                        <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor={`crochet-details-${item._draftRowId}`}>
                           Description
                         </label>
                         <textarea
-                          id={`crochet-details-${index}`}
+                          id={`crochet-details-${item._draftRowId}`}
                           value={item.details}
                           onChange={(event) => updateCrochetDraft(index, 'details', event.target.value)}
                           maxLength={280}
@@ -967,7 +1008,19 @@ const PricelistsPage = () => {
                 ) : null}
               />
 
-              {editingListSection === 'portraiture' ? <PriceListEditor section="portraiture" /> : <>
+              {editingListSection === 'portraiture' ? (
+                <PriceListEditor
+                  section="portraiture"
+                  items={listDraft}
+                  error={listEditorError}
+                  isSaving={isSavingList}
+                  onAdd={addListItem}
+                  onCancel={cancelListEdit}
+                  onRemove={removeListItem}
+                  onSave={saveList}
+                  onUpdate={updateListDraft}
+                />
+              ) : <>
               <div className="hidden overflow-hidden rounded-2xl border border-white/45 bg-white/95 shadow-xl shadow-[#2D0E5A]/20 backdrop-blur-md md:block">
                 <div className="overflow-x-auto">
                   <table className="artisan-data-table artisan-data-table--strong-header w-full">
@@ -1085,7 +1138,19 @@ const PricelistsPage = () => {
                 ) : null}
               />
 
-              {editingListSection === 'canvas' ? <PriceListEditor section="canvas" /> : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {editingListSection === 'canvas' ? (
+                <PriceListEditor
+                  section="canvas"
+                  items={listDraft}
+                  error={listEditorError}
+                  isSaving={isSavingList}
+                  onAdd={addListItem}
+                  onCancel={cancelListEdit}
+                  onRemove={removeListItem}
+                  onSave={saveList}
+                  onUpdate={updateListDraft}
+                />
+              ) : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {pricing.canvas.map((item, i) => (
                   <motion.div
                     key={i}
