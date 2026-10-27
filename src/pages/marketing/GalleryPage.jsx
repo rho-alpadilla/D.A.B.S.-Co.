@@ -460,9 +460,18 @@ const GalleryPage = () => {
                             </div>
 
                             <div className="flex flex-1 flex-col p-5">
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <h3 className="min-h-[3.5rem] font-artisan-display text-lg font-semibold leading-snug text-[#01243A] line-clamp-2 md:text-xl">{item.name}</h3>
-                                <span className="shrink-0 text-right text-sm font-bold uppercase tracking-wide text-artisan-primary md:text-base">{isDisplayOnly ? 'Display only' : formatPrice(item.price)}</span>
+                              <div className="mb-3">
+                                <h3 className="min-h-[3.5rem] min-w-0 break-words font-artisan-display text-lg font-semibold leading-snug text-[#01243A] text-balance line-clamp-2 md:text-xl">
+                                  {item.name || 'Unnamed product'}
+                                </h3>
+                                <div className="mt-2 flex min-h-7 items-center">
+                                  <span className={isDisplayOnly
+                                    ? 'inline-flex rounded-md bg-artisan-primary-wash px-2.5 py-1 text-xs font-bold tracking-wide text-artisan-primary'
+                                    : 'text-lg font-bold tabular-nums text-artisan-primary'}
+                                  >
+                                    {isDisplayOnly ? 'Display only' : formatPrice(item.price)}
+                                  </span>
+                                </div>
                               </div>
                               <p className="mb-3 min-h-5 text-sm text-artisan-text-muted line-clamp-1">{item.category || 'Handmade Product'}</p>
                               <div className="mb-3 flex min-h-10 items-center justify-between gap-3">
