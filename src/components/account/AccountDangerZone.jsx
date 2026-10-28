@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Loader2, PauseCircle, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Loader2, PauseCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getReauthenticationMethod } from '@/lib/accountLifecycle';
 
@@ -47,19 +47,17 @@ const AccountDangerZone = ({
   const disabled = isCheckingEligibility || !isEligible || isSubmitting;
 
   return (
-    <section className="rounded-[1.5rem] border border-red-200 bg-red-50/70 p-5 sm:p-7 md:p-8">
-      <div className="flex gap-4">
-        <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-700">
-          <AlertTriangle size={21} />
-        </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">Account controls</p>
-          <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Deactivate or delete</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-artisan-text-muted">
-            Accounts with an approved purchase stay available so order records can be fulfilled and supported.
-          </p>
-        </div>
-      </div>
+    <section className="overflow-hidden rounded-[1.5rem] border border-red-100 bg-red-50/45">
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-300 [&::-webkit-details-marker]:hidden sm:px-6">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-700">
+            <AlertTriangle size={18} aria-hidden="true" />
+          </div>
+          <h2 className="flex-1 font-nunito text-lg font-bold text-artisan-text">Account controls</h2>
+          <ChevronDown size={18} className="text-artisan-text-muted transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+        </summary>
+
+        <div className="border-t border-red-100 px-5 pb-5 sm:px-6 sm:pb-6">
 
       <div className="mt-5 rounded-xl border border-red-100 bg-white/80 px-4 py-3 text-sm text-artisan-text-muted" aria-live="polite">
         {isCheckingEligibility && 'Checking your approved purchase history…'}
@@ -113,6 +111,8 @@ const AccountDangerZone = ({
           </div>
         </div>
       )}
+        </div>
+      </details>
     </section>
   );
 };

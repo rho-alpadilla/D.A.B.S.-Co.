@@ -9,7 +9,7 @@ import { auth, db } from '@/lib/firebase';
 import { deleteUser, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { ClearSearchButton } from '@/components/ui/clear-search-button';
-import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown, Edit } from 'lucide-react';
+import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown, Edit, Phone } from 'lucide-react';
 import AccountDangerZone from '@/components/account/AccountDangerZone';
 import {
   getAccountLifecycleErrorMessage,
@@ -39,9 +39,9 @@ const ALL_COUNTRIES = [
   { name: "Vietnam", code: "VN", flag: "https://flagcdn.com/vn.svg", callingCode: "+84" },
 ];
 
-const FIELD_LABEL_CLASS = 'mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-artisan-text-muted';
-const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
-const FIELD_VALUE_CLASS = 'min-h-12 rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/35 px-4 py-3 text-base font-semibold text-artisan-text';
+const FIELD_LABEL_CLASS = 'mb-2 flex items-center gap-2 text-xs font-semibold tracking-[0.04em] text-artisan-text-muted';
+const FIELD_INPUT_CLASS = 'w-full rounded-xl border border-artisan-border bg-white px-4 py-3 text-base text-artisan-text shadow-sm outline-none transition-[border-color,box-shadow,transform] duration-200 placeholder:text-artisan-text-faint focus:border-artisan-primary focus:ring-2 focus:ring-artisan-primary/15';
+const FIELD_VALUE_CLASS = 'min-h-12 rounded-xl bg-artisan-primary-wash/35 px-4 py-3 text-base font-semibold text-artisan-text';
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -73,6 +73,8 @@ const ProfilePage = () => {
   const [phoneCountrySearch, setPhoneCountrySearch] = useState("");
   const [addressCountrySearch, setAddressCountrySearch] = useState("");
   const fileInputRef = useRef(null);
+  const editSnapshotRef = useRef(null);
+  const [profileFeedback, setProfileFeedback] = useState(null);
   const [accountData, setAccountData] = useState(null);
   const [hasApprovedPurchase, setHasApprovedPurchase] = useState(null);
   const [accountEligibilityError, setAccountEligibilityError] = useState('');
@@ -197,6 +199,29 @@ const ProfilePage = () => {
     country.name.toLowerCase().includes(addressCountrySearch.toLowerCase())
   );
 
+  const startProfileEdit = () => {
+    editSnapshotRef.current = {
+      profile: structuredClone(profile),
+      tempData: structuredClone(tempData),
+    };
+    setProfileFeedback(null);
+    setIsEditing(true);
+  };
+
+  const cancelProfileEdit = () => {
+    if (editSnapshotRef.current) {
+      setProfile(editSnapshotRef.current.profile);
+      setTempData(editSnapshotRef.current.tempData);
+    }
+    editSnapshotRef.current = null;
+    setIsPhoneCountryOpen(false);
+    setIsAddressCountryOpen(false);
+    setPhoneCountrySearch('');
+    setAddressCountrySearch('');
+    setProfileFeedback(null);
+    setIsEditing(false);
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -216,16 +241,17 @@ const ProfilePage = () => {
         photoURL: data.secure_url
       });
     } catch (err) {
-      alert("Failed to upload photo");
+      setProfileFeedback({ tone: 'error', text: 'Photo upload failed.' });
     }
   };
 
   const handleSave = async () => {
     if (isRoleLoading) {
-      alert('Your account permissions are still loading. Please try again.');
+      setProfileFeedback({ tone: 'error', text: 'Account permissions are still loading.' });
       return;
     }
 
+    setProfileFeedback(null);
     try {
       const profileUpdates = {
         username: tempData.username.toLowerCase().trim(),
@@ -248,10 +274,11 @@ const ProfilePage = () => {
       }
 
       await updateDoc(doc(db, 'users', user.uid), profileUpdates);
+      editSnapshotRef.current = null;
       setIsEditing(false);
-      alert("Profile updated!");
+      setProfileFeedback({ tone: 'success', text: 'Profile updated.' });
     } catch (err) {
-      alert("Failed to save profile");
+      setProfileFeedback({ tone: 'error', text: 'Profile could not be saved.' });
     }
   };
 
@@ -356,24 +383,24 @@ const ProfilePage = () => {
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 
-        <div className="relative z-10 container mx-auto max-w-6xl px-5 py-14 sm:px-8 md:py-20">
+        <div className="relative z-10 container mx-auto max-w-6xl px-5 py-10 sm:px-8 md:py-14">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
-            className="overflow-hidden rounded-[2rem] border border-white/50 bg-white/95 shadow-2xl shadow-[#2D0E5A]/20 backdrop-blur-md"
+            className="space-y-5"
           >
             {/* Profile Header */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-[#2D0E5A] via-artisan-primary to-artisan-primary-mid px-6 py-10 text-white sm:px-10 md:px-14 md:py-14">
-              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-artisan-primary-pale/30 blur-3xl" />
-              <div className="relative flex flex-col items-center gap-7 md:flex-row md:gap-10">
-              <div className="relative">
-                <div className="h-32 w-32 overflow-hidden rounded-full border-4 border-white/75 bg-artisan-primary-wash shadow-2xl sm:h-40 sm:w-40">
+            <header className="relative overflow-hidden rounded-[1.5rem] border border-artisan-primary/10 bg-[#FFFCFA]/95 px-6 py-6 text-artisan-text shadow-[0_18px_45px_-32px_rgba(45,14,90,0.45)] sm:px-8 sm:py-7">
+              <div className="absolute inset-y-0 left-0 w-1 bg-artisan-primary" aria-hidden="true" />
+              <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
+              <div className="relative shrink-0">
+                <div className="h-24 w-24 overflow-hidden rounded-[1.35rem] border border-artisan-primary/10 bg-white shadow-sm sm:h-28 sm:w-28">
                   {profile.photoURL ? (
-                    <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                    <img src={profile.photoURL} alt={`${profile.fullName} profile`} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
-                      <User size={64} className="text-artisan-primary" />
+                      <User size={48} className="text-artisan-primary" />
                     </div>
                   )}
                 </div>
@@ -381,9 +408,9 @@ const ProfilePage = () => {
                   onClick={() => fileInputRef.current?.click()}
                   type="button"
                   aria-label="Upload a new profile photo"
-                  className="absolute -bottom-1 -right-1 rounded-full border-2 border-white bg-artisan-primary-pale p-3 text-artisan-text shadow-lg transition-[transform,background-color] duration-200 hover:scale-105 hover:bg-white"
+                  className="absolute -bottom-1 -right-1 rounded-xl border-2 border-[#FFFCFA] bg-artisan-primary p-2.5 text-white shadow-md transition duration-200 hover:-translate-y-0.5 hover:bg-artisan-primary-mid active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary/40"
                 >
-                  <Camera size={20} />
+                  <Camera size={18} />
                 </button>
                 <input
                   ref={fileInputRef}
@@ -394,21 +421,25 @@ const ProfilePage = () => {
                 />
               </div>
 
-              <div className="text-center md:text-left">
-                <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-artisan-primary-pale">My profile</p>
-                <h1 className="font-nunito text-4xl font-bold sm:text-5xl">
-                  @{profile.username}
+              <div className="min-w-0 flex-1 text-center sm:text-left">
+                <h1 className="text-wrap-balance font-nunito text-3xl font-bold leading-tight tracking-[-0.025em] text-artisan-text sm:text-[2.15rem]">
+                  {profile.fullName}
                 </h1>
-                <p className="mt-2 text-xl font-semibold text-white/90 sm:text-2xl">{profile.fullName}</p>
-                <p className="mt-5 flex items-center justify-center gap-2 text-sm text-white/80 md:justify-start sm:text-base">
-                  <Mail size={18} /> {profile.email}
-                </p>
+                <p className="mt-1 text-base font-semibold text-artisan-primary">@{profile.username}</p>
               </div>
+
+              <a
+                href={`mailto:${profile.email}`}
+                className="group flex items-center gap-2 break-all border-b border-artisan-primary/20 pb-1 text-sm font-medium text-artisan-text-muted transition-colors hover:border-artisan-primary hover:text-artisan-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-artisan-primary/25 sm:ml-auto"
+              >
+                <Mail size={16} className="shrink-0 transition-transform duration-200 group-hover:-translate-y-0.5" aria-hidden="true" />
+                {profile.email}
+              </a>
             </div>
-            </div>
+            </header>
 
             {/* Profile Info */}
-            <div className="space-y-10 p-6 sm:p-10 md:p-14">
+            <div className="space-y-7 rounded-[1.75rem] border border-white/70 bg-white/95 p-5 shadow-xl shadow-[#2D0E5A]/10 backdrop-blur-md sm:p-7 md:p-8">
               {location.state?.onboarding && !isRoleLoading && (
                 <div className="rounded-2xl border border-artisan-primary/20 bg-artisan-primary-wash px-5 py-4 text-artisan-text">
                   <p className="font-bold">Complete your profile</p>
@@ -421,13 +452,29 @@ const ProfilePage = () => {
               )}
               {/* Personal Info */}
               <section>
-                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Account details</p>
-                    <h2 className="mt-1 font-nunito text-3xl font-bold text-artisan-text">Personal information</h2>
-                  </div>
-                  {!isEditing && <p className="text-sm text-artisan-text-muted">Select Edit Profile to update your details.</p>}
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <h2 className="font-nunito text-2xl font-bold tracking-tight text-artisan-text sm:text-3xl">Personal information</h2>
+                  {isEditing ? (
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                      <Button variant="outline" onClick={cancelProfileEdit} className="w-full sm:w-auto">Cancel</Button>
+                      <Button onClick={handleSave} disabled={isRoleLoading} className="w-full sm:w-auto">
+                        <Save className="mr-2" size={17} /> Save
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="outline" onClick={startProfileEdit} disabled={isRoleLoading} className="w-full sm:w-auto">
+                      <Edit className="mr-2" size={17} /> Edit
+                    </Button>
+                  )}
                 </div>
+                {profileFeedback && (
+                  <p
+                    role="status"
+                    className={`mb-5 rounded-xl px-4 py-3 text-sm font-semibold ${profileFeedback.tone === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}
+                  >
+                    {profileFeedback.text}
+                  </p>
+                )}
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
                 <div>
                   <label className={FIELD_LABEL_CLASS}>
@@ -464,7 +511,7 @@ const ProfilePage = () => {
 
                 {/* PHONE WITH COUNTRY SELECTOR */}
                 <div>
-                  <label className={FIELD_LABEL_CLASS}>Phone Number</label>
+                  <label className={FIELD_LABEL_CLASS}><Phone size={16} /> Phone number</label>
                   {isEditing ? (
                     <div className="flex flex-col gap-3 sm:flex-row">
                       <div className="relative">
@@ -547,15 +594,12 @@ const ProfilePage = () => {
 
               {/* Shipping Address */}
               {!isRoleLoading && !isStaffAccount && (
-                <section className="rounded-[1.5rem] border border-artisan-primary/10 bg-artisan-primary-wash/35 p-5 sm:p-7 md:p-8">
+              <section className="rounded-[1.5rem] bg-artisan-primary-wash/30 p-5 sm:p-7">
                 <div className="mb-7 flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-artisan-primary text-white shadow-artisan-sm">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-artisan-primary text-white shadow-artisan-sm">
                     <MapPin size={21} />
                   </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Delivery details</p>
-                    <h2 className="font-nunito text-3xl font-bold text-artisan-text">Address</h2>
-                  </div>
+                  <h2 className="font-nunito text-2xl font-bold tracking-tight text-artisan-text">Delivery address</h2>
                 </div>
 
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
@@ -676,21 +720,17 @@ const ProfilePage = () => {
               )}
 
               {isAdmin && (
-                <section className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-7 md:p-8">
+                <section className="rounded-[1.5rem] bg-artisan-primary-wash/25 p-5 sm:p-7">
                   <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-artisan-primary text-white shadow-artisan-sm">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-artisan-primary text-white shadow-artisan-sm">
                         <MapPin size={21} />
                       </div>
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-artisan-primary">Store setting</p>
-                        <h2 className="font-nunito text-3xl font-bold text-artisan-text">Local pickup</h2>
-                        <p className="mt-1 text-sm text-artisan-text-muted">Shown to customers during checkout.</p>
-                      </div>
+                      <h2 className="font-nunito text-2xl font-bold tracking-tight text-artisan-text">Local pickup</h2>
                     </div>
                     {!isEditingPickupSettings && (
                       <Button type="button" variant="outline" onClick={startPickupSettingsEdit}>
-                        <Edit className="mr-2" size={17} /> Edit pickup location
+                        <Edit className="mr-2" size={17} /> Edit
                       </Button>
                     )}
                   </div>
@@ -762,35 +802,6 @@ const ProfilePage = () => {
                 isSubmitting={isAccountActionSubmitting}
               />
 
-              {/* Edit Button */}
-              <div className="flex flex-col gap-4 border-t border-artisan-primary/10 pt-8 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-                <div>
-                  <p className="font-semibold text-artisan-text">
-                    {isRoleLoading
-                      ? 'Loading profile permissions…'
-                      : isEditing
-                        ? 'Review your changes before saving.'
-                        : isStaffAccount
-                          ? 'Keep your profile information up to date.'
-                          : 'Keep your delivery details up to date.'}
-                  </p>
-                  <p className="mt-1 text-sm text-artisan-text-muted">Your profile information is saved securely to your account.</p>
-                </div>
-                {isEditing ? (
-                  <div className="flex flex-col-reverse justify-center gap-3 sm:flex-row">
-                    <Button onClick={handleSave} size="lg" disabled={isRoleLoading} className="w-full sm:w-auto">
-                      <Save className="mr-2" size={19} /> Save Changes
-                    </Button>
-                    <Button variant="outline" size="lg" onClick={() => setIsEditing(false)} className="w-full sm:w-auto">
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="lg" onClick={() => setIsEditing(true)} disabled={isRoleLoading} className="w-full sm:w-auto">
-                    Edit Profile
-                  </Button>
-                )}
-              </div>
             </div>
           </motion.div>
         </div>
