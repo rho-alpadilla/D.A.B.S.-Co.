@@ -18,8 +18,8 @@ import GalleryPage from '@/pages/marketing/GalleryPage';
 import AboutPage from '@/pages/marketing/AboutPage';
 import ContactPage from '@/pages/marketing/ContactPage';
 import FAQsPage from '@/pages/marketing/FAQsPage';
-import PrivacyPolicyPage from '@/pages/marketing/PrivacyPolicyPage';
-import TermsPage from '@/pages/marketing/TermsPage';
+import PrivacyPolicyPage from '@/pages/marketing/ManagedPrivacyPolicyPage';
+import TermsPage from '@/pages/marketing/ManagedTermsPage';
 
 // Shop Pages
 import ProductDetailPage from '@/pages/shop/ProductDetailPage';

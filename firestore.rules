@@ -611,6 +611,92 @@ service cloud.firestore {
         request.resource.data.createdAt == request.time;
     }
 
+    function hasValidSiteContentPayload(section, content) {
+      return (
+        section == 'faqs' &&
+        content is list &&
+        content.size() >= 1 &&
+        content.size() <= 50
+      ) || (
+        section in ['privacy', 'terms'] &&
+        content is map &&
+        content.keys().hasAll(['lastUpdated', 'sections']) &&
+        content.keys().hasOnly(['lastUpdated', 'sections']) &&
+        content.lastUpdated is string &&
+        content.lastUpdated.size() == 10 &&
+        content.sections is list &&
+        content.sections.size() >= 1 &&
+        content.sections.size() <= 30
+      );
+    }
+
+    function createsSiteContentRequest() {
+      return isSubAdmin() &&
+        request.resource.data.keys().hasAll([
+          'section',
+          'content',
+          'status',
+          'requestedBy',
+          'requestedByEmail',
+          'requestedAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'section',
+          'content',
+          'status',
+          'requestedBy',
+          'requestedByEmail',
+          'requestedAt'
+        ]) &&
+        hasValidSiteContentPayload(
+          request.resource.data.section,
+          request.resource.data.content
+        ) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.requestedBy == request.auth.uid &&
+        request.resource.data.requestedByEmail is string &&
+        request.resource.data.requestedByEmail.size() <= 320 &&
+        request.resource.data.requestedAt == request.time;
+    }
+
+    function resolvesSiteContentRequest() {
+      return isAdmin() &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status in ['approved', 'rejected'] &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'reviewedBy',
+          'reviewedAt'
+        ]) &&
+        request.resource.data.reviewedBy == request.auth.uid &&
+        request.resource.data.reviewedAt == request.time;
+    }
+
+    function isContentApprovalNotificationForAdmin(userId) {
+      return isSubAdmin() &&
+        get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin' &&
+        request.resource.data.keys().hasOnly([
+          'type',
+          'title',
+          'body',
+          'link',
+          'orderId',
+          'subject',
+          'read',
+          'createdAt'
+        ]) &&
+        request.resource.data.type == 'content_approval' &&
+        request.resource.data.title == 'Content update approval requested' &&
+        request.resource.data.body is string &&
+        request.resource.data.body.size() >= 10 &&
+        request.resource.data.body.size() <= 1200 &&
+        request.resource.data.link == '/?tab=content' &&
+        request.resource.data.orderId == null &&
+        request.resource.data.subject == 'site_content' &&
+        request.resource.data.read == false &&
+        request.resource.data.createdAt == request.time;
+    }
+
     match /users/{userId} {
       // Registration creates a profile for the authenticated account only.
       // The app currently uses both customer and buyer as non-privileged roles.
@@ -672,7 +758,8 @@ service cloud.firestore {
         allow create: if isActiveAccount() && (
           request.auth.uid == userId ||
           isAdmin() ||
-          isStatusCorrectionNotificationForAdmin(userId)
+          isStatusCorrectionNotificationForAdmin(userId) ||
+          isContentApprovalNotificationForAdmin(userId)
         );
       }
     }
@@ -687,6 +774,15 @@ service cloud.firestore {
     match /settings/{document} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /siteContentRequests/{requestId} {
+      allow read: if isAdmin() || (
+        isSubAdmin() && resource.data.requestedBy == request.auth.uid
+      );
+      allow create: if createsSiteContentRequest();
+      allow update: if resolvesSiteContentRequest();
+      allow delete: if false;
     }
 
     // Preserved pending a separate review-workflow decision. Signed-in writes

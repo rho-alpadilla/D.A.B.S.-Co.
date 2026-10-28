@@ -169,7 +169,7 @@ export const faqFallbackSuggestions = [
   'Do you offer rush orders?',
 ];
 
-export const findBestFaqMatch = (input) => {
+export const findBestFaqMatch = (input, faqList = faqs) => {
   const normalizedInput = input.toLowerCase().trim();
 
   if (!normalizedInput) return null;
@@ -177,7 +177,7 @@ export const findBestFaqMatch = (input) => {
   let bestMatch = null;
   let bestScore = 0;
 
-  for (const faq of faqs) {
+  for (const faq of faqList) {
     let score = 0;
 
     if (normalizedInput.includes(faq.question.toLowerCase())) {

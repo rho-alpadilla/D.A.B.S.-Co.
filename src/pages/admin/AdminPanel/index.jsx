@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
 import { useCurrency } from '@/context/CurrencyContext';
 import { db } from '@/lib/firebase';
@@ -67,6 +67,7 @@ import AdminWorkspaceHeader from './AdminWorkspaceHeader';
 import AdminOrdersTab from './AdminOrdersTab';
 import AdminUsersTab from './AdminUsersTab';
 import AdminAnalyticsTab from './AdminAnalyticsTab';
+import AdminContentTab from './AdminContentTab';
 import {
   getCorrectionStatusOptions,
   getNextWorkflowStatusOptions,
@@ -104,8 +105,11 @@ import { isDisplayProduct } from '@/lib/products/productTypes';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Title, Tooltip, Legend);
 
+const ADMIN_TABS = ['dashboard', 'orders', 'users', 'analytics', 'content'];
+
 const AdminPanel = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
 
@@ -127,7 +131,17 @@ const AdminPanel = () => {
   const [rangeDays, setRangeDays] = useState(30);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [tab, setTab] = useState("dashboard");
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState(ADMIN_TABS.includes(requestedTab) ? requestedTab : 'dashboard');
+
+  useEffect(() => {
+    if (ADMIN_TABS.includes(requestedTab)) setTab(requestedTab);
+  }, [requestedTab]);
+
+  const handleTabChange = (nextTab) => {
+    setTab(nextTab);
+    setSearchParams(nextTab === 'dashboard' ? {} : { tab: nextTab }, { replace: true });
+  };
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -1190,13 +1204,14 @@ const AdminPanel = () => {
             }}
           />
 
-          <Tabs value={tab} onValueChange={setTab}>
+          <Tabs value={tab} onValueChange={handleTabChange}>
             <div className="sticky top-[4.5rem] z-30 mb-8 -mx-2 overflow-x-auto px-2">
               <TabsList variant="segmented" aria-label="Admin workspace sections" className="!flex h-auto w-max min-w-full justify-start gap-1 rounded-xl border border-artisan-primary/10 bg-white/95 p-1.5 shadow-sm backdrop-blur-md">
                 <TabsTrigger variant="segmented" value="dashboard" className="min-w-[7rem] flex-1">Dashboard</TabsTrigger>
                 <TabsTrigger variant="segmented" value="orders" className="min-w-[7rem] flex-1">Orders</TabsTrigger>
                 <TabsTrigger variant="segmented" value="users" className="min-w-[7rem] flex-1">Users</TabsTrigger>
                 <TabsTrigger variant="segmented" value="analytics" className="min-w-[7rem] flex-1">Analytics</TabsTrigger>
+                <TabsTrigger variant="segmented" value="content" className="min-w-[7rem] flex-1">Content</TabsTrigger>
               </TabsList>
             </div>
 
@@ -1214,6 +1229,10 @@ const AdminPanel = () => {
 
             <TabsContent value="analytics">
               <AdminAnalyticsTab {...adminState} />
+            </TabsContent>
+
+            <TabsContent value="content">
+              <AdminContentTab {...adminState} />
             </TabsContent>
 
           </Tabs>

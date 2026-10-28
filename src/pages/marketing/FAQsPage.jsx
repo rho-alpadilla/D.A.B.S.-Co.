@@ -3,9 +3,11 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { faqs } from '@/data/faqs';
+import { useSiteContent } from '@/hooks/useSiteContent';
 
 const FAQsPage = () => {
+  const { content, error } = useSiteContent();
+
   return (
     <>
       <Helmet>
@@ -51,7 +53,12 @@ const FAQsPage = () => {
           </motion.aside>
 
           <div className="grid gap-4 sm:gap-5">
-            {faqs.map((faq, index) => (
+            {error && (
+              <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {error}
+              </p>
+            )}
+            {content.faqs.map((faq, index) => (
               <motion.article
                 key={faq.id}
                 initial={{ opacity: 0, y: 20 }}

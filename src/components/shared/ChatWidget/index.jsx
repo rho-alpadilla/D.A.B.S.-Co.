@@ -35,7 +35,8 @@ import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/lib/firebase';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { faqs, findBestFaqMatch } from '@/data/faqs';
+import { faqs as defaultFaqs, findBestFaqMatch } from '@/data/faqs';
+import { useSiteContent } from '@/hooks/useSiteContent';
 import { createNotification } from '@/lib/notifications';
 import { buildBuyerAiCatalog, requestBuyerAiReply } from '@/lib/ai/buyerAi';
 import { buildAdminAiDashboard, requestAdminAiReply } from '@/lib/ai/adminAi';
@@ -115,6 +116,8 @@ const ChatWidget = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
+  const { content: approvedSiteContent } = useSiteContent();
+  const approvedFaqs = approvedSiteContent.faqs;
 
   const [isOpen, setIsOpen] = useState(false);
   const [shouldAnimatePanel, setShouldAnimatePanel] = useState(true);
@@ -132,7 +135,7 @@ const ChatWidget = () => {
   const [faqMessages, setFaqMessages] = useState([FAQ_WELCOME_MESSAGE]);
   const [faqInput, setFaqInput] = useState('');
   const [suggestedFaqs, setSuggestedFaqs] = useState(() =>
-    getRandomFaqQuestions(faqs, 4)
+    getRandomFaqQuestions(defaultFaqs, 4)
   );
   const faqEndRef = useRef(null);
 
@@ -208,7 +211,7 @@ const ChatWidget = () => {
   useEffect(() => {
     setFaqMessages([FAQ_WELCOME_MESSAGE]);
     setFaqInput('');
-    setSuggestedFaqs(getRandomFaqQuestions(faqs, 4));
+    setSuggestedFaqs(getRandomFaqQuestions(approvedFaqs, 4));
 
     setAiMessages([USER_AI_WELCOME_MESSAGE]);
     setAiInput('');
@@ -237,9 +240,13 @@ const ChatWidget = () => {
     }
   }, [user?.uid, role, isAdminLike]);
 
+  useEffect(() => {
+    setSuggestedFaqs(getRandomFaqQuestions(approvedFaqs, 4));
+  }, [approvedFaqs]);
+
   const refreshSuggestedFaqs = (excludeQuestion = '') => {
     setSuggestedFaqs(
-      getRandomFaqQuestions(faqs, 4, excludeQuestion ? [excludeQuestion] : [])
+      getRandomFaqQuestions(approvedFaqs, 4, excludeQuestion ? [excludeQuestion] : [])
     );
   };
 
@@ -1027,7 +1034,7 @@ const ChatWidget = () => {
     setFaqMessages((prev) => [...prev, userMsg]);
     setFaqInput('');
 
-    const match = findBestFaqMatch(text);
+    const match = findBestFaqMatch(text, approvedFaqs);
 
     if (match) {
       setFaqMessages((prev) => [
@@ -1053,7 +1060,7 @@ const ChatWidget = () => {
   };
 
   const handleSuggestedFaqClick = (question) => {
-    const match = faqs.find((faq) => faq.question === question);
+    const match = approvedFaqs.find((faq) => faq.question === question);
 
     setFaqMessages((prev) => [
       ...prev,

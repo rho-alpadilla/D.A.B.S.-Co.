@@ -395,3 +395,107 @@ test('analytics event records are inaccessible to every browser client', async (
 
   await assertFails(getDoc(doc(admin, 'analyticsEventLog', 'event-1')));
 });
+
+test('[site-content] public content can be published directly only by a main admin', async () => {
+  const admin = asUser('admin-1', 'admin@example.com');
+  const subAdmin = asUser('artisan-1', 'artisan@example.com');
+  const buyer = asUser('buyer-1', 'buyer@example.com');
+  const publishedContent = {
+    faqs: [{ id: 'faq-1', question: 'Can I order?', answer: 'Yes, custom orders are available.', keywords: ['custom order'] }],
+    updatedAt: serverTimestamp(),
+    updatedBy: 'admin-1',
+    updatedByEmail: 'admin@example.com',
+  };
+
+  await seedDocument('users/admin-1', { role: 'admin' });
+  await seedDocument('users/artisan-1', { role: 'sub-admin' });
+  await seedDocument('users/buyer-1', { role: 'customer' });
+
+  await assertFails(setDoc(doc(subAdmin, 'settings', 'siteContent'), publishedContent));
+  await assertSucceeds(setDoc(doc(admin, 'settings', 'siteContent'), publishedContent));
+  await assertSucceeds(getDoc(doc(buyer, 'settings', 'siteContent')));
+});
+
+test('[site-content] a sub-admin can submit only their own valid pending proposal', async () => {
+  const subAdmin = asUser('artisan-1', 'artisan@example.com');
+  const buyer = asUser('buyer-1', 'buyer@example.com');
+  const requestData = {
+    section: 'privacy',
+    content: {
+      lastUpdated: '2026-10-28',
+      sections: [{ id: 'privacy-intro', title: 'Introduction', body: 'Updated privacy details.', items: [] }],
+    },
+    status: 'pending',
+    requestedBy: 'artisan-1',
+    requestedByEmail: 'artisan@example.com',
+    requestedAt: serverTimestamp(),
+  };
+
+  await seedDocument('users/artisan-1', { role: 'sub-admin' });
+  await seedDocument('users/buyer-1', { role: 'customer' });
+
+  await assertSucceeds(setDoc(doc(subAdmin, 'siteContentRequests', 'request-1'), requestData));
+  await assertFails(setDoc(doc(subAdmin, 'siteContentRequests', 'request-2'), {
+    ...requestData,
+    requestedBy: 'another-user',
+  }));
+  await assertFails(setDoc(doc(buyer, 'siteContentRequests', 'request-3'), requestData));
+});
+
+test('[site-content] only a main admin can approve and publish a proposal atomically', async () => {
+  const admin = asUser('admin-1', 'admin@example.com');
+  const subAdmin = asUser('artisan-1', 'artisan@example.com');
+  const proposedFaqs = [{ id: 'faq-1', question: 'Do you accept commissions?', answer: 'Yes, commissions are available.', keywords: ['commissions'] }];
+
+  await seedDocument('users/admin-1', { role: 'admin' });
+  await seedDocument('users/artisan-1', { role: 'sub-admin' });
+  await seedDocument('siteContentRequests/request-1', {
+    section: 'faqs',
+    content: proposedFaqs,
+    status: 'pending',
+    requestedBy: 'artisan-1',
+    requestedByEmail: 'artisan@example.com',
+    requestedAt: new Date(),
+  });
+
+  await assertFails(updateDoc(doc(subAdmin, 'siteContentRequests', 'request-1'), {
+    status: 'approved',
+    reviewedBy: 'artisan-1',
+    reviewedAt: serverTimestamp(),
+  }));
+
+  const batch = writeBatch(admin);
+  batch.set(doc(admin, 'settings', 'siteContent'), {
+    faqs: proposedFaqs,
+    updatedAt: serverTimestamp(),
+    updatedBy: 'admin-1',
+    updatedByEmail: 'admin@example.com',
+  }, { merge: true });
+  batch.update(doc(admin, 'siteContentRequests', 'request-1'), {
+    status: 'approved',
+    reviewedBy: 'admin-1',
+    reviewedAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+});
+
+test('[site-content] sub-admin approval notifications can target main admins only', async () => {
+  const subAdmin = asUser('artisan-1', 'artisan@example.com');
+  const notification = {
+    type: 'content_approval',
+    title: 'Content update approval requested',
+    body: 'artisan@example.com submitted changes to Privacy Policy.',
+    link: '/?tab=content',
+    orderId: null,
+    subject: 'site_content',
+    read: false,
+    createdAt: serverTimestamp(),
+  };
+
+  await seedDocument('users/admin-1', { role: 'admin' });
+  await seedDocument('users/artisan-1', { role: 'sub-admin' });
+  await seedDocument('users/artisan-2', { role: 'sub-admin' });
+
+  await assertSucceeds(setDoc(doc(subAdmin, 'users', 'admin-1', 'notifications', 'notification-1'), notification));
+  await assertFails(setDoc(doc(subAdmin, 'users', 'artisan-2', 'notifications', 'notification-2'), notification));
+});
