@@ -45,7 +45,8 @@ const FIELD_VALUE_CLASS = 'min-h-12 rounded-xl border border-artisan-primary/10 
 
 const ProfilePage = () => {
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isSubAdmin, loading: isRoleLoading } = useUserRole();
+  const isStaffAccount = isAdmin || isSubAdmin;
   const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState({
@@ -220,23 +221,33 @@ const ProfilePage = () => {
   };
 
   const handleSave = async () => {
+    if (isRoleLoading) {
+      alert('Your account permissions are still loading. Please try again.');
+      return;
+    }
+
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      const profileUpdates = {
         username: tempData.username.toLowerCase().trim(),
         fullName: tempData.fullName.trim(),
         displayName: tempData.fullName.trim(),
         phone: profile.phoneCountry.callingCode + " " + tempData.phone,
         birthdate: tempData.birthdate,
-        addresses: [{
+        profileCompleted: true,
+      };
+
+      if (!isStaffAccount) {
+        profileUpdates.addresses = [{
           street: tempData.street,
           city: tempData.city,
           stateProvince: tempData.stateProvince,
           postalCode: tempData.postalCode,
           country: profile.address.countryObj.name,
           isDefault: true
-        }],
-        profileCompleted: true,
-      });
+        }];
+      }
+
+      await updateDoc(doc(db, 'users', user.uid), profileUpdates);
       setIsEditing(false);
       alert("Profile updated!");
     } catch (err) {
@@ -398,10 +409,14 @@ const ProfilePage = () => {
 
             {/* Profile Info */}
             <div className="space-y-10 p-6 sm:p-10 md:p-14">
-              {location.state?.onboarding && (
+              {location.state?.onboarding && !isRoleLoading && (
                 <div className="rounded-2xl border border-artisan-primary/20 bg-artisan-primary-wash px-5 py-4 text-artisan-text">
                   <p className="font-bold">Complete your profile</p>
-                  <p className="mt-1 text-sm text-artisan-text-muted">Please review your name, phone number, and delivery address before continuing.</p>
+                  <p className="mt-1 text-sm text-artisan-text-muted">
+                    {isStaffAccount
+                      ? 'Please review your name and phone number before continuing.'
+                      : 'Please review your name, phone number, and delivery address before continuing.'}
+                  </p>
                 </div>
               )}
               {/* Personal Info */}
@@ -531,7 +546,8 @@ const ProfilePage = () => {
               </section>
 
               {/* Shipping Address */}
-              <section className="rounded-[1.5rem] border border-artisan-primary/10 bg-artisan-primary-wash/35 p-5 sm:p-7 md:p-8">
+              {!isRoleLoading && !isStaffAccount && (
+                <section className="rounded-[1.5rem] border border-artisan-primary/10 bg-artisan-primary-wash/35 p-5 sm:p-7 md:p-8">
                 <div className="mb-7 flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-artisan-primary text-white shadow-artisan-sm">
                     <MapPin size={21} />
@@ -656,7 +672,8 @@ const ProfilePage = () => {
                     )}
                   </div>
                 </div>
-              </section>
+                </section>
+              )}
 
               {isAdmin && (
                 <section className="rounded-[1.5rem] border border-artisan-primary/10 bg-white p-5 sm:p-7 md:p-8">
@@ -748,12 +765,20 @@ const ProfilePage = () => {
               {/* Edit Button */}
               <div className="flex flex-col gap-4 border-t border-artisan-primary/10 pt-8 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
                 <div>
-                  <p className="font-semibold text-artisan-text">{isEditing ? 'Review your changes before saving.' : 'Keep your delivery details up to date.'}</p>
+                  <p className="font-semibold text-artisan-text">
+                    {isRoleLoading
+                      ? 'Loading profile permissions…'
+                      : isEditing
+                        ? 'Review your changes before saving.'
+                        : isStaffAccount
+                          ? 'Keep your profile information up to date.'
+                          : 'Keep your delivery details up to date.'}
+                  </p>
                   <p className="mt-1 text-sm text-artisan-text-muted">Your profile information is saved securely to your account.</p>
                 </div>
                 {isEditing ? (
                   <div className="flex flex-col-reverse justify-center gap-3 sm:flex-row">
-                    <Button onClick={handleSave} size="lg" className="w-full sm:w-auto">
+                    <Button onClick={handleSave} size="lg" disabled={isRoleLoading} className="w-full sm:w-auto">
                       <Save className="mr-2" size={19} /> Save Changes
                     </Button>
                     <Button variant="outline" size="lg" onClick={() => setIsEditing(false)} className="w-full sm:w-auto">
@@ -761,7 +786,7 @@ const ProfilePage = () => {
                     </Button>
                   </div>
                 ) : (
-                  <Button size="lg" onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
+                  <Button size="lg" onClick={() => setIsEditing(true)} disabled={isRoleLoading} className="w-full sm:w-auto">
                     Edit Profile
                   </Button>
                 )}
