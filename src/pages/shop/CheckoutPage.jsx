@@ -36,7 +36,12 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { createNotification, createNotificationsForUsers } from '@/lib/notifications';
 import { getAvailableStock } from '@/lib/stock';
 import { getProductImageUrl } from '@/lib/catalog/productImages';
-import { DEFAULT_PICKUP_SETTINGS, normalizePickupSettings } from '@/lib/storefrontSettings';
+import {
+  DEFAULT_BANK_TRANSFER_DETAILS,
+  DEFAULT_PICKUP_SETTINGS,
+  normalizeBankTransferDetails,
+  normalizePickupSettings,
+} from '@/lib/storefrontSettings';
 // ALL COUNTRIES (copied from ProfilePage)
 const ALL_COUNTRIES = [
   { name: 'Philippines', code: 'PH', flag: 'https://flagcdn.com/ph.svg', callingCode: '+63' },
@@ -88,6 +93,7 @@ const CheckoutPage = () => {
   const [deliveryMethod, setDeliveryMethod] = useState('courier');
   const [paymentMethod, setPaymentMethod] = useState('bank');
   const [pickupSettings, setPickupSettings] = useState(DEFAULT_PICKUP_SETTINGS);
+  const [bankDetails, setBankDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -134,12 +140,6 @@ const CheckoutPage = () => {
         : cartItems.map((item) => item.id);
     });
   }, [cartItems, cartLoading, selectedItemIds]);
-
-  const bankDetails = {
-    bankName: 'BDO Unibank',
-    accountName: 'DABS Co. (D-A-B-S Company)',
-    accountNumber: '0012-3456-7890-1234',
-  };
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -190,7 +190,9 @@ const CheckoutPage = () => {
   }, [user?.uid]);
 
   useEffect(() => onSnapshot(doc(db, 'settings', 'storefront'), (snapshot) => {
-    setPickupSettings(normalizePickupSettings(snapshot.data()?.pickupSettings));
+    const storefrontSettings = snapshot.data();
+    setPickupSettings(normalizePickupSettings(storefrontSettings?.pickupSettings));
+    setBankDetails(normalizeBankTransferDetails(storefrontSettings?.bankTransferDetails));
   }), []);
 
   const handleChange = (e) => {
@@ -434,7 +436,7 @@ const CheckoutPage = () => {
                 <div>
                   <p className="text-artisan-text-mid">
                     {paymentMethod === 'bank'
-                      ? 'Please transfer the total amount to the BDO account shown below. Include your Order ID in the reference.'
+                      ? `Please transfer the total amount to the ${bankDetails.bankName} account shown below. Include your Order ID in the reference.`
                       : 'Your PayPal payment has been processed. Admin will confirm shortly.'}
                   </p>
                 </div>
@@ -794,7 +796,7 @@ const CheckoutPage = () => {
                     />
                     <div className="flex-grow">
                       <p className="font-medium text-artisan-text">Bank transfer</p>
-                      <p className="text-sm text-artisan-text-muted">BDO account</p>
+                      <p className="text-sm text-artisan-text-muted">{bankDetails.bankName} account</p>
                     </div>
                     {paymentMethod === 'bank' && <CheckCircle size={20} className="text-[#5C2D91]" />}
                   </label>

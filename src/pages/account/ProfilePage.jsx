@@ -9,7 +9,7 @@ import { auth, db } from '@/lib/firebase';
 import { deleteUser, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { ClearSearchButton } from '@/components/ui/clear-search-button';
-import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown, Edit, Phone } from 'lucide-react';
+import { Camera, Save, User, AtSign, Mail, Calendar, MapPin, ChevronDown, Edit, Phone, Landmark } from 'lucide-react';
 import AccountDangerZone from '@/components/account/AccountDangerZone';
 import {
   getAccountLifecycleErrorMessage,
@@ -18,7 +18,12 @@ import {
   removeEligibleAccountData,
 } from '@/lib/accountLifecycle';
 import { useUserRole } from '@/hooks/useUserRole';
-import { DEFAULT_PICKUP_SETTINGS, normalizePickupSettings } from '@/lib/storefrontSettings';
+import {
+  DEFAULT_BANK_TRANSFER_DETAILS,
+  DEFAULT_PICKUP_SETTINGS,
+  normalizeBankTransferDetails,
+  normalizePickupSettings,
+} from '@/lib/storefrontSettings';
 
 // ALL COUNTRIES
 const ALL_COUNTRIES = [
@@ -84,6 +89,11 @@ const ProfilePage = () => {
   const [isEditingPickupSettings, setIsEditingPickupSettings] = useState(false);
   const [isSavingPickupSettings, setIsSavingPickupSettings] = useState(false);
   const [pickupSettingsError, setPickupSettingsError] = useState('');
+  const [bankDetails, setBankDetails] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
+  const [bankDetailsDraft, setBankDetailsDraft] = useState(DEFAULT_BANK_TRANSFER_DETAILS);
+  const [isEditingBankDetails, setIsEditingBankDetails] = useState(false);
+  const [isSavingBankDetails, setIsSavingBankDetails] = useState(false);
+  const [bankDetailsError, setBankDetailsError] = useState('');
 
   const [countries] = useState(ALL_COUNTRIES);
 
@@ -154,7 +164,9 @@ const ProfilePage = () => {
     if (!isAdmin) return undefined;
 
     return onSnapshot(doc(db, 'settings', 'storefront'), (snapshot) => {
-      setPickupSettings(normalizePickupSettings(snapshot.data()?.pickupSettings));
+      const storefrontSettings = snapshot.data();
+      setPickupSettings(normalizePickupSettings(storefrontSettings?.pickupSettings));
+      setBankDetails(normalizeBankTransferDetails(storefrontSettings?.bankTransferDetails));
     });
   }, [isAdmin]);
 
@@ -325,6 +337,58 @@ const ProfilePage = () => {
       setPickupSettingsError('The pickup settings could not be saved. Please try again.');
     } finally {
       setIsSavingPickupSettings(false);
+    }
+  };
+
+  const startBankDetailsEdit = () => {
+    setBankDetailsDraft(bankDetails);
+    setBankDetailsError('');
+    setIsEditingBankDetails(true);
+  };
+
+  const cancelBankDetailsEdit = () => {
+    setBankDetailsDraft(bankDetails);
+    setBankDetailsError('');
+    setIsEditingBankDetails(false);
+  };
+
+  const saveBankDetails = async () => {
+    const nextBankDetails = {
+      bankName: bankDetailsDraft.bankName.trim(),
+      accountName: bankDetailsDraft.accountName.trim(),
+      accountNumber: bankDetailsDraft.accountNumber.trim(),
+    };
+
+    if (!nextBankDetails.bankName || nextBankDetails.bankName.length > 80) {
+      setBankDetailsError('Enter a bank name of 80 characters or fewer.');
+      return;
+    }
+
+    if (!nextBankDetails.accountName || nextBankDetails.accountName.length > 120) {
+      setBankDetailsError('Enter an account name of 120 characters or fewer.');
+      return;
+    }
+
+    if (!nextBankDetails.accountNumber || nextBankDetails.accountNumber.length > 80) {
+      setBankDetailsError('Enter an account number of 80 characters or fewer.');
+      return;
+    }
+
+    setIsSavingBankDetails(true);
+    setBankDetailsError('');
+
+    try {
+      await setDoc(doc(db, 'settings', 'storefront'), {
+        bankTransferDetails: nextBankDetails,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setBankDetails(nextBankDetails);
+      setIsEditingBankDetails(false);
+    } catch (error) {
+      console.error('Unable to save bank transfer details', error);
+      setBankDetailsError('The bank details could not be saved. Please try again.');
+    } finally {
+      setIsSavingBankDetails(false);
     }
   };
 
@@ -788,6 +852,98 @@ const ProfilePage = () => {
                         <p className="mt-1 text-artisan-text-mid">{pickupSettings.instructions}</p>
                       </div>
                     </div>
+                  )}
+                </section>
+              )}
+
+              {isAdmin && (
+                <section className="rounded-[1.5rem] bg-artisan-primary-wash/25 p-5 sm:p-7">
+                  <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-artisan-primary text-white shadow-artisan-sm">
+                        <Landmark size={21} />
+                      </div>
+                      <h2 className="font-nunito text-2xl font-bold tracking-tight text-artisan-text">Bank transfer</h2>
+                    </div>
+                    {!isEditingBankDetails && (
+                      <Button type="button" variant="outline" onClick={startBankDetailsEdit}>
+                        <Edit className="mr-2" size={17} /> Edit
+                      </Button>
+                    )}
+                  </div>
+
+                  {isEditingBankDetails ? (
+                    <div className="space-y-5">
+                      <div>
+                        <label className={FIELD_LABEL_CLASS} htmlFor="bank-name">Bank name</label>
+                        <input
+                          id="bank-name"
+                          type="text"
+                          value={bankDetailsDraft.bankName}
+                          onChange={(event) => setBankDetailsDraft((current) => ({ ...current, bankName: event.target.value }))}
+                          maxLength={80}
+                          required
+                          className={FIELD_INPUT_CLASS}
+                          placeholder="BDO Unibank"
+                        />
+                      </div>
+                      <div>
+                        <label className={FIELD_LABEL_CLASS} htmlFor="bank-account-name">Account name</label>
+                        <input
+                          id="bank-account-name"
+                          type="text"
+                          value={bankDetailsDraft.accountName}
+                          onChange={(event) => setBankDetailsDraft((current) => ({ ...current, accountName: event.target.value }))}
+                          maxLength={120}
+                          required
+                          className={FIELD_INPUT_CLASS}
+                          placeholder="DABS Co."
+                        />
+                      </div>
+                      <div>
+                        <label className={FIELD_LABEL_CLASS} htmlFor="bank-account-number">Account number</label>
+                        <input
+                          id="bank-account-number"
+                          type="text"
+                          inputMode="numeric"
+                          value={bankDetailsDraft.accountNumber}
+                          onChange={(event) => setBankDetailsDraft((current) => ({ ...current, accountNumber: event.target.value }))}
+                          maxLength={80}
+                          required
+                          className={FIELD_INPUT_CLASS}
+                          placeholder="0012-3456-7890-1234"
+                        />
+                      </div>
+                      {bankDetailsError && (
+                        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {bankDetailsError}
+                        </p>
+                      )}
+                      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <Button type="button" variant="outline" onClick={cancelBankDetailsEdit} disabled={isSavingBankDetails}>
+                          Cancel
+                        </Button>
+                        <Button type="button" onClick={saveBankDetails} disabled={isSavingBankDetails}>
+                          <Save className="mr-2" size={18} />
+                          {isSavingBankDetails ? 'Saving…' : 'Save bank details'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <dl className="grid gap-3 rounded-xl border border-artisan-primary/10 bg-artisan-primary-wash/35 px-4 py-4 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">Bank</dt>
+                        <dd className="mt-1 text-lg font-semibold text-artisan-text">{bankDetails.bankName}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">Account name</dt>
+                        <dd className="mt-1 font-semibold text-artisan-text">{bankDetails.accountName}</dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-xs font-bold uppercase tracking-[0.12em] text-artisan-text-muted">Account number</dt>
+                        <dd className="mt-1 break-all font-mono font-semibold text-artisan-text">{bankDetails.accountNumber}</dd>
+                      </div>
+                    </dl>
                   )}
                 </section>
               )}

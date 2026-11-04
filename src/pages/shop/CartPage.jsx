@@ -310,7 +310,7 @@ const CartPage = () => {
                 )}
 
                 <p className="mt-4 text-center text-xs text-white/70">
-                  Secure checkout via Bank Transfer / GCash
+                  Secure checkout via Bank Transfer / PayPal
                 </p>
               </aside>
             </div>
