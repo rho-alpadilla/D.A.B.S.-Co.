@@ -2,24 +2,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
-  doc, onSnapshot, updateDoc, collection, query, where, 
-  average, count, getAggregateFromServer, getDocs, limit, orderBy, startAfter,
+  doc, onSnapshot, updateDoc, collection, query, where, getDocs, limit, orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useAuth } from '@/lib/firebase';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
-import { 
-  ArrowLeft, ShoppingBag, Edit, Save, X, Upload, 
-  Star, MessageCircle, ChevronLeft, ChevronRight, Trash2, Plus 
+import {
+  ArrowLeft, ShoppingBag, Edit, Save, X, Upload,
+  MessageCircle, ChevronLeft, ChevronRight, Trash2, Plus
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { getAvailableStock, isPurchasable } from '@/lib/stock';
 import StickyProductPurchaseSummary from '@/components/shop/StickyProductPurchaseSummary';
 import { useUserRole } from '@/hooks/useUserRole';
 import { PRODUCT_CATEGORIES, isDisplayProduct } from '@/lib/products/productTypes';
-const REVIEWS_PER_PAGE = 5;
 
 const getItemsPerPage = () => {
   if (typeof window === 'undefined') return 4;
@@ -31,19 +28,12 @@ const getItemsPerPage = () => {
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { isAdmin, isProductManager } = useUserRole();
+  const { isProductManager } = useUserRole();
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { toast } = useToast();
 
   const [product, setProduct] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  const [hasMoreReviews, setHasMoreReviews] = useState(false);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsError, setReviewsError] = useState('');
-  const [averageRating, setAverageRating] = useState(0);
-  const [totalReviews, setTotalReviews] = useState(0);
   const [recommended, setRecommended] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -51,7 +41,6 @@ const ProductDetailPage = () => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
   const purchaseActionsRef = useRef(null);
-  const reviewCursorRef = useRef(null);
   const [showStickyPurchase, setShowStickyPurchase] = useState(false);
 
   // Multi-image state
@@ -61,17 +50,8 @@ const ProductDetailPage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(getItemsPerPage);
 
-  // Admin reply state
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [replyText, setReplyText] = useState("");
-
   useEffect(() => {
     if (!id) return;
-    let isCancelled = false;
-    reviewCursorRef.current = null;
-    setReviews([]);
-    setHasMoreReviews(false);
-    setReviewsError('');
 
     const unsubProduct = onSnapshot(doc(db, "pricelists", id), (snap) => {
       if (snap.exists()) {
@@ -90,94 +70,10 @@ const ProductDetailPage = () => {
       setLoading(false);
     });
 
-    const loadReviews = async () => {
-      const reviewsCollectionQuery = query(
-        collection(db, "reviews"),
-        where("productId", "==", id),
-      );
-      const pageQuery = query(reviewsCollectionQuery, orderBy('createdAt', 'desc'), limit(REVIEWS_PER_PAGE + 1));
-
-      try {
-        const pageSnapshot = await getDocs(pageQuery);
-        if (isCancelled) return;
-
-        const pageDocuments = pageSnapshot.docs.slice(0, REVIEWS_PER_PAGE);
-
-        reviewCursorRef.current = pageDocuments.at(-1) || null;
-        setReviews(pageDocuments.map((reviewDocument) => ({ id: reviewDocument.id, ...reviewDocument.data() })));
-        setHasMoreReviews(pageSnapshot.docs.length > REVIEWS_PER_PAGE);
-
-        try {
-          const summarySnapshot = await getAggregateFromServer(reviewsCollectionQuery, {
-            averageRating: average('rating'),
-            reviewCount: count(),
-          });
-          if (isCancelled) return;
-
-          const summary = summarySnapshot.data();
-          const reviewCount = summary.reviewCount || 0;
-          setTotalReviews(reviewCount);
-          setAverageRating(reviewCount > 0 ? Number(summary.averageRating || 0).toFixed(1) : 0);
-        } catch (summaryError) {
-          // Review cards remain available even if a legacy data value prevents
-          // Firestore from calculating a full aggregate summary.
-          console.warn('Unable to load the full product review summary', summaryError);
-          const pageReviews = pageDocuments.map((reviewDocument) => reviewDocument.data());
-          const ratedReviews = pageReviews.filter((review) => Number.isFinite(review.rating));
-          const pageAverage = ratedReviews.length
-            ? ratedReviews.reduce((sum, review) => sum + Number(review.rating), 0) / ratedReviews.length
-            : 0;
-
-          setTotalReviews(pageDocuments.length);
-          setAverageRating(ratedReviews.length ? pageAverage.toFixed(1) : 0);
-        }
-      } catch (error) {
-        if (isCancelled) return;
-        console.error('Unable to load product reviews', error);
-        setReviews([]);
-        setHasMoreReviews(false);
-        setTotalReviews(0);
-        setAverageRating(0);
-        setReviewsError('Reviews are unavailable right now. Please refresh the page to try again.');
-      }
-    };
-
-    loadReviews();
-
     return () => {
-      isCancelled = true;
       unsubProduct();
     };
   }, [id]);
-
-  const loadMoreReviews = async () => {
-    if (!id || !hasMoreReviews || reviewsLoading || !reviewCursorRef.current) return;
-
-    setReviewsLoading(true);
-    try {
-      const pageQuery = query(
-        collection(db, 'reviews'),
-        where('productId', '==', id),
-        orderBy('createdAt', 'desc'),
-        startAfter(reviewCursorRef.current),
-        limit(REVIEWS_PER_PAGE + 1),
-      );
-      const pageSnapshot = await getDocs(pageQuery);
-      const pageDocuments = pageSnapshot.docs.slice(0, REVIEWS_PER_PAGE);
-
-      reviewCursorRef.current = pageDocuments.at(-1) || reviewCursorRef.current;
-      setReviews((currentReviews) => [
-        ...currentReviews,
-        ...pageDocuments.map((reviewDocument) => ({ id: reviewDocument.id, ...reviewDocument.data() })),
-      ]);
-      setHasMoreReviews(pageSnapshot.docs.length > REVIEWS_PER_PAGE);
-    } catch (error) {
-      console.error('Unable to load more product reviews', error);
-      setReviewsError('More reviews could not be loaded. Please try again.');
-    } finally {
-      setReviewsLoading(false);
-    }
-  };
 
   // Load recommendations (unchanged)
   useEffect(() => {
@@ -318,39 +214,6 @@ const ProductDetailPage = () => {
       toast({ title: "Error", description: "Save failed", variant: "destructive" });
       console.error(err);
     }
-  };
-
-  const sendReply = async (reviewId) => {
-    if (!replyText.trim()) return;
-
-    try {
-      await updateDoc(doc(db, "reviews", reviewId), {
-        adminReply: replyText.trim(),
-        adminRepliedAt: new Date(),
-        adminRepliedBy: user.email
-      });
-
-      setReplyText("");
-      setReplyingTo(null);
-      toast({ title: "Success", description: "Reply sent!" });
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to send reply", variant: "destructive" });
-      console.error(err);
-    }
-  };
-
-  const renderStars = (rating) => {
-    return (
-      <div className="flex gap-1">
-        {[1,2,3,4,5].map(i => (
-          <Star
-            key={i}
-            size={18}
-            className={i <= rating ? "fill-current text-[#C992D8]" : "text-[#E7DDEB]"}
-          />
-        ))}
-      </div>
-    );
   };
 
   const getBuyerStockStatus = () => {
@@ -590,14 +453,6 @@ const ProductDetailPage = () => {
                     {product.name}
                   </h1>
 
-                  {totalReviews > 0 && (
-                    <div className="mb-2 flex items-center gap-3">
-                      {renderStars(Math.round(averageRating))}
-                      <span className="text-2xl font-bold text-[#5C2D91]">{averageRating}</span>
-                      <span className="text-gray-600">({totalReviews} reviews)</span>
-                    </div>
-                  )}
-
                   <p className="max-w-prose text-base leading-7 text-[#495968] md:text-lg">
                     {product.description}
                   </p>
@@ -673,102 +528,6 @@ const ProductDetailPage = () => {
             />
           )}
 
-          {/* REVIEWS SECTION */}
-          {(reviews.length > 0 || totalReviews > 0 || reviewsError) && (
-            <section className="mb-12 mt-12 rounded-[2rem] border border-white/60 bg-white/95 p-7 shadow-xl shadow-[#2D0E5A]/10 backdrop-blur-md md:p-10">
-              <h2 className="mb-8 font-artisan-display text-4xl font-bold text-[#2A1739]">Customer Reviews</h2>
-              <div className="space-y-8">
-                {reviewsError && <p role="alert" className="rounded-lg border border-artisan-primary/20 bg-[#FAF8F1] px-4 py-3 text-sm text-artisan-text-mid">{reviewsError}</p>}
-                {reviews.map(review => (
-                  <div key={review.id} className="border-b pb-8 last:border-0">
-                    <div className="flex items-start gap-4">
-                      {review.buyerPhoto ? (
-                        <img src={review.buyerPhoto} alt={review.buyerName} className="w-14 h-14 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#5C2D91] text-xl font-bold text-white">
-                          {review.buyerName[0]?.toUpperCase() || "U"}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-bold text-lg">{review.buyerName}</p>
-                            <div className="flex gap-1 mt-1">
-                              {renderStars(review.rating)}
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            {review.createdAt?.toDate?.().toLocaleDateString()}
-                          </p>
-                        </div>
-                        <p className="text-gray-700 mt-3">{review.comment || "No comment"}</p>
-                      </div>
-                    </div>
-
-                    {review.adminReply ? (
-                      <div className="ml-0 mt-6 rounded-xl border-l-4 border-[#7B3FA0] bg-[#F7F0FA] p-6 sm:ml-20">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5C2D91] font-bold text-white">
-                            A
-                          </div>
-                          <div>
-                            <p className="font-bold text-[#5C2D91]">Admin Reply</p>
-                            <p className="text-xs text-gray-600">
-                              {review.adminRepliedAt?.toDate?.().toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="text-gray-800">{review.adminReply}</p>
-                      </div>
-                    ) : isAdmin && (
-                      <div className="ml-0 mt-6 sm:ml-20">
-                        {replyingTo === review.id ? (
-                          <div className="flex gap-3">
-                            <textarea
-                              value={replyText}
-                              onChange={e => setReplyText(e.target.value)}
-                              placeholder="Write a reply..."
-                              className="flex-1 px-4 py-3 border rounded-lg resize-none h-24"
-                            />
-                            <div className="flex flex-col gap-2">
-                              <Button onClick={() => sendReply(review.id)} size="sm" className="bg-[#5C2D91] hover:bg-[#4A2578]">
-                                Send
-                              </Button>
-                              <Button onClick={() => { setReplyingTo(null); setReplyText(""); }} variant="outline" size="sm">
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <Button
-                            onClick={() => setReplyingTo(review.id)}
-                            variant="outline"
-                            size="sm"
-                            className="border-[#5C2D91] text-[#5C2D91] hover:bg-[#F0E6F7]"
-                          >
-                            <MessageCircle className="mr-2" size={16} /> Reply
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {hasMoreReviews && (
-                  <div className="flex justify-center pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={loadMoreReviews}
-                      disabled={reviewsLoading}
-                    >
-                      {reviewsLoading ? 'Loading reviews...' : 'Load 5 more reviews'}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
           {/* UNIFIED "YOU MAY ALSO LIKE" CAROUSEL */}
           {recommended.length > 0 && (
             <section className="mt-16 rounded-3xl border border-[#E7DED3] bg-[#FAF8F1]/90 px-5 py-10 shadow-[0_16px_40px_rgba(36,16,31,0.08)] md:px-8 md:py-12">
@@ -814,13 +573,10 @@ const ProductDetailPage = () => {
                             )}
                           </div>
 
-                          <div className="grid min-h-40 grid-rows-[minmax(3.25rem,auto)_1.5rem_auto] gap-3 p-5 text-left">
+                          <div className="grid min-h-32 grid-rows-[minmax(3.25rem,auto)_auto] gap-3 p-5 text-left">
                             <h3 className="line-clamp-2 font-artisan-display font-bold leading-snug text-[#01243A] transition-colors group-hover:text-artisan-primary">
                               {item.name}
                             </h3>
-                            <div className="flex gap-2">
-                              {renderStars(Math.round(item.averageRating || 0))}
-                            </div>
                             <p className="self-end text-2xl font-bold tabular-nums text-artisan-primary">
                               {isDisplayProduct(item) ? 'Display only' : formatPrice(item.price)}
                             </p>

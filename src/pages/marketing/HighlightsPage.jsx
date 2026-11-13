@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, ArrowRight, ArrowUp, Palette, Search, Star, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUp, Palette, Search, X } from 'lucide-react';
 import { isDisplayProduct } from '@/lib/products/productTypes';
 import { useToast } from '@/components/ui/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -132,17 +132,6 @@ const HighlightsPage = () => {
     }
   };
 
-  const renderStars = (rating) => {
-    const r = Number(rating || 0);
-    return (
-      <div className="flex gap-0.5">
-        {[1,2,3,4,5].map((i) => (
-          <Star key={i} size={16} className={i <= r ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} />
-        ))}
-      </div>
-    );
-  };
-
   const EmptyState = ({ text, hasError = false }) => (
     <p className="col-span-full border-y border-artisan-primary/15 py-10 text-center text-artisan-text-mid md:py-12">
       {hasError ? 'This section is unavailable right now. Please try again later.' : text}
@@ -185,12 +174,6 @@ const HighlightsPage = () => {
           <h3 className="mb-3 min-h-[3.5rem] font-artisan-display text-xl font-bold text-artisan-text line-clamp-2 transition-colors group-hover:text-artisan-primary">
             {item.name}
           </h3>
-
-          <div className="mb-4 flex min-h-5 items-center gap-2">
-            {item.averageRating > 0 && (
-              <>{renderStars(item.averageRating)}<span className="text-xs text-artisan-text-muted">({item.reviewCount || 0})</span></>
-            )}
-          </div>
 
           <div className="mt-auto flex items-center justify-between">
             <span className="text-sm font-bold uppercase tracking-wide text-artisan-primary">{isDisplayOnly ? 'Display only' : formatPrice(item.price)}</span>

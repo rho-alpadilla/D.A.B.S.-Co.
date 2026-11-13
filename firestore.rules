@@ -787,11 +787,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Preserved pending a separate review-workflow decision. Signed-in writes
-    // remain compatible with the existing review and admin-reply behavior.
+    // Product reviews are not part of the current workflow. Existing review
+    // documents remain stored, but no browser client may read or modify them.
     match /reviews/{reviewId} {
-      allow read: if true;
-      allow write: if isActiveAccount();
+      allow read, write: if false;
     }
 
     match /orders/{orderId} {

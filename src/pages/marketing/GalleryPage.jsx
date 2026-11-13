@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Star, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus, Trash2, CheckSquare, Square } from 'lucide-react';
+import { ShoppingBag, Search, ArrowUpDown, ChevronLeft, ChevronRight, Plus, Trash2, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClearSearchButton } from '@/components/ui/clear-search-button';
 import { useCurrency } from '@/context/CurrencyContext';
@@ -20,7 +20,6 @@ import {
   fetchSearchCatalog,
   filterCatalogProducts,
   getCatalogPageCount,
-  getReviewSummaries,
   sortCatalogProducts,
 } from '@/lib/catalog/productCatalog';
 
@@ -64,13 +63,11 @@ const GalleryPage = () => {
       cursor = cache.cursors.get(page);
     }
 
-    const result = await fetchCatalogPage({ category: activeTab, sortOrder, cursor });
-    const enrichedProducts = await getReviewSummaries(result.products);
-    const pageData = { ...result, products: enrichedProducts };
+    const pageData = await fetchCatalogPage({ category: activeTab, sortOrder, cursor });
 
     if (cache.key === key) {
       cache.pages.set(page, pageData);
-      if (result.hasNextPage) cache.cursors.set(page + 1, result.nextCursor);
+      if (pageData.hasNextPage) cache.cursors.set(page + 1, pageData.nextCursor);
     }
 
     return pageData;
@@ -78,7 +75,7 @@ const GalleryPage = () => {
 
   const getSearchPage = async (page, productsForSearch) => {
     const start = (page - 1) * CATALOG_PAGE_SIZE;
-    return getReviewSummaries(productsForSearch.slice(start, start + CATALOG_PAGE_SIZE));
+    return productsForSearch.slice(start, start + CATALOG_PAGE_SIZE);
   };
 
   useEffect(() => {
@@ -241,12 +238,6 @@ const GalleryPage = () => {
     if (availableStock <= 5) return <span className="font-semibold text-[#88538C]">{getStockLabel(product)}</span>;
     return <span className="font-semibold text-[#1D5C54]">{getStockLabel(product)}</span>;
   };
-
-  const renderStars = (rating) => (
-    <div className="flex gap-0.5">
-      {[1,2,3,4,5].map((i) => <Star key={i} size={14} className={i <= rating ? 'text-amber-400 fill-current' : 'text-gray-300'} />)}
-    </div>
-  );
 
   const categories = [
     { id: 'all', label: 'All Items' },
@@ -473,12 +464,7 @@ const GalleryPage = () => {
                                 </div>
                               </div>
                               <p className="mb-3 min-h-5 text-sm text-artisan-text-muted line-clamp-1">{item.category || 'Handmade Product'}</p>
-                              <div className="mb-3 flex min-h-10 items-center justify-between gap-3">
-                                {item.reviewCount > 0 ? (
-                                  <div className="flex items-center gap-2 min-w-0">{renderStars(item.averageRating)}<span className="text-sm text-artisan-text-muted whitespace-nowrap">({item.reviewCount})</span></div>
-                                ) : (
-                                  <span className="text-sm text-artisan-text-faint">No reviews yet</span>
-                                )}
+                              <div className="mb-3 flex min-h-5 items-center justify-end">
                                 <div className="text-xs md:text-sm text-right">{getStockText(item)}</div>
                               </div>
                               <p className="mb-4 min-h-12 text-sm leading-relaxed text-artisan-text-muted line-clamp-2">{item.description || 'No description provided.'}</p>

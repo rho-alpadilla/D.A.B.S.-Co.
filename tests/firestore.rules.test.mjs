@@ -56,6 +56,17 @@ test('new accounts can register only with the buyer role', async () => {
   }));
 });
 
+test('product reviews are inaccessible to all browser clients', async () => {
+  const buyer = asUser('buyer-1', 'buyer@example.com');
+  const admin = asUser('admin-1', 'admin@example.com');
+  await seedDocument('reviews/review-1', { productId: 'product-1', rating: 5 });
+
+  await assertFails(getDoc(doc(buyer, 'reviews', 'review-1')));
+  await assertFails(setDoc(doc(buyer, 'reviews', 'review-2'), { productId: 'product-1', rating: 4 }));
+  await assertFails(getDoc(doc(admin, 'reviews', 'review-1')));
+  await assertFails(setDoc(doc(admin, 'reviews', 'review-3'), { productId: 'product-1', rating: 5 }));
+});
+
 test('an order owner cannot complete an order directly', async () => {
   const buyer = asUser('buyer-1', 'buyer@example.com');
   await seedDocument('users/buyer-1', { role: 'customer' });

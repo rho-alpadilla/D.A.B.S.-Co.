@@ -14,7 +14,6 @@ import { isDisplayProduct } from '@/lib/products/productTypes';
 // Keep a full gallery view practical while avoiding unnecessary page controls
 // for small catalogs. Pagination appears only after the twentieth result.
 export const CATALOG_PAGE_SIZE = 20;
-const REVIEW_PRODUCT_ID_BATCH_SIZE = 30;
 
 const SORT_OPTIONS = {
   newest: { field: 'createdAt', direction: 'desc' },
@@ -30,12 +29,6 @@ const toMillis = (value) => {
 
   const parsed = new Date(value || 0).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const splitIntoChunks = (items, size) => {
-  const chunks = [];
-  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
-  return chunks;
 };
 
 export const normalizeCatalogProduct = (snapshot) => {
@@ -126,40 +119,4 @@ export const getCatalogPageCount = async ({ category = 'all', sortOrder = 'newes
 export const fetchSearchCatalog = async () => {
   const snapshot = await getDocs(collection(db, 'pricelists'));
   return snapshot.docs.map(normalizeCatalogProduct);
-};
-
-export const getReviewSummaries = async (products) => {
-  if (!products.length) return [];
-
-  const reviewTotals = new Map();
-  const reviewBatches = splitIntoChunks(products.map((product) => product.id), REVIEW_PRODUCT_ID_BATCH_SIZE);
-  const reviewSnapshots = await Promise.all(
-    reviewBatches.map((productIds) => getDocs(query(
-      collection(db, 'reviews'),
-      where('productId', 'in', productIds),
-    ))),
-  );
-
-  reviewSnapshots.forEach((snapshot) => {
-    snapshot.docs.forEach((reviewDocument) => {
-      const review = reviewDocument.data();
-      if (!Number.isFinite(review.rating) || !review.productId) return;
-
-      const previous = reviewTotals.get(review.productId) || { totalRating: 0, reviewCount: 0 };
-      reviewTotals.set(review.productId, {
-        totalRating: previous.totalRating + Number(review.rating),
-        reviewCount: previous.reviewCount + 1,
-      });
-    });
-  });
-
-  return products.map((product) => {
-    const summary = reviewTotals.get(product.id);
-    if (!summary) return { ...product, averageRating: 0, reviewCount: 0 };
-    return {
-      ...product,
-      averageRating: Number((summary.totalRating / summary.reviewCount).toFixed(1)),
-      reviewCount: summary.reviewCount,
-    };
-  });
 };
