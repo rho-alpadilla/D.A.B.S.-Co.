@@ -39,11 +39,17 @@ after(async () => {
   await testEnvironment.cleanup();
 });
 
-test('a buyer cannot create an admin profile, but can register their own customer profile', async () => {
+test('new accounts can register only with the buyer role', async () => {
   const buyer = asUser('buyer-1', 'buyer@example.com');
+  const legacyRoleRegistration = asUser('buyer-2', 'legacy@example.com');
 
   await assertFails(setDoc(doc(buyer, 'users', 'buyer-1'), { role: 'admin' }));
   await assertSucceeds(setDoc(doc(buyer, 'users', 'buyer-1'), {
+    role: 'buyer',
+    accountStatus: 'active',
+    hasApprovedOrders: false,
+  }));
+  await assertFails(setDoc(doc(legacyRoleRegistration, 'users', 'buyer-2'), {
     role: 'customer',
     accountStatus: 'active',
     hasApprovedOrders: false,

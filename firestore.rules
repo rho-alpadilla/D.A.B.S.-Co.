@@ -700,10 +700,11 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Registration creates a profile for the authenticated account only.
-      // The app currently uses both customer and buyer as non-privileged roles.
+      // New profiles use the canonical buyer role. Existing customer profiles
+      // remain valid non-privileged accounts for backward compatibility.
       allow create: if isSignedIn() &&
         request.auth.uid == userId &&
-        request.resource.data.role in ['customer', 'buyer'] &&
+        request.resource.data.role == 'buyer' &&
         request.resource.data.accountStatus == 'active' &&
         request.resource.data.hasApprovedOrders == false;
 

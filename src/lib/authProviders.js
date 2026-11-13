@@ -69,7 +69,7 @@ const ensureSocialProfile = async (user) => {
     email: user.email,
     displayName: user.displayName || username,
     photoURL: user.photoURL || '',
-    role: 'customer',
+    role: 'buyer',
     accountStatus: 'active',
     hasApprovedOrders: false,
     profileCompleted: false,

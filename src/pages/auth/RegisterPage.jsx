@@ -144,7 +144,7 @@ const RegisterPage = () => {
         phone: selectedPhoneCountry.callingCode + " " + formData.phone,
         birthdate: formData.birthdate,
         displayName: formData.fullName.trim(),
-        role: "customer",
+        role: "buyer",
         accountStatus: "active",
         hasApprovedOrders: false,
         profileCompleted: true,
