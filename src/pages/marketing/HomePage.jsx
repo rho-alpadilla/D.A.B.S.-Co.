@@ -16,7 +16,6 @@
 //   • Hero eyebrow label: artsy cross-stitch dot + Playfair Display style
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Palette, Brush, Flower2, FilePenLine, ReceiptText, Paintbrush, PackageCheck } from 'lucide-react';
@@ -142,9 +141,7 @@ const HomePage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>DABS Co.</title>
-      </Helmet>
+      <title>DABS Co.</title>
 
       <div className="relative min-h-screen overflow-hidden" style={{ background: 'var(--artisan-white)' }}>
 

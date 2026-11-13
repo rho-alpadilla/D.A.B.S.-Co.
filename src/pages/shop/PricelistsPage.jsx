@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -606,9 +605,7 @@ const PricelistsPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Pricelists - D.A.B.S. Co.</title>
-      </Helmet>
+      <title>Pricelists - D.A.B.S. Co.</title>
 
       <div className="artisan-grid-page relative min-h-screen">
 

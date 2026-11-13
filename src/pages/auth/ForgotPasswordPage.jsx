@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { ArrowLeft, Mail } from 'lucide-react';
@@ -33,7 +32,7 @@ const ForgotPasswordPage = () => {
 
   return (
     <>
-      <Helmet><title>Reset Password - D.A.B.S. Co.</title></Helmet>
+      <title>Reset Password - D.A.B.S. Co.</title>
       <div className="artisan-grid-page flex min-h-screen items-center px-5 py-12 sm:px-6">
         <main className="mx-auto w-full max-w-md rounded-3xl border border-[#E7DED3] bg-[#FAF8F1]/95 p-6 shadow-[0_18px_42px_rgba(36,16,31,0.14)] sm:p-8">
           <Link to="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-artisan-primary hover:underline"><ArrowLeft size={16} /> Back to login</Link>

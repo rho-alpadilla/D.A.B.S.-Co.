@@ -2,7 +2,6 @@
 // src/pages/AdminPanel.jsx
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
@@ -1181,7 +1180,7 @@ const AdminPanel = () => {
 
   return (
     <>
-      <Helmet><title>Admin Panel - D.A.B.S. Co.</title></Helmet>
+      <title>Admin Panel - D.A.B.S. Co.</title>
 
       <div className="min-h-screen py-8 sm:py-12" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="container mx-auto max-w-7xl px-5 sm:px-8">

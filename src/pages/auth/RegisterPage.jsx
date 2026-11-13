@@ -1,6 +1,5 @@
 // src/pages/RegisterPage.jsx ← FINAL: BUYER CAN TYPE COUNTRY + FULL ADDRESS
 import React, { useEffect, useRef, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
@@ -186,7 +185,7 @@ const RegisterPage = () => {
 
   return (
     <>
-      <Helmet><title>Register - D.A.B.S. Co.</title></Helmet>
+      <title>Register - D.A.B.S. Co.</title>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

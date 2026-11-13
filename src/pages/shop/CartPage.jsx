@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Trash2, ArrowRight, ShoppingBag, Square, CheckSquare } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -100,9 +99,7 @@ const CartPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Shopping Cart - D.A.B.S. Co.</title>
-      </Helmet>
+      <title>Shopping Cart - D.A.B.S. Co.</title>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

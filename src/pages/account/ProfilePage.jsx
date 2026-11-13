@@ -1,6 +1,5 @@
 // src/pages/ProfilePage.jsx ← FINAL: ADDRESS COUNTRY CHANGEABLE + LUXURY
 import React, { useState, useEffect, useRef } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/firebase';
@@ -443,7 +442,7 @@ const ProfilePage = () => {
 
   return (
     <>
-      <Helmet><title>@{profile.username} - Profile</title></Helmet>
+      <title>{`@${profile.username} - Profile`}</title>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

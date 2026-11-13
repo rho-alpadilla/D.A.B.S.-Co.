@@ -1,7 +1,6 @@
 // src/pages/marketing/GalleryPage.jsx
 // Design A — Artisan Canvas reskin. All Firebase + filter/sort/pagination logic preserved.
 import React, { useEffect, useRef, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
@@ -260,7 +259,7 @@ const GalleryPage = () => {
 
   return (
     <>
-      <Helmet><title>Gallery - D.A.B.S. Co.</title></Helmet>
+      <title>Gallery - D.A.B.S. Co.</title>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

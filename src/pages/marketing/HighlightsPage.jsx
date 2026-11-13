@@ -1,7 +1,6 @@
 // src/pages/marketing/HighlightsPage.jsx
 // Design A — Artisan Canvas reskin. All Firebase listeners preserved.
 import React, { useEffect, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
@@ -214,7 +213,7 @@ const HighlightsPage = () => {
 
   return (
     <>
-      <Helmet><title>Highlights - DABS Co.</title></Helmet>
+      <title>Highlights - DABS Co.</title>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

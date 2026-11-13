@@ -1,6 +1,5 @@
 // src/pages/CheckoutPage.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Helmet } from 'react-helmet';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -424,9 +423,7 @@ const CheckoutPage = () => {
   if (orderPlaced) {
     return (
       <>
-        <Helmet>
-          <title>Checkout - D.A.B.S. Co.</title>
-        </Helmet>
+        <title>Checkout - D.A.B.S. Co.</title>
 
         <div className="artisan-grid-page min-h-screen">
           <motion.main
@@ -500,9 +497,7 @@ const CheckoutPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Checkout - D.A.B.S. Co.</title>
-      </Helmet>
+      <title>Checkout - D.A.B.S. Co.</title>
 
       <div className="artisan-grid-page min-h-screen">
         <div className="mx-auto max-w-7xl px-5 py-12 sm:px-6 sm:py-16 lg:px-8">

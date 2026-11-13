@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
@@ -97,7 +96,7 @@ const BuyerDashboard = () => {
 
   return (
     <>
-      <Helmet><title>My Account - D.A.B.S. Co.</title></Helmet>
+      <title>My Account - D.A.B.S. Co.</title>
 
       <main className="artisan-grid-page min-h-screen px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <div className="mx-auto max-w-6xl">

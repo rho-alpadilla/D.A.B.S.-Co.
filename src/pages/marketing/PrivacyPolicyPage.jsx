@@ -1,7 +1,6 @@
 // src/pages/marketing/PrivacyPolicyPage.jsx
 // Design A — Artisan Canvas reskin. All legal content unchanged.
 import React from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
 
@@ -11,13 +10,13 @@ const PrivacyPolicyPage = () => {
 
   return (
     <>
-      <Helmet>
+      <>
         <title>Privacy Policy - D.A.B.S. Co.</title>
         <meta
           name="description"
           content="Read D.A.B.S. Co.'s privacy policy to understand how we collect, use, and protect your personal information."
         />
-      </Helmet>
+      </>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

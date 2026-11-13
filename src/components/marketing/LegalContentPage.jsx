@@ -1,5 +1,4 @@
 import React from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 
 const formatLastUpdated = (value) => {
@@ -36,10 +35,10 @@ const LegalContentPage = ({
   title,
 }) => (
   <>
-    <Helmet>
-      <title>{title} - D.A.B.S. Co.</title>
+    <>
+      <title>{`${title} - D.A.B.S. Co.`}</title>
       <meta name="description" content={description} />
-    </Helmet>
+    </>
 
     <div className="artisan-grid-page relative min-h-screen overflow-hidden">
       <div className="relative z-10 container mx-auto px-5 py-14 md:px-8 md:py-20">

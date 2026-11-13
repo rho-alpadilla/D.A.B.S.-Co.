@@ -1,6 +1,5 @@
 // src/pages/LoginPage.jsx
 import React, { useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '@/lib/firebase';
@@ -80,9 +79,7 @@ const LoginPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Login - D.A.B.S. Co.</title>
-      </Helmet>
+      <title>Login - D.A.B.S. Co.</title>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

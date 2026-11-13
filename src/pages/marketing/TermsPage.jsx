@@ -1,7 +1,6 @@
 // src/pages/marketing/TermsPage.jsx
 // Design A — Artisan Canvas reskin. All legal content unchanged.
 import React from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { FileText } from 'lucide-react';
 
@@ -10,13 +9,13 @@ const TermsPage = () => {
 
   return (
     <>
-      <Helmet>
+      <>
         <title>Terms of Service - D.A.B.S. Co.</title>
         <meta
           name="description"
           content="Read D.A.B.S. Co.'s terms of service to understand the rules and guidelines for using our services."
         />
-      </Helmet>
+      </>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

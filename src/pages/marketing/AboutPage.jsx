@@ -1,7 +1,6 @@
 // src/pages/marketing/AboutPage.jsx
 // Design A — Artisan Canvas reskin. All animations + structure preserved.
 import React from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Paintbrush, Heart, PenTool, ArrowRight, Flower2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,10 +28,10 @@ const AboutPage = () => {
 
   return (
     <>
-      <Helmet>
+      <>
         <title>About Us - D.A.B.S. Co.</title>
         <meta name="description" content="Learn about the story, creative process, and mission behind D.A.B.S. Co. artisan crafts." />
-      </Helmet>
+      </>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, db, storage } from '@/lib/firebase';
 import {
@@ -531,9 +530,7 @@ await addDoc(collection(db, 'messages'), {
 
   return (
     <>
-      <Helmet>
-        <title>Message Center - D.A.B.S. Co.</title>
-      </Helmet>
+      <title>Message Center - D.A.B.S. Co.</title>
 
       <div className="min-h-screen py-10 sm:py-14" style={{ background: 'var(--artisan-gradient-bg)' }}>
         <div className="mx-auto max-w-7xl px-5 sm:px-8">

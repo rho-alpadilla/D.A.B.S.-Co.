@@ -1,7 +1,6 @@
 // src/pages/marketing/FAQsPage.jsx
 // Design A — Artisan Canvas reskin. faqs data import + all motion animations preserved.
 import React from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useSiteContent } from '@/hooks/useSiteContent';
 
@@ -10,13 +9,13 @@ const FAQsPage = () => {
 
   return (
     <>
-      <Helmet>
+      <>
         <title>FAQs - D.A.B.S. Co.</title>
         <meta
           name="description"
           content="Find answers to frequently asked questions about D.A.B.S. Co.'s handcrafted products, custom orders, shipping, and more."
         />
-      </Helmet>
+      </>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

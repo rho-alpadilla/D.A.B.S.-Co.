@@ -1,6 +1,5 @@
 // src/pages/ProductDetailPage.jsx ← FINAL: MULTI-IMAGE EDITING (ADD/REMOVE IMAGES IN ADMIN MODE)
 import React, { useState, useEffect, useRef } from 'react';
-import { Helmet } from 'react-helmet';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   doc, onSnapshot, updateDoc, collection, query, where, 
@@ -442,7 +441,7 @@ const ProductDetailPage = () => {
 
   return (
     <>
-      <Helmet><title>{product.name} - D.A.B.S. Co.</title></Helmet>
+      <title>{`${product.name} - D.A.B.S. Co.`}</title>
 
       <div className="artisan-grid-page min-h-screen py-10 sm:py-16">
         <div className="container mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">

@@ -1,6 +1,5 @@
 // src/pages/AddProductPage.jsx ← UPDATED: MULTIPLE IMAGE UPLOAD SUPPORT
 import React, { useState, useRef } from 'react';
-import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { db } from '@/lib/firebase';
@@ -130,7 +129,7 @@ const AddProductPage = () => {
 
   return (
     <>
-      <Helmet><title>Add New Product - D.A.B.S. Co.</title></Helmet>
+      <title>Add New Product - D.A.B.S. Co.</title>
 
       <div className="relative min-h-screen overflow-x-hidden bg-[#FAF8F1]">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(to_right,rgba(92,45,145,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(92,45,145,0.08)_1px,transparent_1px)] [background-size:2rem_2rem]" />

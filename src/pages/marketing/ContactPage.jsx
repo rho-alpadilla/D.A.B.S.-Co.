@@ -8,7 +8,6 @@
 //   • useToast for success/failure feedback
 //   • navigate('/register') when guest tries to submit
 import React, { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -107,9 +106,7 @@ const ContactPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Contact Us - D.A.B.S. Co.</title>
-      </Helmet>
+      <title>Contact Us - D.A.B.S. Co.</title>
 
       <div className="artisan-grid-page relative min-h-screen overflow-hidden">
 

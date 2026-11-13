@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, db } from '@/lib/firebase';
 import {
@@ -189,7 +188,7 @@ const PendingOrdersPage = () => {
 
   return (
     <>
-      <Helmet><title>My Orders - D.A.B.S. Co.</title></Helmet>
+      <title>My Orders - D.A.B.S. Co.</title>
 
       <main className="artisan-grid-page min-h-screen px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <div className="mx-auto max-w-6xl">
