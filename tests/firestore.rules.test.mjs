@@ -62,7 +62,7 @@ test('an order owner cannot complete an order directly', async () => {
   await assertFails(updateDoc(doc(buyer, 'orders', 'order-1'), { status: 'completed' }));
 });
 
-test('an order owner can submit the existing cancellation request workflow', async () => {
+test('an order owner can request cancellation while an order is on review', async () => {
   const buyer = asUser('buyer-1', 'buyer@example.com');
   await seedDocument('users/buyer-1', { role: 'customer' });
   await seedDocument('orders/order-1', {
@@ -77,6 +77,29 @@ test('an order owner can submit the existing cancellation request workflow', asy
     cancellationRequestedAt: new Date(),
     status: 'Cancellation Requested',
   }));
+});
+
+test('a PayPal order owner can request cancellation directly from paid status', async () => {
+  const buyer = asUser('buyer-1', 'buyer@example.com');
+  const otherBuyer = asUser('buyer-2', 'other@example.com');
+  await seedDocument('users/buyer-1', { role: 'customer' });
+  await seedDocument('users/buyer-2', { role: 'customer' });
+  await seedDocument('orders/paypal-order', {
+    buyerEmail: 'buyer@example.com',
+    status: 'paid',
+    paymentMethod: 'paypal',
+    total: 250,
+  });
+
+  const cancellationUpdate = {
+    cancelReason: 'Changed my mind',
+    cancellationRequestedBy: 'buyer',
+    cancellationRequestedAt: new Date(),
+    status: 'Cancellation Requested',
+  };
+
+  await assertFails(updateDoc(doc(otherBuyer, 'orders', 'paypal-order'), cancellationUpdate));
+  await assertSucceeds(updateDoc(doc(buyer, 'orders', 'paypal-order'), cancellationUpdate));
 });
 
 test('daily analytics are admin-readable and never browser-writable', async () => {

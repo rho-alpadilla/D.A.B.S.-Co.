@@ -34,6 +34,7 @@ import { useCurrency } from '@/context/CurrencyContext';
 const ACTIVE_ORDER_STATUSES = [
   'pending',
   'pending_review',
+  'paid',
   'on_review',
   'accepted',
   'payment_confirmed',
@@ -45,10 +46,12 @@ const ACTIVE_ORDER_STATUSES = [
 
 const COMPLETED_ORDER_STATUSES = ['completed'];
 const CANCELLED_ORDER_STATUSES = ['declined', 'cancelled', 'Cancelled – Pending Refund', 'Refunded'];
+const CANCELLABLE_ORDER_STATUSES = ['pending', 'pending_review', 'paid', 'on_review', 'accepted', 'Paid / Processing'];
 
 const STATUS_DETAILS = {
   pending: { label: 'Awaiting review', className: 'bg-amber-100 text-amber-800', icon: Clock3 },
   pending_review: { label: 'Awaiting review', className: 'bg-amber-100 text-amber-800', icon: Clock3 },
+  paid: { label: 'Paid — awaiting review', className: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
   on_review: { label: 'On review', className: 'bg-sky-100 text-sky-800', icon: Eye },
   accepted: { label: 'Accepted', className: 'bg-violet-100 text-violet-800', icon: CheckCircle2 },
   payment_confirmed: { label: 'Payment confirmed', className: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
@@ -177,7 +180,7 @@ const PendingOrdersPage = () => {
   };
 
   const canCancel = (order) => (
-    ['pending', 'pending_review', 'on_review', 'accepted', 'Paid / Processing'].includes(order.status)
+    CANCELLABLE_ORDER_STATUSES.includes(order.status)
     && !order.cancellationRequestedAt
   );
 

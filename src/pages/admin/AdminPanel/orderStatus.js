@@ -1,6 +1,6 @@
 // Some early records used the shorter `awaiting` value. Treat it as the same
 // review-entry state so those orders remain actionable without changing data.
-export const REVIEW_ENTRY_STATUSES = ['pending', 'pending_review', 'awaiting', 'awaiting_review'];
+export const REVIEW_ENTRY_STATUSES = ['pending', 'pending_review', 'awaiting', 'awaiting_review', 'paid'];
 
 export const POST_REVIEW_WORKFLOW_STATUSES = [
   'on_review',

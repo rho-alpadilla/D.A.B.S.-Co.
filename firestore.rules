@@ -471,6 +471,7 @@ service cloud.firestore {
         resource.data.status in [
           'pending',
           'pending_review',
+          'paid',
           'on_review',
           'accepted',
           'Paid / Processing'

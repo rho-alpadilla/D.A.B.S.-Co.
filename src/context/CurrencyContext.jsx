@@ -42,23 +42,72 @@ const CURRENCIES = [
   { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
 ];
 
+const RATE_API_URL = `https://api.frankfurter.dev/v2/rates?base=php&quotes=${CURRENCIES
+  .filter(({ code }) => code !== 'PHP')
+  .map(({ code }) => code.toLowerCase())
+  .join(',')}`;
+
+let currencyRatesRequest;
+
+const loadCurrencyRates = () => {
+  if (!currencyRatesRequest) {
+    currencyRatesRequest = fetch(RATE_API_URL)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Currency service returned ${response.status}.`);
+        }
+        return response.json();
+      })
+      .then((rows) => {
+        if (!Array.isArray(rows)) {
+          throw new Error('Currency service returned an invalid response.');
+        }
+
+        const nextRates = { PHP: 1 };
+        rows.forEach(({ quote, rate }) => {
+          const currencyCode = typeof quote === 'string' ? quote.toUpperCase() : '';
+          const numericRate = Number(rate);
+          if (currencyCode && Number.isFinite(numericRate) && numericRate > 0) {
+            nextRates[currencyCode] = numericRate;
+          }
+        });
+
+        if (Object.keys(nextRates).length === 1) {
+          throw new Error('Currency service returned no usable rates.');
+        }
+
+        return nextRates;
+      })
+      .catch((error) => {
+        console.warn('Live currency rates are unavailable; prices will remain in PHP.', error);
+        return { PHP: 1 };
+      });
+  }
+
+  return currencyRatesRequest;
+};
+
 export const CurrencyProvider = ({ children }) => {
   const [currency, setCurrency] = useState('PHP');
   const [rates, setRates] = useState({ PHP: 1 });
 
   useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        const res = await fetch('https://api.frankfurter.app/latest?from=PHP');
-        const data = await res.json();
-        setRates({ PHP: 1, ...data.rates });
-      } catch (err) {
-        console.log("Using fallback rates");
-        setRates({ PHP: 1, USD: 0.0172, EUR: 0.0159, SGD: 0.0231, JPY: 2.58, GBP: 0.0135, AUD: 0.0261 });
-      }
+    let isCurrent = true;
+
+    loadCurrencyRates().then((nextRates) => {
+      if (!isCurrent) return;
+      setRates(nextRates);
+      setCurrency((currentCurrency) => (
+        Number.isFinite(nextRates[currentCurrency]) ? currentCurrency : 'PHP'
+      ));
+    });
+
+    return () => {
+      isCurrent = false;
     };
-    fetchRates();
   }, []);
+
+  const availableCurrencies = CURRENCIES.filter(({ code }) => Number.isFinite(rates[code]));
 
   const formatPrice = (phpAmount) => {
     if (!phpAmount) return `${CURRENCIES[0].symbol}0.00`;
@@ -78,7 +127,7 @@ export const CurrencyProvider = ({ children }) => {
       setCurrency,
       formatPrice,
       getCurrencySymbol,
-      CURRENCIES
+      CURRENCIES: availableCurrencies
     }}>
       {children}
     </CurrencyContext.Provider>

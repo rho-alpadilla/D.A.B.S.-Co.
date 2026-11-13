@@ -20,7 +20,7 @@ import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Button } from '@/components/ui/button';
 
-const ACTIVE_ORDER_STATUSES = ['pending', 'Paid / Processing', 'processing', 'Cancellation Requested'];
+const ACTIVE_ORDER_STATUSES = ['pending', 'paid', 'Paid / Processing', 'processing', 'Cancellation Requested'];
 const CANCELLED_ORDER_STATUSES = ['cancelled', 'Cancelled – Pending Refund', 'Refunded'];
 
 const BuyerDashboard = () => {

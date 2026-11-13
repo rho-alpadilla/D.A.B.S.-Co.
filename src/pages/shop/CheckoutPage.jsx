@@ -61,7 +61,12 @@ const ALL_COUNTRIES = [
   { name: 'Vietnam', code: 'VN', flag: 'https://flagcdn.com/vn.svg', callingCode: '+84' },
 ];
 
-const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
+const CONFIGURED_PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID?.trim() || '';
+const PAYPAL_CLIENT_ID = CONFIGURED_PAYPAL_CLIENT_ID || (import.meta.env.DEV ? 'sb' : '');
+const PAYPAL_ENVIRONMENT = import.meta.env.VITE_PAYPAL_ENVIRONMENT?.trim().toLowerCase() === 'production'
+  ? 'production'
+  : 'sandbox';
+const IS_PAYPAL_AVAILABLE = Boolean(PAYPAL_CLIENT_ID);
 const CHECKOUT_INPUT_CLASS =
   'w-full rounded-xl border border-[#DCCBE7] bg-white px-4 py-3 text-artisan-text transition-[border-color,box-shadow] duration-200 focus:border-artisan-primary focus:outline-none focus:ring-4 focus:ring-artisan-primary/15';
 
@@ -375,6 +380,14 @@ const CheckoutPage = () => {
     if (paymentMethod === 'bank') {
       await createOrderInFirestore('pending');
     } else {
+      if (!IS_PAYPAL_AVAILABLE) {
+        toast({
+          title: 'PayPal unavailable',
+          description: 'Choose Bank Transfer or contact support.',
+          variant: 'destructive',
+        });
+        return;
+      }
       setShowPayPal(true);
       toast({
         title: 'Ready to Pay',
@@ -802,7 +815,7 @@ const CheckoutPage = () => {
                   </label>
 
                   <label
-                    className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.98] ${
+                    className={`flex items-center gap-4 rounded-xl border p-4 transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out ${IS_PAYPAL_AVAILABLE ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed opacity-60'} ${
                       paymentMethod === 'paypal'
                         ? 'border-[#5C2D91] bg-[#F0E6F7]'
                         : 'border-[#E6DDEB] hover:border-[#C992D8]'
@@ -814,11 +827,14 @@ const CheckoutPage = () => {
                       value="paypal"
                       checked={paymentMethod === 'paypal'}
                       onChange={() => setPaymentMethod('paypal')}
+                      disabled={!IS_PAYPAL_AVAILABLE}
                       className="h-5 w-5 text-[#5C2D91]"
                     />
                     <div className="flex-grow">
                       <p className="font-medium text-artisan-text">PayPal</p>
-                      <p className="text-sm text-artisan-text-muted">Secure payment</p>
+                      <p className="text-sm text-artisan-text-muted">
+                        {IS_PAYPAL_AVAILABLE ? 'Secure payment' : 'Temporarily unavailable'}
+                      </p>
                     </div>
                     {paymentMethod === 'paypal' && <CheckCircle size={20} className="text-[#5C2D91]" />}
                   </label>
@@ -832,7 +848,7 @@ const CheckoutPage = () => {
                         'client-id': PAYPAL_CLIENT_ID,
                         currency: 'PHP',
                         intent: 'capture',
-                        environment: 'sandbox',
+                        environment: PAYPAL_ENVIRONMENT,
                       }}
                     >
                       <PayPalButtons

@@ -236,21 +236,14 @@ const AdminPanel = () => {
 
     try {
       if (action === "approve") {
-        for (const item of order.items || []) {
-          const productRef = doc(db, "pricelists", item.id);
-          const productSnap = await getDoc(productRef);
-          if (productSnap.exists()) {
-            const data = productSnap.data();
-            const newStock = (data.stockQuantity || 0) + item.quantity;
-            await updateDoc(productRef, { stockQuantity: newStock, inStock: true });
-          }
-        }
+        // Inventory is deducted only when an order becomes completed, so a
+        // pre-completion cancellation must not add quantities back to stock.
         await updateDoc(doc(db, "orders", order.id), {
           status: "Cancelled – Pending Refund",
           cancelledAt: new Date(),
           cancelledBy: "admin"
         });
-        alert("Cancellation approved! Stock returned.");
+        alert("Cancellation approved.");
       }
 
       if (action === "refunded") {
